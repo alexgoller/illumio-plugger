@@ -1,9 +1,12 @@
 package container
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"net/netip"
 	"strconv"
 	"time"
 
@@ -53,6 +56,45 @@ func (d *DockerRuntime) Create(ctx context.Context, opts CreateOpts) (string, er
 		if err == nil {
 			hostCfg.Resources.NanoCPUs = int64(cpus * 1e9)
 		}
+	}
+
+	// Port mappings
+	if len(opts.Ports) > 0 {
+		exposedPorts := network.PortSet{}
+		portBindings := network.PortMap{}
+		for _, p := range opts.Ports {
+			proto := p.Protocol
+			if proto == "" {
+				proto = "tcp"
+			}
+			containerPort, err := network.ParsePort(fmt.Sprintf("%d/%s", p.ContainerPort, proto))
+			if err != nil {
+				return "", fmt.Errorf("parsing port %d/%s: %w", p.ContainerPort, proto, err)
+			}
+			exposedPorts[containerPort] = struct{}{}
+			hostPort := ""
+			if p.HostPort > 0 {
+				hostPort = strconv.Itoa(p.HostPort)
+			}
+			portBindings[containerPort] = []network.PortBinding{
+				{HostIP: netip.MustParseAddr("0.0.0.0"), HostPort: hostPort},
+			}
+		}
+		containerCfg.ExposedPorts = exposedPorts
+		hostCfg.PortBindings = portBindings
+	}
+
+	// Volume mounts
+	if len(opts.Volumes) > 0 {
+		binds := make([]string, 0, len(opts.Volumes))
+		for _, v := range opts.Volumes {
+			bind := v.HostPath + ":" + v.ContainerPath
+			if v.ReadOnly {
+				bind += ":ro"
+			}
+			binds = append(binds, bind)
+		}
+		hostCfg.Binds = binds
 	}
 
 	networkCfg := &network.NetworkingConfig{}
@@ -190,4 +232,46 @@ func (d *DockerRuntime) ListManaged(ctx context.Context) ([]ContainerInfo, error
 		})
 	}
 	return result, nil
+}
+
+func (d *DockerRuntime) CopyFromImage(ctx context.Context, img string, srcPath string) ([]byte, error) {
+	// Create a temporary container from the image (does not start it)
+	resp, err := d.cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config: &containertypes.Config{Image: img},
+		Name:   "",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("creating temp container for %s: %w", img, err)
+	}
+	defer func() {
+		_, _ = d.cli.ContainerRemove(ctx, resp.ID, client.ContainerRemoveOptions{Force: true})
+	}()
+
+	// Copy the file out (returns a tar stream)
+	copyResult, err := d.cli.CopyFromContainer(ctx, resp.ID, client.CopyFromContainerOptions{
+		SourcePath: srcPath,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("copying %s from image %s: %w", srcPath, img, err)
+	}
+	defer copyResult.Content.Close()
+
+	// Extract the single file from the tar
+	tr := tar.NewReader(copyResult.Content)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			return nil, fmt.Errorf("file %s not found in tar from image %s", srcPath, img)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("reading tar from image %s: %w", img, err)
+		}
+		if header.Typeflag == tar.TypeReg {
+			var buf bytes.Buffer
+			if _, err := io.Copy(&buf, tr); err != nil {
+				return nil, fmt.Errorf("reading %s from image %s: %w", srcPath, img, err)
+			}
+			return buf.Bytes(), nil
+		}
+	}
 }

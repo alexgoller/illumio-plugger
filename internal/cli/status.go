@@ -53,6 +53,77 @@ func newStatusCmd() *cobra.Command {
 				}
 			}
 
+			// Show plugin info from container metadata
+			if p.Metadata != nil {
+				if p.Metadata.Info != nil {
+					fmt.Printf("\nPlugin Info:\n")
+					fmt.Printf("  Title:   %s\n", p.Metadata.Info.Title)
+					if p.Metadata.Info.Description != "" {
+						fmt.Printf("  About:   %s\n", p.Metadata.Info.Description)
+					}
+					if p.Metadata.Info.Author != "" {
+						fmt.Printf("  Author:  %s\n", p.Metadata.Info.Author)
+					}
+					if p.Metadata.Info.License != "" {
+						fmt.Printf("  License: %s\n", p.Metadata.Info.License)
+					}
+					if p.Metadata.Info.Homepage != "" {
+						fmt.Printf("  URL:     %s\n", p.Metadata.Info.Homepage)
+					}
+				}
+
+				if len(p.Metadata.Ports) > 0 {
+					fmt.Printf("\nPorts:\n")
+					for _, ps := range p.Metadata.Ports {
+						hostPort := ps.Port
+						if hp, ok := p.HostPorts[ps.Port]; ok && hp > 0 {
+							hostPort = hp
+						}
+						if ps.Type == "ui" || ps.Type == "api" {
+							path := ps.Path
+							if path == "" {
+								path = "/"
+							}
+							fmt.Printf("  %s: http://localhost:%d%s (%d/%s)\n", ps.Name, hostPort, path, ps.Port, ps.Protocol)
+						} else {
+							fmt.Printf("  %s: localhost:%d -> %d/%s\n", ps.Name, hostPort, ps.Port, ps.Protocol)
+						}
+					}
+				}
+
+				if len(p.Metadata.Volumes) > 0 {
+					fmt.Printf("\nVolumes:\n")
+					for _, v := range p.Metadata.Volumes {
+						req := ""
+						if v.Required {
+							req = " (required)"
+						}
+						fmt.Printf("  %s — %s%s\n", v.Path, v.Description, req)
+					}
+				}
+
+				if len(p.Metadata.Config) > 0 {
+					fmt.Printf("\nDiscovered Config:\n")
+					for _, c := range p.Metadata.Config {
+						val := c.Default
+						if override, ok := p.EnvOverrides[c.Name]; ok {
+							val = override
+						}
+						if c.Type == "secret" {
+							val = "***"
+						}
+						req := ""
+						if c.Required {
+							req = " (required)"
+						}
+						fmt.Printf("  %s=%s%s\n", c.Name, val, req)
+						if c.Description != "" {
+							fmt.Printf("    %s\n", c.Description)
+						}
+					}
+				}
+			}
+
 			// Show env vars (mask secrets)
 			if len(p.Manifest.Env) > 0 {
 				fmt.Printf("\nEnvironment:\n")

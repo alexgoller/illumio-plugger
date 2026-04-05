@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"time"
 
-	ct "github.com/illumio/plugger/internal/container"
 	"github.com/illumio/plugger/internal/plugin"
 	"github.com/spf13/cobra"
 )
@@ -36,59 +35,7 @@ func newRestartCmd() *cobra.Command {
 				_ = app.Runtime.Remove(ctx, p.ContainerID)
 			}
 
-			// Ensure network
-			if err := ct.SetupNetwork(ctx, app.Runtime, app.Config.Plugger.Network); err != nil {
-				return err
-			}
-
-			// Recreate and start
-			env := p.BuildEnv(app.Config.PCE)
-			labels := map[string]string{
-				ct.LabelManaged: "true",
-				ct.LabelPlugin:  p.Name,
-				ct.LabelVersion: p.Manifest.Version,
-				ct.LabelMode:    p.Manifest.Schedule.Mode,
-			}
-
-			var memory int64
-			if p.Manifest.Resources != nil {
-				memory = parseMemory(p.Manifest.Resources.MemoryLimit)
-			}
-			var cpus string
-			if p.Manifest.Resources != nil {
-				cpus = p.Manifest.Resources.CPULimit
-			}
-
-			containerID, err := app.Runtime.Create(ctx, ct.CreateOpts{
-				Name:    p.ContainerName(),
-				Image:   p.Manifest.Image,
-				Env:     env,
-				Network: app.Config.Plugger.Network,
-				Labels:  labels,
-				Memory:  memory,
-				CPUs:    cpus,
-			})
-			if err != nil {
-				return fmt.Errorf("creating container: %w", err)
-			}
-
-			if err := app.Runtime.Start(ctx, containerID); err != nil {
-				_ = app.Runtime.Remove(ctx, containerID)
-				return fmt.Errorf("starting container: %w", err)
-			}
-
-			now := time.Now()
-			p.ContainerID = containerID
-			p.State = plugin.StateRunning
-			p.LastStarted = &now
-			p.LastError = ""
-
-			if err := app.Store.Put(p); err != nil {
-				return fmt.Errorf("updating plugin state: %w", err)
-			}
-
-			fmt.Printf("Restarted plugin %q (container %s)\n", name, containerID[:12])
-			return nil
+			return startPlugin(ctx, p)
 		},
 	}
 }

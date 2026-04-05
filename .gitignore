@@ -1,4 +1,4 @@
 bin/
-plugger
+/plugger
 *.exe
 .DS_Store

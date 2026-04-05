@@ -38,6 +38,11 @@ type Runtime interface {
 
 	// ListManaged returns all containers managed by plugger.
 	ListManaged(ctx context.Context) ([]ContainerInfo, error)
+
+	// CopyFromImage extracts a file from an image by creating a temporary
+	// container, copying the file out, and cleaning up. Returns the file
+	// contents or an error if the file doesn't exist in the image.
+	CopyFromImage(ctx context.Context, image string, srcPath string) ([]byte, error)
 }
 
 // CreateOpts are the options for creating a container.
@@ -49,6 +54,22 @@ type CreateOpts struct {
 	Labels    map[string]string
 	Memory    int64  // bytes, 0 = no limit
 	CPUs      string // e.g. "0.5"
+	Ports     []PortMapping  // ports to expose on the host
+	Volumes   []VolumeMount  // volumes to mount into the container
+}
+
+// PortMapping maps a container port to a host port.
+type PortMapping struct {
+	ContainerPort int    // port inside the container
+	HostPort      int    // port on the host (0 = auto-assign)
+	Protocol      string // tcp or udp
+}
+
+// VolumeMount maps a host path to a container path.
+type VolumeMount struct {
+	HostPath      string
+	ContainerPath string
+	ReadOnly      bool
 }
 
 // ContainerInfo holds status information about a container.

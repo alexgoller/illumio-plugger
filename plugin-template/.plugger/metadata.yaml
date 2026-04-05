@@ -1,0 +1,58 @@
+# In-container metadata for plugger discovery.
+# Plugger reads this file from /.plugger/metadata.yaml inside the image
+# to auto-discover ports, config requirements, volumes, and plugin info.
+plugger: v1
+
+# Ports the plugin exposes (plugger auto-maps these to the host)
+ports:
+  - port: 8080
+    protocol: tcp
+    name: web-ui
+    description: Plugin dashboard and API
+    type: ui               # ui | api | service | metrics
+    path: /
+  - port: 9090
+    protocol: tcp
+    name: metrics
+    description: Prometheus metrics endpoint
+    type: metrics
+
+# Configuration the plugin requires beyond PCE env vars.
+# Plugger validates these at install time and merges defaults.
+config:
+  - name: MY_PLUGIN_SETTING
+    description: Example setting for the plugin
+    required: false
+    type: string           # string | int | bool | secret
+    default: "default-value"
+    example: "custom-value"
+  # - name: MY_SECRET
+  #   description: A secret API key
+  #   required: true
+  #   type: secret
+  #   validation: "^[a-zA-Z0-9]{32}$"
+
+# Persistent volumes the plugin needs.
+# Plugger creates host directories under ~/.plugger/volumes/<plugin>/
+volumes:
+  - path: /data
+    description: Persistent storage for plugin state
+    required: true
+  # - path: /cache
+  #   description: Ephemeral cache directory
+  #   required: false
+
+# Plugin metadata for display in `plugger status` and dashboard
+info:
+  title: My Plugin
+  description: A template plugin for the Illumio Plugger framework
+  author: Your Name
+  license: Apache-2.0
+  homepage: https://github.com/your-org/your-plugin
+  # icon: https://example.com/icon.png
+
+# Optional health check override
+# healthcheck:
+#   endpoint: /healthz
+#   port: 8080
+#   interval: 30s

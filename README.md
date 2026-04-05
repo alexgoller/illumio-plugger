@@ -228,6 +228,73 @@ Plus any variables defined in the plugin manifest `env` section, with user overr
 
 For event-driven plugins, `PLUGGER_EVENT_PAYLOAD` contains the JSON of the triggering PCE event.
 
+## In-Container Metadata Discovery
+
+Plugins can include a `/.plugger/metadata.yaml` file inside their Docker image. Plugger discovers this file at `plugger install` time and uses it to auto-configure ports, volumes, and validate config requirements.
+
+### How It Works
+
+1. `plugger install` pulls the image
+2. Plugger creates a temp container, extracts `/.plugger/metadata.yaml`, and removes the container
+3. Discovered ports are auto-exposed when the plugin starts
+4. Discovered volumes get host directories created under `~/.plugger/volumes/<plugin>/`
+5. Discovered config requirements are validated against provided `--env` overrides
+6. Plugin info is displayed in `plugger status`
+
+### Metadata Schema (`/.plugger/metadata.yaml`)
+
+```yaml
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp          # tcp or udp
+    name: web-ui
+    description: Plugin dashboard
+    type: ui               # ui | api | service | metrics
+    path: /                # base URL path
+
+config:
+  - name: MY_SETTING
+    description: What this setting does
+    required: true
+    type: string           # string | int | bool | secret
+    default: "value"
+    validation: "^[a-z]+$" # optional regex
+
+volumes:
+  - path: /data
+    description: Persistent plugin state
+    required: true
+
+info:
+  title: My Plugin
+  description: What the plugin does
+  author: Your Name
+  license: Apache-2.0
+  homepage: https://github.com/your-org/your-plugin
+
+healthcheck:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+```
+
+### Plugin Template
+
+A complete plugin template is available in the `plugin-template/` directory. Copy it to bootstrap a new plugin:
+
+```bash
+cp -r plugin-template my-plugin
+cd my-plugin
+# Edit main.go, plugin.yaml, .plugger/metadata.yaml
+docker build -t my-plugin:latest .
+plugger install plugin.yaml
+plugger start my-plugin
+```
+
+See [`plugin-template/README.md`](plugin-template/README.md) for detailed instructions.
+
 ## Architecture
 
 ### Runtime Abstraction
@@ -257,16 +324,23 @@ internal/
 ├── cli/                         — Cobra CLI commands
 ├── config/
 │   ├── config.go                — Global config (viper + YAML)
-│   └── manifest.go              — Plugin manifest parsing
+│   ├── manifest.go              — Plugin manifest parsing
+│   └── metadata.go              — In-container metadata types + parsing
 ├── container/
 │   ├── runtime.go               — Runtime interface (Docker/K8s abstraction)
-│   ├── docker.go                — Docker implementation
+│   ├── docker.go                — Docker implementation + CopyFromImage
 │   └── network.go               — Network setup
 ├── plugin/
 │   ├── plugin.go                — Plugin type, state machine, env building
 │   └── store.go                 — JSON file-backed plugin store
 └── logging/
     └── logging.go               — Structured logging setup (slog)
+plugin-template/                 — Plugin starter template
+├── main.go                      — Entrypoint with signal handling + HTTP server
+├── Dockerfile                   — Multi-stage Go build
+├── plugin.yaml                  — Install manifest template
+├── .plugger/metadata.yaml       — Container metadata template
+└── README.md                    — How to build a plugin
 ```
 
 ## Roadmap

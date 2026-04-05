@@ -20,16 +20,18 @@ const (
 
 // Plugin represents an installed plugin and its runtime state.
 type Plugin struct {
-	Name         string              `json:"name"`
-	Manifest     config.PluginManifest `json:"manifest"`
-	State        State               `json:"state"`
-	ContainerID  string              `json:"containerId,omitempty"`
-	Enabled      bool                `json:"enabled"`
-	EnvOverrides map[string]string   `json:"envOverrides,omitempty"`
-	InstalledAt  time.Time           `json:"installedAt"`
-	LastStarted  *time.Time          `json:"lastStarted,omitempty"`
-	LastStopped  *time.Time          `json:"lastStopped,omitempty"`
-	LastError    string              `json:"lastError,omitempty"`
+	Name         string                    `json:"name"`
+	Manifest     config.PluginManifest     `json:"manifest"`
+	Metadata     *config.ContainerMetadata `json:"metadata,omitempty"`
+	State        State                     `json:"state"`
+	ContainerID  string                    `json:"containerId,omitempty"`
+	Enabled      bool                      `json:"enabled"`
+	EnvOverrides map[string]string         `json:"envOverrides,omitempty"`
+	HostPorts    map[int]int               `json:"hostPorts,omitempty"` // containerPort -> hostPort
+	InstalledAt  time.Time                 `json:"installedAt"`
+	LastStarted  *time.Time                `json:"lastStarted,omitempty"`
+	LastStopped  *time.Time                `json:"lastStopped,omitempty"`
+	LastError    string                    `json:"lastError,omitempty"`
 }
 
 // ContainerName returns the deterministic Docker container name for this plugin.

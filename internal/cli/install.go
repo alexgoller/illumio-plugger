@@ -40,14 +40,78 @@ func newInstallCmd() *cobra.Command {
 				return fmt.Errorf("pulling image: %w", err)
 			}
 
+			// Discover in-container metadata
+			var metadata *config.ContainerMetadata
+			metadataBytes, err := app.Runtime.CopyFromImage(ctx, manifest.Image, "/.plugger/metadata.yaml")
+			if err != nil {
+				slog.Info("no in-container metadata found (optional)", "plugin", manifest.Name, "error", err)
+			} else {
+				metadata, err = config.ParseMetadata(metadataBytes)
+				if err != nil {
+					return fmt.Errorf("parsing container metadata: %w", err)
+				}
+				slog.Info("discovered container metadata", "plugin", manifest.Name)
+				if metadata.Info != nil {
+					fmt.Printf("  Plugin: %s\n", metadata.Info.Title)
+					if metadata.Info.Description != "" {
+						fmt.Printf("  %s\n", metadata.Info.Description)
+					}
+				}
+				if len(metadata.Ports) > 0 {
+					fmt.Printf("  Ports:\n")
+					for _, p := range metadata.Ports {
+						fmt.Printf("    %d/%s (%s) — %s\n", p.Port, p.Protocol, p.Name, p.Description)
+					}
+				}
+				if len(metadata.Volumes) > 0 {
+					fmt.Printf("  Volumes:\n")
+					for _, v := range metadata.Volumes {
+						req := ""
+						if v.Required {
+							req = " (required)"
+						}
+						fmt.Printf("    %s — %s%s\n", v.Path, v.Description, req)
+					}
+				}
+				if len(metadata.Config) > 0 {
+					fmt.Printf("  Config:\n")
+					for _, c := range metadata.Config {
+						req := ""
+						if c.Required {
+							req = " (required)"
+						}
+						fmt.Printf("    %s — %s%s\n", c.Name, c.Description, req)
+					}
+				}
+			}
+
 			// Parse env overrides
 			overrides := parseEnvOverrides(envOverrides)
 
-			// Validate required env vars are provided
+			// Validate required env vars from both manifest and discovered metadata
 			for _, e := range manifest.Env {
 				if e.Required && e.Default == "" {
 					if _, ok := overrides[e.Name]; !ok {
 						return fmt.Errorf("required env var %s not provided (use --env %s=VALUE)", e.Name, e.Name)
+					}
+				}
+			}
+			if metadata != nil {
+				for _, c := range metadata.Config {
+					if c.Required && c.Default == "" {
+						if _, ok := overrides[c.Name]; !ok {
+							// Check if already declared in manifest env
+							inManifest := false
+							for _, e := range manifest.Env {
+								if e.Name == c.Name {
+									inManifest = true
+									break
+								}
+							}
+							if !inManifest {
+								return fmt.Errorf("required config %s not provided (discovered from container, use --env %s=VALUE)", c.Name, c.Name)
+							}
+						}
 					}
 				}
 			}
@@ -56,6 +120,7 @@ func newInstallCmd() *cobra.Command {
 			p := &plugin.Plugin{
 				Name:         manifest.Name,
 				Manifest:     *manifest,
+				Metadata:     metadata,
 				State:        plugin.StateInstalled,
 				Enabled:      true,
 				EnvOverrides: overrides,
