@@ -1,0 +1,4 @@
+bin/
+plugger
+*.exe
+.DS_Store
