@@ -3,10 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
-	"github.com/illumio/plugger/internal/plugin"
+	"github.com/illumio/plugger/internal/lifecycle"
 	"github.com/spf13/cobra"
 )
 
@@ -26,16 +25,14 @@ func newRestartCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 
-			// Stop existing container if running
-			if p.State == plugin.StateRunning && p.ContainerID != "" {
-				fmt.Printf("Stopping plugin %q...\n", name)
-				if err := app.Runtime.Stop(ctx, p.ContainerID, 10*time.Second); err != nil {
-					slog.Warn("error stopping container", "error", err)
-				}
-				_ = app.Runtime.Remove(ctx, p.ContainerID)
+			fmt.Printf("Restarting plugin %q...\n", name)
+			deps := &lifecycle.Deps{Store: app.Store, Runtime: app.Runtime, Config: app.Config}
+			if err := lifecycle.RestartPlugin(ctx, deps, p); err != nil {
+				return err
 			}
 
-			return startPlugin(ctx, p)
+			fmt.Printf("Restarted plugin %q (container %s)\n", name, p.ContainerID[:12])
+			return nil
 		},
 	}
 }

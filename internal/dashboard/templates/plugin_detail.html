@@ -1,0 +1,222 @@
+{{define "title"}}{{.Plugin.Name}} — Plugger Dashboard{{end}}
+{{define "content"}}
+<div class="mb-6">
+    <a href="/" class="text-gray-400 hover:text-gray-300 text-sm">&larr; Back to plugins</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main info -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Header -->
+        <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">{{.Plugin.Name}}</h1>
+                    {{if and .Plugin.Metadata .Plugin.Metadata.Info}}
+                    <p class="text-gray-400 mt-1">{{.Plugin.Metadata.Info.Description}}</p>
+                    {{end}}
+                </div>
+                <div id="plugin-actions" class="flex items-center gap-2">
+                    {{if ne (printf "%s" .Plugin.State) "running"}}
+                    <button hx-post="/api/plugins/{{.Plugin.Name}}/start" hx-target="#plugin-status" hx-swap="outerHTML"
+                        class="px-4 py-2 text-sm font-medium rounded bg-green-600 hover:bg-green-500 text-white transition-colors">
+                        Start
+                    </button>
+                    {{else}}
+                    <button hx-post="/api/plugins/{{.Plugin.Name}}/stop" hx-target="#plugin-status" hx-swap="outerHTML"
+                        hx-confirm="Stop plugin {{.Plugin.Name}}?"
+                        class="px-4 py-2 text-sm font-medium rounded bg-red-600 hover:bg-red-500 text-white transition-colors">
+                        Stop
+                    </button>
+                    <button hx-post="/api/plugins/{{.Plugin.Name}}/restart" hx-target="#plugin-status" hx-swap="outerHTML"
+                        class="px-4 py-2 text-sm font-medium rounded bg-yellow-600 hover:bg-yellow-500 text-white transition-colors">
+                        Restart
+                    </button>
+                    {{end}}
+                </div>
+            </div>
+
+            <div id="plugin-status" hx-get="/plugins/{{.Plugin.Name}}?fragment=status" hx-trigger="every 5s" hx-swap="outerHTML">
+                {{template "plugin_status_fragment" .Plugin}}
+            </div>
+        </div>
+
+        <!-- Ports -->
+        {{if and .Plugin.Metadata (gt (len .Plugin.Metadata.Ports) 0)}}
+        <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">Ports</h2>
+            <div class="space-y-2">
+                {{range .Plugin.Metadata.Ports}}
+                <div class="flex items-center justify-between py-2 px-3 bg-dark-700/50 rounded">
+                    <div>
+                        <span class="text-white font-medium">{{.Name}}</span>
+                        <span class="text-gray-400 text-sm ml-2">{{.Port}}/{{.Protocol}}</span>
+                        {{if .Description}}
+                        <span class="text-gray-500 text-sm ml-2">— {{.Description}}</span>
+                        {{end}}
+                    </div>
+                    {{if or (eq .Type "ui") (eq .Type "api")}}
+                    <a href="http://localhost:{{.Port}}{{if .Path}}{{.Path}}{{else}}/{{end}}" target="_blank"
+                       class="text-blue-400 hover:text-blue-300 text-sm">
+                        Open &rarr;
+                    </a>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Logs -->
+        <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-white">Logs</h2>
+                <button onclick="document.getElementById('log-output').innerHTML=''"
+                    class="text-xs text-gray-400 hover:text-gray-300">Clear</button>
+            </div>
+            {{if eq (printf "%s" .Plugin.State) "running"}}
+            <div hx-ext="sse" sse-connect="/api/plugins/{{.Plugin.Name}}/logs?follow=true&tail=100">
+                <pre id="log-output" class="log-container bg-black rounded p-4 font-mono text-xs text-gray-300 overflow-y-auto whitespace-pre-wrap" sse-swap="message" hx-swap="beforeend scroll:bottom"></pre>
+            </div>
+            {{else}}
+            <div class="bg-black rounded p-4">
+                <p class="text-gray-500 text-sm font-mono">Plugin is not running. Start it to see logs.</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Details -->
+        <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">Details</h2>
+            <dl class="space-y-3 text-sm">
+                <div>
+                    <dt class="text-gray-400">Version</dt>
+                    <dd class="text-white">{{.Plugin.Manifest.Version}}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-400">Image</dt>
+                    <dd class="text-white font-mono text-xs break-all">{{.Plugin.Manifest.Image}}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-400">Mode</dt>
+                    <dd class="text-white">{{.Plugin.Manifest.Schedule.Mode}}</dd>
+                </div>
+                {{if .Plugin.Manifest.Schedule.Cron}}
+                <div>
+                    <dt class="text-gray-400">Schedule</dt>
+                    <dd class="text-white font-mono text-xs">{{.Plugin.Manifest.Schedule.Cron}}</dd>
+                </div>
+                {{end}}
+                <div>
+                    <dt class="text-gray-400">Installed</dt>
+                    <dd class="text-white">{{.Plugin.InstalledAt.Format "2006-01-02 15:04"}}</dd>
+                </div>
+                {{if .Plugin.LastStarted}}
+                <div>
+                    <dt class="text-gray-400">Last Started</dt>
+                    <dd class="text-white">{{.Plugin.LastStarted.Format "2006-01-02 15:04"}}</dd>
+                </div>
+                {{end}}
+                {{if .Plugin.LastError}}
+                <div>
+                    <dt class="text-gray-400">Last Error</dt>
+                    <dd class="text-red-400 text-xs">{{.Plugin.LastError}}</dd>
+                </div>
+                {{end}}
+            </dl>
+        </div>
+
+        {{if and .Plugin.Metadata .Plugin.Metadata.Info}}
+        <!-- Plugin Info -->
+        <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">About</h2>
+            <dl class="space-y-3 text-sm">
+                {{if .Plugin.Metadata.Info.Author}}
+                <div>
+                    <dt class="text-gray-400">Author</dt>
+                    <dd class="text-white">{{.Plugin.Metadata.Info.Author}}</dd>
+                </div>
+                {{end}}
+                {{if .Plugin.Metadata.Info.License}}
+                <div>
+                    <dt class="text-gray-400">License</dt>
+                    <dd class="text-white">{{.Plugin.Metadata.Info.License}}</dd>
+                </div>
+                {{end}}
+                {{if .Plugin.Metadata.Info.Homepage}}
+                <div>
+                    <dt class="text-gray-400">Homepage</dt>
+                    <dd><a href="{{.Plugin.Metadata.Info.Homepage}}" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs break-all">{{.Plugin.Metadata.Info.Homepage}}</a></dd>
+                </div>
+                {{end}}
+            </dl>
+        </div>
+        {{end}}
+
+        <!-- Volumes -->
+        {{if and .Plugin.Metadata (gt (len .Plugin.Metadata.Volumes) 0)}}
+        <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">Volumes</h2>
+            <div class="space-y-2 text-sm">
+                {{range .Plugin.Metadata.Volumes}}
+                <div class="py-2 px-3 bg-dark-700/50 rounded">
+                    <div class="text-white font-mono text-xs">{{.Path}}</div>
+                    <div class="text-gray-400 text-xs mt-1">{{.Description}}{{if .Required}} <span class="text-yellow-400">(required)</span>{{end}}</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Environment -->
+        {{if gt (len .Plugin.Manifest.Env) 0}}
+        <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">Environment</h2>
+            <div class="space-y-2 text-sm">
+                {{range .Plugin.Manifest.Env}}
+                <div class="py-2 px-3 bg-dark-700/50 rounded">
+                    <span class="text-blue-300 font-mono text-xs">{{.Name}}</span>
+                    {{if .Secret}}
+                    <span class="text-gray-500 text-xs ml-1">= ***</span>
+                    {{else if .Default}}
+                    <span class="text-gray-400 text-xs ml-1">= {{.Default}}</span>
+                    {{end}}
+                    {{if .Required}}<span class="text-yellow-400 text-xs ml-1">(required)</span>{{end}}
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+{{define "plugin_status_fragment"}}
+<div id="plugin-status" hx-get="/plugins/{{.Name}}?fragment=status" hx-trigger="every 5s" hx-swap="outerHTML">
+    <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-700">
+        {{if eq (printf "%s" .State) "running"}}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-sm font-medium bg-green-900/50 text-green-400">
+            <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>Running
+        </span>
+        {{else if eq (printf "%s" .State) "errored"}}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-sm font-medium bg-red-900/50 text-red-400">
+            <span class="w-2 h-2 rounded-full bg-red-400"></span>Errored
+        </span>
+        {{else if eq (printf "%s" .State) "stopped"}}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-sm font-medium bg-gray-700/50 text-gray-400">
+            <span class="w-2 h-2 rounded-full bg-gray-500"></span>Stopped
+        </span>
+        {{else}}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-sm font-medium bg-blue-900/50 text-blue-400">
+            <span class="w-2 h-2 rounded-full bg-blue-400"></span>Installed
+        </span>
+        {{end}}
+        {{if .ContainerID}}
+        <span class="text-gray-500 text-xs font-mono">{{slice .ContainerID 0 12}}</span>
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}

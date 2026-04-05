@@ -3,9 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
+	"github.com/illumio/plugger/internal/lifecycle"
 	"github.com/illumio/plugger/internal/plugin"
 	"github.com/spf13/cobra"
 )
@@ -30,21 +30,9 @@ func newStopCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			if err := app.Runtime.Stop(ctx, p.ContainerID, 10*time.Second); err != nil {
-				slog.Warn("error stopping container", "error", err)
-			}
-
-			if err := app.Runtime.Remove(ctx, p.ContainerID); err != nil {
-				slog.Warn("error removing container", "error", err)
-			}
-
-			now := time.Now()
-			p.State = plugin.StateStopped
-			p.LastStopped = &now
-			p.ContainerID = ""
-
-			if err := app.Store.Put(p); err != nil {
-				return fmt.Errorf("updating plugin state: %w", err)
+			deps := &lifecycle.Deps{Store: app.Store, Runtime: app.Runtime, Config: app.Config}
+			if err := lifecycle.StopPlugin(ctx, deps, p); err != nil {
+				return err
 			}
 
 			fmt.Printf("Stopped plugin %q\n", name)
