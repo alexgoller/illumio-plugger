@@ -1,0 +1,40 @@
+# Plugger install manifest.
+# Install with: plugger install plugin.yaml
+apiVersion: plugger/v1
+name: my-plugin
+version: 0.1.0
+image: my-plugin:latest
+
+schedule:
+  mode: daemon             # daemon | cron | event
+  # cron: "0 */6 * * *"   # for cron mode
+  # For event mode, also set events below
+
+# Environment variables passed to the container.
+# PCE connection vars (PCE_HOST, PCE_PORT, etc.) are injected automatically.
+env:
+  - name: MY_PLUGIN_SETTING
+    required: false
+    default: "default-value"
+  # - name: MY_SECRET
+  #   required: true
+  #   secret: true
+
+# For event-driven plugins:
+# events:
+#   types:
+#     - workload.create
+#     - workload.update
+
+# Health check for daemon plugins:
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+# Resource limits:
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

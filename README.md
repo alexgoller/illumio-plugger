@@ -11,6 +11,8 @@ Plugger manages Illumio PCE plugins running as Docker containers (or Kubernetes 
 - **Plugin state tracking** — JSON-backed store with crash recovery
 - **Resource limits** — memory and CPU constraints per plugin
 - **Structured logging** — slog-based with JSON or text output
+- **Plugin scaffolding** — `plugger create` generates Go or shell plugin projects
+- **In-container metadata** — plugins declare ports, config, volumes via `/.plugger/metadata.yaml`
 
 ## Quick Start
 
@@ -51,6 +53,7 @@ vim ~/.plugger/config.yaml
 | Command | Description |
 |---------|-------------|
 | `plugger init` | Create `~/.plugger/` and default `config.yaml` |
+| `plugger create <name> [-t go\|shell]` | Scaffold a new plugin project from a template |
 | `plugger install <manifest.yaml>` | Install a plugin from a manifest file |
 | `plugger uninstall <name>` | Remove a plugin and its container |
 | `plugger start <name>` | Start a plugin container |
@@ -280,20 +283,21 @@ healthcheck:
   interval: 30s
 ```
 
-### Plugin Template
+### Plugin Scaffolding
 
-A complete plugin template is available in the `plugin-template/` directory. Copy it to bootstrap a new plugin:
+Use `plugger create` to scaffold a new plugin project:
 
 ```bash
-cp -r plugin-template my-plugin
-cd my-plugin
-# Edit main.go, plugin.yaml, .plugger/metadata.yaml
-docker build -t my-plugin:latest .
-plugger install plugin.yaml
-plugger start my-plugin
+# Go plugin (compiled, with HTTP server and health endpoint)
+plugger create my-plugin -t go
+
+# Shell plugin (lightweight, curl + jq based)
+plugger create my-plugin -t shell
 ```
 
-See [`plugin-template/README.md`](plugin-template/README.md) for detailed instructions.
+Templates are also available in `plugin-templates/go/` and `plugin-templates/shell/`.
+
+**Claude Code users**: Run `/project:build-plugin` to have Claude build a complete plugin from a description.
 
 ## Architecture
 
@@ -335,12 +339,15 @@ internal/
 │   └── store.go                 — JSON file-backed plugin store
 └── logging/
     └── logging.go               — Structured logging setup (slog)
-plugin-template/                 — Plugin starter template
-├── main.go                      — Entrypoint with signal handling + HTTP server
-├── Dockerfile                   — Multi-stage Go build
-├── plugin.yaml                  — Install manifest template
-├── .plugger/metadata.yaml       — Container metadata template
-└── README.md                    — How to build a plugin
+plugin-templates/
+├── go/                          — Go plugin template (compiled, HTTP server)
+│   ├── main.go, Dockerfile, plugin.yaml, .plugger/metadata.yaml
+│   └── README.md
+└── shell/                       — Shell plugin template (curl + jq)
+    ├── entrypoint.sh, Dockerfile, plugin.yaml, .plugger/metadata.yaml
+    └── README.md
+.claude/commands/
+└── build-plugin.md              — Claude Code slash command for building plugins
 ```
 
 ## Roadmap

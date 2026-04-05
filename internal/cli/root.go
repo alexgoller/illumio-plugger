@@ -38,7 +38,7 @@ health checks, and scheduling (daemon, cron, event-driven).`,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Skip init for the init command itself and version
-			if cmd.Name() == "init" || cmd.Name() == "version" {
+			if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "create" {
 				return nil
 			}
 			return initApp()
@@ -49,6 +49,7 @@ health checks, and scheduling (daemon, cron, event-driven).`,
 
 	root.AddCommand(
 		newInitCmd(),
+		newCreateCmd(),
 		newInstallCmd(),
 		newUninstallCmd(),
 		newStartCmd(),
