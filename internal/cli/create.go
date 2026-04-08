@@ -17,6 +17,9 @@ var goTemplate embed.FS
 //go:embed all:templates/shell
 var shellTemplate embed.FS
 
+//go:embed all:templates/python
+var pythonTemplate embed.FS
+
 func newCreateCmd() *cobra.Command {
 	var templateType string
 
@@ -24,8 +27,10 @@ func newCreateCmd() *cobra.Command {
 		Use:   "create <plugin-name>",
 		Short: "Scaffold a new plugin project from a template",
 		Long: `Create a new plugin project directory with all the files needed to build
-a plugger plugin. Choose between a Go template (compiled, with HTTP server)
-or a shell template (lightweight, curl + jq based).`,
+a plugger plugin. Templates available:
+  go     — compiled Go binary with HTTP server and health endpoint
+  shell  — lightweight shell script with curl + jq
+  python — Python 3 with the Illumio SDK (illumio) pre-installed`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -51,8 +56,11 @@ or a shell template (lightweight, curl + jq based).`,
 			case "shell":
 				templateFS = shellTemplate
 				templateRoot = "templates/shell"
+			case "python":
+				templateFS = pythonTemplate
+				templateRoot = "templates/python"
 			default:
-				return fmt.Errorf("unknown template type %q (use 'go' or 'shell')", templateType)
+				return fmt.Errorf("unknown template type %q (use 'go', 'shell', or 'python')", templateType)
 			}
 
 			// Walk and copy template files
@@ -91,8 +99,8 @@ or a shell template (lightweight, curl + jq based).`,
 					return fmt.Errorf("writing %s: %w", destPath, err)
 				}
 
-				// Make shell scripts executable
-				if strings.HasSuffix(destPath, ".sh") {
+				// Make scripts executable
+				if strings.HasSuffix(destPath, ".sh") || strings.HasSuffix(destPath, ".py") {
 					os.Chmod(destPath, 0755)
 				}
 
@@ -106,9 +114,12 @@ or a shell template (lightweight, curl + jq based).`,
 			fmt.Printf("Created plugin %q (%s template, %d files)\n\n", name, templateType, count)
 			fmt.Printf("Next steps:\n")
 			fmt.Printf("  cd %s\n", name)
-			if templateType == "go" {
+			switch templateType {
+			case "go":
 				fmt.Printf("  # Edit main.go with your plugin logic\n")
-			} else {
+			case "python":
+				fmt.Printf("  # Edit main.py with your plugin logic (illumio SDK pre-installed)\n")
+			default:
 				fmt.Printf("  # Edit entrypoint.sh with your plugin logic\n")
 			}
 			fmt.Printf("  docker build -t %s:latest .\n", name)
@@ -118,7 +129,7 @@ or a shell template (lightweight, curl + jq based).`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&templateType, "template", "t", "go", "template type: go or shell")
+	cmd.Flags().StringVarP(&templateType, "template", "t", "go", "template type: go, shell, or python")
 	return cmd
 }
 
