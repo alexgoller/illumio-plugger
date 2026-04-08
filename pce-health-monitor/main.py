@@ -5,6 +5,7 @@ pce-health-monitor — Shows PCE health status on a web page.
 Polls the PCE node health API and serves a live dashboard on port 8080.
 """
 
+import base64
 import json
 import logging
 import os
@@ -63,13 +64,11 @@ def check_pce_health():
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-    # Set up basic auth
-    password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-    for url in endpoints:
-        password_mgr.add_password(None, url, api_key, api_secret)
-    auth_handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
+    # Preemptive basic auth header
+    credentials = base64.b64encode(f"{api_key}:{api_secret}".encode()).decode()
+    auth_header = f"Basic {credentials}"
+
     opener = urllib.request.build_opener(
-        auth_handler,
         urllib.request.HTTPSHandler(context=ctx),
     )
 
@@ -81,7 +80,10 @@ def check_pce_health():
 
     for url in endpoints:
         try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            req = urllib.request.Request(url, headers={
+                "Accept": "application/json",
+                "Authorization": auth_header,
+            })
             resp = opener.open(req, timeout=10)
             status_code = resp.getcode()
             body = resp.read().decode("utf-8", errors="replace")
