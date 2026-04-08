@@ -1,0 +1,27 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Policy diff dashboard — draft vs active
+    type: ui
+    path: /
+
+config:
+  - name: POLL_INTERVAL
+    description: Seconds between policy comparisons
+    required: false
+    type: int
+    default: "300"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+info:
+  title: Policy Diff
+  description: Compare PCE draft vs active policy — rulesets, IP lists, services, label groups
+  author: Illumio
+  license: Apache-2.0

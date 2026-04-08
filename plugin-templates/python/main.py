@@ -26,14 +26,15 @@ log = logging.getLogger("my_plugin")
 def get_pce() -> PolicyComputeEngine:
     """Create an authenticated PCE client from environment variables."""
     pce = PolicyComputeEngine(
-        host=os.environ["PCE_HOST"],
+        url=os.environ["PCE_HOST"],
         port=os.environ.get("PCE_PORT", "8443"),
         org_id=os.environ.get("PCE_ORG_ID", "1"),
     )
     pce.set_credentials(
-        api_key=os.environ["PCE_API_KEY"],
-        api_secret=os.environ["PCE_API_SECRET"],
+        username=os.environ["PCE_API_KEY"],
+        password=os.environ["PCE_API_SECRET"],
     )
+    pce.set_tls_settings(verify=False)
     return pce
 
 
@@ -128,7 +129,7 @@ def main():
     log.info("MY_PLUGIN_SETTING=%s", setting)
 
     pce = get_pce()
-    log.info("Connected to PCE: %s:%s (org %s)", pce.host, pce.port, pce.org_id)
+    log.info("Connected to PCE: %s", pce.base_url)
 
     mode = os.environ.get("PLUGIN_MODE", "daemon")
     if mode == "cron":

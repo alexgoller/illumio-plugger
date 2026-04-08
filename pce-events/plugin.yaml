@@ -1,0 +1,20 @@
+apiVersion: plugger/v1
+name: pce-events
+version: 0.1.0
+image: pce-events:latest
+
+schedule:
+  mode: daemon
+
+env: []
+
+health:
+  endpoint: /
+  port: 8443
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 512m
+  cpuLimit: "0.5"

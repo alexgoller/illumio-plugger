@@ -1,0 +1,32 @@
+apiVersion: plugger/v1
+name: traffic-reporter
+version: 0.1.0
+image: traffic-reporter:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: POLL_INTERVAL
+    required: false
+    default: "300"
+  - name: LOOKBACK_HOURS
+    required: false
+    default: "24"
+  - name: MAX_RESULTS
+    required: false
+    default: "10000"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

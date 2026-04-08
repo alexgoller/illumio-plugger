@@ -1,0 +1,57 @@
+# PCE Events configuration
+# Copy this to ~/.plugger/volumes/pce-events/config/config.yaml and edit
+
+# PCE connection
+pce: your-pce.example.com
+pce_api_user: api_xxxxxxxxxxxx
+pce_api_secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+pce_org: 1
+pce_poll_interval: 10
+
+# Output plugin configuration
+plugin_config:
+  # Slack
+  # PCESlack:
+  #   slack_bot_token: xoxb-your-token
+  #   slack_signing_secret: your-secret
+
+  # Microsoft Teams
+  # PCETeams:
+  #   webhook_url: https://outlook.office.com/webhook/...
+
+  # PagerDuty
+  # PCEPagerDuty:
+  #   routing_key: your-routing-key
+
+  # Email
+  # PCEMail:
+  #   smtp_host: smtp.example.com
+  #   smtp_port: 587
+  #   smtp_user: alerts@example.com
+  #   smtp_password: password
+  #   from_addr: alerts@example.com
+  #   to_addr: team@example.com
+
+  # Webhook
+  # PCEWebhook:
+  #   url: https://your-endpoint.example.com/webhook
+
+  # File (JSON)
+  PCEFile:
+    path: /config/events.json
+
+# Watchers — define which events trigger which plugins
+watchers:
+  # All events to file
+  all_events:
+    event_type: ".*"
+    plugin: PCEFile
+    template: default.html
+
+  # Example: security-relevant events to Slack
+  # security_events:
+  #   event_type: "^(user\\.login|user\\.logout|sec_policy\\.|rule_set\\.)"
+  #   plugin: PCESlack
+  #   extra_data:
+  #     channel: "#security-alerts"
+  #     template: default.html

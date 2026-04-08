@@ -1,0 +1,28 @@
+plugger: v1
+
+ports:
+  - port: 8443
+    protocol: tcp
+    name: web-ui
+    description: Event viewer and watcher management UI
+    type: ui
+    path: /
+
+config:
+  - name: PCE_EVENTS_CONFIG
+    description: Path to config.yaml inside the container (mounted via volume)
+    required: false
+    type: string
+    default: "/config/config.yaml"
+
+volumes:
+  - path: /config
+    description: Configuration directory — place config.yaml here with PCE and plugin settings
+    required: true
+
+info:
+  title: PCE Events (Pretty Cool Events)
+  description: Real-time PCE event monitoring with Slack, Teams, PagerDuty, Email, webhooks, and 10+ output plugins
+  author: Alex Goller
+  license: Apache-2.0
+  homepage: https://github.com/alexgoller/illumio-pretty-cool-events
