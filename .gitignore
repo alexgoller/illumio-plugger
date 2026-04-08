@@ -2,3 +2,4 @@ bin/
 /plugger
 *.exe
 .DS_Store
+.env

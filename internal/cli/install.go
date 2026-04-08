@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/illumio/plugger/internal/config"
+	ct "github.com/illumio/plugger/internal/container"
 	"github.com/illumio/plugger/internal/plugin"
 	"github.com/spf13/cobra"
 )
@@ -31,13 +32,25 @@ func newInstallCmd() *cobra.Command {
 				return fmt.Errorf("plugin %q is already installed (use uninstall first)", manifest.Name)
 			}
 
-			// Pull image
+			// Pull image (if pull fails, check if it exists locally)
 			fmt.Printf("Pulling image %s...\n", manifest.Image)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 			defer cancel()
 
 			if err := app.Runtime.Pull(ctx, manifest.Image); err != nil {
-				return fmt.Errorf("pulling image: %w", err)
+				// Check if image exists locally (e.g. locally built images)
+				_, inspectErr := app.Runtime.CopyFromImage(ctx, manifest.Image, "/.plugger/metadata.yaml")
+				_ = inspectErr // we just need to verify the image is usable
+				// Try creating a throwaway container to verify the image exists
+				testID, createErr := app.Runtime.Create(ctx, ct.CreateOpts{
+					Name:  "plugger-install-check-" + manifest.Name,
+					Image: manifest.Image,
+				})
+				if createErr != nil {
+					return fmt.Errorf("image %s not found locally and pull failed: %w", manifest.Image, err)
+				}
+				_ = app.Runtime.Remove(ctx, testID)
+				fmt.Printf("Using local image %s (pull failed: %v)\n", manifest.Image, err)
 			}
 
 			// Discover in-container metadata
