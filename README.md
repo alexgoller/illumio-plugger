@@ -11,7 +11,7 @@ Plugger manages Illumio PCE plugins running as Docker containers (or Kubernetes 
 - **Plugin state tracking** — JSON-backed store with crash recovery
 - **Resource limits** — memory and CPU constraints per plugin
 - **Structured logging** — slog-based with JSON or text output
-- **Plugin scaffolding** — `plugger create` generates Go or shell plugin projects
+- **Plugin scaffolding** — `plugger create` generates Go, shell, or Python plugin projects
 - **In-container metadata** — plugins declare ports, config, volumes via `/.plugger/metadata.yaml`
 
 ## Quick Start
@@ -53,7 +53,7 @@ vim ~/.plugger/config.yaml
 | Command | Description |
 |---------|-------------|
 | `plugger init` | Create `~/.plugger/` and default `config.yaml` |
-| `plugger create <name> [-t go\|shell]` | Scaffold a new plugin project from a template |
+| `plugger create <name> [-t go\|shell\|python]` | Scaffold a new plugin project from a template |
 | `plugger install <manifest.yaml>` | Install a plugin from a manifest file |
 | `plugger uninstall <name>` | Remove a plugin and its container |
 | `plugger start <name>` | Start a plugin container |
@@ -293,9 +293,14 @@ plugger create my-plugin -t go
 
 # Shell plugin (lightweight, curl + jq based)
 plugger create my-plugin -t shell
+
+# Python plugin (with Illumio SDK pre-installed)
+plugger create my-plugin -t python
 ```
 
-Templates are also available in `plugin-templates/go/` and `plugin-templates/shell/`.
+The Python template includes the [illumio](https://pypi.org/project/illumio/) SDK with a pre-configured `PolicyComputeEngine` client, so you can call `pce.workloads.get()`, `pce.labels.get()`, etc. immediately.
+
+Templates are also available in `plugin-templates/go/`, `plugin-templates/shell/`, and `plugin-templates/python/`.
 
 **Claude Code users**: Run `/project:build-plugin` to have Claude build a complete plugin from a description.
 
@@ -343,8 +348,11 @@ plugin-templates/
 ├── go/                          — Go plugin template (compiled, HTTP server)
 │   ├── main.go, Dockerfile, plugin.yaml, .plugger/metadata.yaml
 │   └── README.md
-└── shell/                       — Shell plugin template (curl + jq)
-    ├── entrypoint.sh, Dockerfile, plugin.yaml, .plugger/metadata.yaml
+├── shell/                       — Shell plugin template (curl + jq)
+│   ├── entrypoint.sh, Dockerfile, plugin.yaml, .plugger/metadata.yaml
+│   └── README.md
+└── python/                      — Python plugin template (illumio SDK)
+    ├── main.py, Dockerfile, requirements.txt, plugin.yaml, .plugger/metadata.yaml
     └── README.md
 .claude/commands/
 └── build-plugin.md              — Claude Code slash command for building plugins
