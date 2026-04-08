@@ -1,0 +1,27 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: PCE health status dashboard
+    type: ui
+    path: /
+
+config:
+  - name: POLL_INTERVAL
+    description: Seconds between health checks
+    required: false
+    type: int
+    default: "30"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "false"
+
+info:
+  title: PCE Health Monitor
+  description: Web dashboard showing Illumio PCE health status with endpoint checks
+  author: Illumio
+  license: Apache-2.0
