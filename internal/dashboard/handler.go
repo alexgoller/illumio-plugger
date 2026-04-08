@@ -87,7 +87,10 @@ func (h *Handler) handlePluginDetail(w http.ResponseWriter, r *http.Request) {
 
 	// If fragment=status, return just the status fragment for htmx polling
 	if r.URL.Query().Get("fragment") == "status" {
-		h.tmpl.ExecuteTemplate(w, "plugin_status_fragment", p)
+		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/plugin_detail.html")
+		if err == nil {
+			t.ExecuteTemplate(w, "plugin_status_fragment", p)
+		}
 		return
 	}
 
@@ -119,19 +122,11 @@ func (h *Handler) handleAPIGetPlugin(w http.ResponseWriter, r *http.Request) {
 	h.json(w, http.StatusOK, p)
 }
 
-// render executes a layout template with a nested page template.
+// render parses and executes templates fresh for each request.
 func (h *Handler) render(w http.ResponseWriter, layout, page string, data any) {
-	// Clone the template set so we can set the content block
-	t, err := h.tmpl.Clone()
+	t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/"+layout, "templates/"+page, "templates/plugin_row.html")
 	if err != nil {
-		h.serverError(w, "cloning templates", err)
-		return
-	}
-
-	// The page template defines "title" and "content" blocks that the layout uses
-	_, err = t.ParseFS(templateFS, "templates/"+page)
-	if err != nil {
-		h.serverError(w, "parsing page template", err)
+		h.serverError(w, "parsing templates", err)
 		return
 	}
 

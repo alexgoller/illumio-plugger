@@ -193,6 +193,8 @@
     </div>
 </div>
 
+{{end}}
+
 {{define "plugin_status_fragment"}}
 <div id="plugin-status" hx-get="/plugins/{{.Name}}?fragment=status" hx-trigger="every 5s" hx-swap="outerHTML">
     <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-700">
@@ -218,5 +220,4 @@
         {{end}}
     </div>
 </div>
-{{end}}
 {{end}}
