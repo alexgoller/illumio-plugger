@@ -1,57 +1,55 @@
-# PCE Events configuration
-# Copy this to ~/.plugger/volumes/pce-events/config/config.yaml and edit
+# Pretty Cool Events configuration for plugger
+# Copy to ~/.plugger/volumes/pce-events/config/config.yaml (or /tmp/plugger/volumes/...)
 
-# PCE connection
-pce: your-pce.example.com
-pce_api_user: api_xxxxxxxxxxxx
-pce_api_secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-pce_org: 1
-pce_poll_interval: 10
+config:
+  # PCE connection
+  pce: your-pce.example.com
+  pce_api_user: api_xxxxxxxxxxxx
+  pce_api_secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  pce_org: 1
+  pce_poll_interval: 10
 
-# Output plugin configuration
-plugin_config:
-  # Slack
-  # PCESlack:
-  #   slack_bot_token: xoxb-your-token
-  #   slack_signing_secret: your-secret
+  # Web UI (served on port 8443)
+  httpd: true
+  httpd_listener_address: 0.0.0.0
+  httpd_listener_port: 8443
+  httpd_username: ""
+  httpd_password: ""
 
-  # Microsoft Teams
-  # PCETeams:
-  #   webhook_url: https://outlook.office.com/webhook/...
+  default_template: default.html
 
-  # PagerDuty
-  # PCEPagerDuty:
-  #   routing_key: your-routing-key
+  # Output plugin configuration
+  plugin_config:
+    PCEStdout:
+      prepend: ""
+    # PCESlack:
+    #   slack_bot_token: xoxb-your-token
+    # PCETeams:
+    #   webhook_url: https://outlook.office.com/webhook/...
+    # PCEMail:
+    #   smtp_host: smtp.example.com
+    #   smtp_port: 587
+    #   smtp_user: alerts@example.com
+    #   smtp_password: password
+    #   from_addr: alerts@example.com
+    #   to_addr: team@example.com
+    # PCEWebhook:
+    #   url: https://your-endpoint.example.com/webhook
+    # PCEPagerDuty:
+    #   routing_key: your-routing-key
 
-  # Email
-  # PCEMail:
-  #   smtp_host: smtp.example.com
-  #   smtp_port: 587
-  #   smtp_user: alerts@example.com
-  #   smtp_password: password
-  #   from_addr: alerts@example.com
-  #   to_addr: team@example.com
-
-  # Webhook
-  # PCEWebhook:
-  #   url: https://your-endpoint.example.com/webhook
-
-  # File (JSON)
-  PCEFile:
-    path: /config/events.json
-
-# Watchers — define which events trigger which plugins
+# Watchers — map event type regex patterns to output plugins
 watchers:
-  # All events to file
-  all_events:
-    event_type: ".*"
-    plugin: PCEFile
-    template: default.html
+  # Catch-all: log everything to stdout
+  ".*":
+    - status: "*"
+      plugin: PCEStdout
+      extra_data:
+        template: default.html
 
-  # Example: security-relevant events to Slack
-  # security_events:
-  #   event_type: "^(user\\.login|user\\.logout|sec_policy\\.|rule_set\\.)"
-  #   plugin: PCESlack
-  #   extra_data:
-  #     channel: "#security-alerts"
-  #     template: default.html
+  # Example: security events to Slack
+  # "^(user\\.login|user\\.logout|sec_policy\\.)":
+  #   - plugin: PCESlack
+  #     extra_data:
+  #       channel: "#security-alerts"
+  #       template: default.html
