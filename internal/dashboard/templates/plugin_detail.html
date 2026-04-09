@@ -56,7 +56,7 @@
                         {{end}}
                     </div>
                     {{if or (eq .Type "ui") (eq .Type "api")}}
-                    <a href="http://localhost:{{.Port}}{{if .Path}}{{.Path}}{{else}}/{{end}}" target="_blank"
+                    <a href="/plugins/{{$.Plugin.Name}}/ui/" target="_blank"
                        class="text-blue-400 hover:text-blue-300 text-sm">
                         Open &rarr;
                     </a>

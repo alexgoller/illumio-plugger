@@ -80,6 +80,7 @@ type ContainerInfo struct {
 	Status  string // created, running, exited, etc.
 	Running bool
 	Labels  map[string]string
+	Ports   map[int]int // containerPort -> hostPort (from actual bindings)
 }
 
 // LogOpts configures log retrieval.

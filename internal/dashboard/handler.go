@@ -37,7 +37,7 @@ func (h *Handler) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// HTML pages
-	mux.HandleFunc("GET /", h.handleIndex)
+	mux.HandleFunc("GET /{$}", h.handleIndex)
 	mux.HandleFunc("GET /plugins/{name}", h.handlePluginDetail)
 
 	// JSON API
@@ -52,16 +52,15 @@ func (h *Handler) Routes() *http.ServeMux {
 	// SSE log stream
 	mux.HandleFunc("GET /api/plugins/{name}/logs", h.handleLogs)
 
+	// Reverse proxy to plugin UIs
+	// Using GET {$} for the index to avoid conflict with proxy subtree
+	mux.HandleFunc("GET /plugins/{name}/ui/", h.handlePluginProxy)
+
 	return mux
 }
 
 // handleIndex renders the plugin list page.
 func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
 	plugins, err := h.deps.Store.List()
 	if err != nil {
 		h.serverError(w, "listing plugins", err)

@@ -1,4 +1,4 @@
-{{define "title"}}Plugins — Plugger Dashboard{{end}}
+{{define "title"}}Plugger Dashboard{{end}}
 {{define "content"}}
 <div class="flex items-center justify-between mb-6">
     <div>
@@ -13,24 +13,114 @@
     <p class="text-gray-500 text-sm mt-2">Run <code class="bg-dark-700 px-2 py-1 rounded">plugger install &lt;manifest.yaml&gt;</code> to get started.</p>
 </div>
 {{else}}
-<div class="bg-dark-800 rounded-lg border border-gray-700 overflow-hidden">
-    <table class="w-full">
-        <thead>
-            <tr class="border-b border-gray-700 text-left text-sm text-gray-400">
-                <th class="px-4 py-3 font-medium">Name</th>
-                <th class="px-4 py-3 font-medium">Version</th>
-                <th class="px-4 py-3 font-medium">Mode</th>
-                <th class="px-4 py-3 font-medium">State</th>
-                <th class="px-4 py-3 font-medium">Last Started</th>
-                <th class="px-4 py-3 font-medium text-right">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Plugins}}
-            {{template "plugin_row" .}}
+
+<!-- Plugin Tiles -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    {{range .Plugins}}
+    <div class="bg-dark-800 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors overflow-hidden">
+        <!-- Tile Header -->
+        <div class="p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex-1 min-w-0">
+                    <a href="/plugins/{{.Name}}" class="text-white font-semibold text-lg hover:text-blue-400 transition-colors block truncate">
+                        {{if and .Metadata .Metadata.Info}}{{.Metadata.Info.Title}}{{else}}{{.Name}}{{end}}
+                    </a>
+                    <p class="text-gray-500 text-xs font-mono mt-0.5">{{.Name}} v{{.Manifest.Version}}</p>
+                </div>
+                {{if eq (printf "%s" .State) "running"}}
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 shrink-0 ml-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>Running
+                </span>
+                {{else if eq (printf "%s" .State) "errored"}}
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-red-900/50 text-red-400 shrink-0 ml-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Errored
+                </span>
+                {{else if eq (printf "%s" .State) "stopped"}}
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-gray-700/50 text-gray-400 shrink-0 ml-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span>Stopped
+                </span>
+                {{else}}
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-blue-900/50 text-blue-400 shrink-0 ml-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>Installed
+                </span>
+                {{end}}
+            </div>
+
+            {{if and .Metadata .Metadata.Info .Metadata.Info.Description}}
+            <p class="text-gray-400 text-sm line-clamp-2 mb-3">{{.Metadata.Info.Description}}</p>
             {{end}}
-        </tbody>
-    </table>
+
+            <!-- Meta info -->
+            <div class="flex items-center gap-3 text-xs text-gray-500">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-dark-700 rounded">
+                    {{.Manifest.Schedule.Mode}}
+                </span>
+                {{if .LastStarted}}
+                <span>Started {{timeAgo .LastStarted}}</span>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Tile Footer: Actions + UI Link -->
+        <div class="border-t border-gray-700/50 px-5 py-3 bg-dark-700/30 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                {{if ne (printf "%s" .State) "running"}}
+                <button hx-post="/api/plugins/{{.Name}}/start" hx-target="body" hx-swap="outerHTML"
+                    class="px-3 py-1 text-xs font-medium rounded bg-green-600 hover:bg-green-500 text-white transition-colors">
+                    Start
+                </button>
+                {{else}}
+                <button hx-post="/api/plugins/{{.Name}}/stop" hx-target="body" hx-swap="outerHTML"
+                    hx-confirm="Stop plugin {{.Name}}?"
+                    class="px-3 py-1 text-xs font-medium rounded bg-red-600/80 hover:bg-red-500 text-white transition-colors">
+                    Stop
+                </button>
+                <button hx-post="/api/plugins/{{.Name}}/restart" hx-target="body" hx-swap="outerHTML"
+                    class="px-3 py-1 text-xs font-medium rounded bg-gray-600 hover:bg-gray-500 text-white transition-colors">
+                    Restart
+                </button>
+                {{end}}
+            </div>
+            {{if and (eq (printf "%s" .State) "running") .Metadata}}
+                {{range .Metadata.Ports}}
+                    {{if or (eq .Type "ui") (eq .Type "api")}}
+                    <a href="/plugins/{{$.Name}}/ui/" target="_blank"
+                       class="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        Open UI
+                    </a>
+                    {{end}}
+                {{end}}
+            {{end}}
+        </div>
+    </div>
+    {{end}}
 </div>
+
+<!-- Table view -->
+<details class="mb-4">
+    <summary class="text-gray-500 text-sm cursor-pointer hover:text-gray-400 transition-colors">Table view</summary>
+    <div class="bg-dark-800 rounded-lg border border-gray-700 overflow-hidden mt-2">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-700 text-left text-sm text-gray-400">
+                    <th class="px-4 py-3 font-medium">Name</th>
+                    <th class="px-4 py-3 font-medium">Version</th>
+                    <th class="px-4 py-3 font-medium">Mode</th>
+                    <th class="px-4 py-3 font-medium">State</th>
+                    <th class="px-4 py-3 font-medium">Last Started</th>
+                    <th class="px-4 py-3 font-medium text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Plugins}}
+                {{template "plugin_row" .}}
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</details>
 {{end}}
 {{end}}

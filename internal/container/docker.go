@@ -144,6 +144,17 @@ func (d *DockerRuntime) Inspect(ctx context.Context, id string) (*ContainerInfo,
 		name = name[1:]
 	}
 
+	// Extract port bindings
+	ports := make(map[int]int)
+	if c.NetworkSettings != nil {
+		for containerPort, bindings := range c.NetworkSettings.Ports {
+			if len(bindings) > 0 && bindings[0].HostPort != "" {
+				hostPort, _ := strconv.Atoi(bindings[0].HostPort)
+				ports[int(containerPort.Num())] = hostPort
+			}
+		}
+	}
+
 	return &ContainerInfo{
 		ID:      c.ID,
 		Name:    name,
@@ -151,6 +162,7 @@ func (d *DockerRuntime) Inspect(ctx context.Context, id string) (*ContainerInfo,
 		Status:  string(c.State.Status),
 		Running: c.State.Running,
 		Labels:  c.Config.Labels,
+		Ports:   ports,
 	}, nil
 }
 
