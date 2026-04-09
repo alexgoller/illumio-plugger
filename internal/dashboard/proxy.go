@@ -9,9 +9,43 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
+
+// attrPattern matches href="..." and src="..." with absolute paths.
+var attrPattern = regexp.MustCompile(`((?:href|src|action)=["'])(/[^"']*)(["'])`)
+
+// rewriteAbsoluteURLs rewrites absolute paths in HTML attributes to include
+// the proxy prefix, so href="/watchers" becomes href="/plugins/name/ui/watchers".
+// Skips external URLs (http://, https://, //) and already-prefixed paths.
+func rewriteAbsoluteURLs(body []byte, prefix string) []byte {
+	return attrPattern.ReplaceAllFunc(body, func(match []byte) []byte {
+		parts := attrPattern.FindSubmatch(match)
+		if len(parts) != 4 {
+			return match
+		}
+		attr := parts[1]   // e.g. href="
+		path := parts[2]   // e.g. /watchers
+		quote := parts[3]  // e.g. "
+
+		pathStr := string(path)
+
+		// Skip if already rewritten
+		if strings.HasPrefix(pathStr, prefix) {
+			return match
+		}
+
+		// Rewrite: /watchers -> /plugins/name/ui/watchers
+		newPath := strings.TrimSuffix(prefix, "/") + pathStr
+		result := make([]byte, 0, len(attr)+len(newPath)+len(quote))
+		result = append(result, attr...)
+		result = append(result, []byte(newPath)...)
+		result = append(result, quote...)
+		return result
+	})
+}
 
 // handlePluginProxy reverse-proxies requests to plugin container UIs.
 // Injects a <base> tag into HTML responses so that absolute links
@@ -127,28 +161,10 @@ func injectBaseTag(resp *http.Response, baseHref string) error {
 	}
 	resp.Body.Close()
 
-	baseTag := fmt.Sprintf(`<base href="%s">`, baseHref)
-
-	// Try to inject after <head> or <head ...>
-	modified := false
-	headIdx := bytes.Index(bytes.ToLower(body), []byte("<head"))
-	if headIdx >= 0 {
-		closeIdx := bytes.IndexByte(body[headIdx:], '>')
-		if closeIdx >= 0 {
-			insertAt := headIdx + closeIdx + 1
-			newBody := make([]byte, 0, len(body)+len(baseTag))
-			newBody = append(newBody, body[:insertAt]...)
-			newBody = append(newBody, []byte(baseTag)...)
-			newBody = append(newBody, body[insertAt:]...)
-			body = newBody
-			modified = true
-		}
-	}
-
-	// Fallback: prepend if no <head> found
-	if !modified {
-		body = append([]byte(baseTag), body...)
-	}
+	// Rewrite absolute URLs in href and src attributes to go through the proxy.
+	// e.g. href="/watchers" -> href="/plugins/pce-events/ui/watchers"
+	// Only rewrite paths that don't already start with the prefix.
+	body = rewriteAbsoluteURLs(body, baseHref)
 
 	resp.Body = io.NopCloser(bytes.NewReader(body))
 	resp.ContentLength = int64(len(body))
