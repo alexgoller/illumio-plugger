@@ -282,7 +282,7 @@ tailwind.config = {
     <!-- Footer -->
     <div class="text-center text-xs text-gray-600 fade-in" id="footer">
         <span id="poll-info"></span>
-        &middot; <a href="/api/traffic" class="text-blue-500 hover:text-blue-400">JSON API</a>
+        &middot; <a id="api-link" href="/api/traffic" class="text-blue-500 hover:text-blue-400">JSON API</a>
     </div>
 </div>
 
@@ -471,9 +471,15 @@ function updateDashboard(data) {
         `Poll #${data.poll_count} · Updated ${data.last_poll ? new Date(data.last_poll).toLocaleTimeString() : 'never'}`;
 }
 
+// Detect base URL for reverse proxy support
+const BASE = (() => {
+    const m = window.location.pathname.match(/^(\/plugins\/[^/]+\/ui)/);
+    return m ? m[1] : '';
+})();
+
 async function fetchData() {
     try {
-        const resp = await fetch('/api/traffic');
+        const resp = await fetch(BASE + '/api/traffic');
         const data = await resp.json();
         updateDashboard(data);
     } catch (e) {
@@ -483,6 +489,7 @@ async function fetchData() {
 
 // Init
 initCharts();
+document.getElementById('api-link').href = BASE + '/api/traffic';
 fetchData();
 // Auto-refresh every 30s
 setInterval(fetchData, 30000);
