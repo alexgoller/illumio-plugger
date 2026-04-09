@@ -54,7 +54,8 @@ func (h *Handler) Routes() *http.ServeMux {
 
 	// Reverse proxy to plugin UIs
 	// Using GET {$} for the index to avoid conflict with proxy subtree
-	mux.HandleFunc("GET /plugins/{name}/ui/", h.handlePluginProxy)
+	// Reverse proxy to plugin UIs — handle all HTTP methods
+	mux.Handle("/plugins/{name}/ui/", http.HandlerFunc(h.handlePluginProxy))
 
 	return mux
 }
