@@ -119,11 +119,18 @@ func (h *Handler) handlePluginProxy(w http.ResponseWriter, r *http.Request) {
 			req.Header.Del("Accept-Encoding")
 		},
 		ModifyResponse: func(resp *http.Response) error {
+			// Rewrite Location headers for redirects
+			if loc := resp.Header.Get("Location"); loc != "" {
+				if strings.HasPrefix(loc, "/") && !strings.HasPrefix(loc, prefix) {
+					resp.Header.Set("Location", strings.TrimSuffix(prefix, "/")+loc)
+				}
+			}
+
 			ct := resp.Header.Get("Content-Type")
 			if !strings.Contains(ct, "text/html") {
 				return nil
 			}
-			return injectBaseTag(resp, baseHref)
+			return rewriteHTMLBody(resp, baseHref)
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			h.logger.Error("proxy error", "plugin", name, "error", err)
@@ -137,7 +144,7 @@ func (h *Handler) handlePluginProxy(w http.ResponseWriter, r *http.Request) {
 // injectBaseTag reads the HTML response body and injects a <base href="...">
 // tag after <head> so the browser resolves all relative and absolute URLs
 // against the proxy prefix.
-func injectBaseTag(resp *http.Response, baseHref string) error {
+func rewriteHTMLBody(resp *http.Response, baseHref string) error {
 	var body []byte
 	var err error
 
