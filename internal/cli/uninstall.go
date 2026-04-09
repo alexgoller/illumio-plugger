@@ -3,10 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
-	"github.com/illumio/plugger/internal/plugin"
 	"github.com/spf13/cobra"
 )
 
@@ -26,15 +24,13 @@ func newUninstallCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			// Stop and remove container if running
-			if p.State == plugin.StateRunning || p.ContainerID != "" {
-				fmt.Printf("Stopping container %s...\n", p.ContainerName())
-				if err := app.Runtime.Stop(ctx, p.ContainerID, 10*time.Second); err != nil {
-					slog.Warn("failed to stop container", "error", err)
-				}
-				if err := app.Runtime.Remove(ctx, p.ContainerID); err != nil {
-					slog.Warn("failed to remove container", "error", err)
-				}
+			// Stop and remove container — try both name and ID
+			fmt.Printf("Stopping container %s...\n", p.ContainerName())
+			_ = app.Runtime.Stop(ctx, p.ContainerName(), 10*time.Second)
+			_ = app.Runtime.Remove(ctx, p.ContainerName())
+			if p.ContainerID != "" {
+				_ = app.Runtime.Stop(ctx, p.ContainerID, 10*time.Second)
+				_ = app.Runtime.Remove(ctx, p.ContainerID)
 			}
 
 			if err := app.Store.Delete(name); err != nil {

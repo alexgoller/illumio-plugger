@@ -24,6 +24,14 @@ type Deps struct {
 
 // StartPlugin creates and starts a container for the given plugin.
 func StartPlugin(ctx context.Context, d *Deps, p *plugin.Plugin) error {
+	// Always clean up any existing container with this name to avoid conflicts
+	_ = d.Runtime.Stop(ctx, p.ContainerName(), 5*time.Second)
+	_ = d.Runtime.Remove(ctx, p.ContainerName())
+	if p.ContainerID != "" {
+		_ = d.Runtime.Stop(ctx, p.ContainerID, 5*time.Second)
+		_ = d.Runtime.Remove(ctx, p.ContainerID)
+	}
+
 	if err := ct.SetupNetwork(ctx, d.Runtime, d.Config.Plugger.Network); err != nil {
 		return err
 	}

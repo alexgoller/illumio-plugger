@@ -4,7 +4,7 @@ ports:
   - port: 8080
     protocol: tcp
     name: dashboard
-    description: Policy diff dashboard — draft vs active
+    description: Policy diff dashboard with history and audit trail
     type: ui
     path: /
 
@@ -13,15 +13,25 @@ config:
     description: Seconds between policy comparisons
     required: false
     type: int
-    default: "300"
+    default: "120"
+  - name: EVENT_LOOKBACK_HOURS
+    description: Hours of audit events to fetch
+    required: false
+    type: int
+    default: "72"
   - name: PCE_TLS_SKIP_VERIFY
     description: Skip TLS certificate verification
     required: false
     type: bool
     default: "true"
 
+volumes:
+  - path: /data
+    description: Persistent storage for snapshots and event history
+    required: true
+
 info:
   title: Policy Diff
-  description: Compare PCE draft vs active policy — rulesets, IP lists, services, label groups
+  description: Git-like policy change tracker — field-level diffs, change history with snapshots, user attribution from audit events
   author: Illumio
   license: Apache-2.0
