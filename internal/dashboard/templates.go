@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"strings"
 	"time"
 
 	"github.com/illumio/plugger/internal/plugin"
@@ -30,6 +31,16 @@ var funcMap = template.FuncMap{
 		default:
 			days := int(d.Hours() / 24)
 			return fmt.Sprintf("%dd ago", days)
+		}
+	},
+	"contains": func(s, substr string) bool {
+		return strings.Contains(s, substr)
+	},
+	"configData": func(p *plugin.Plugin) map[string]any {
+		return map[string]any{
+			"Plugin":  p,
+			"Fields":  BuildConfigFields(p),
+			"Message": "",
 		}
 	},
 	"stateColor": func(s plugin.State) string {

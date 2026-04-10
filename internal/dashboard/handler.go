@@ -49,6 +49,9 @@ func (h *Handler) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/plugins/{name}/stop", h.handleStopPlugin)
 	mux.HandleFunc("POST /api/plugins/{name}/restart", h.handleRestartPlugin)
 
+	// Config editing
+	mux.HandleFunc("POST /api/plugins/{name}/config", h.handleSaveConfig)
+
 	// SSE log stream
 	mux.HandleFunc("GET /api/plugins/{name}/logs", h.handleLogs)
 
@@ -124,7 +127,7 @@ func (h *Handler) handleAPIGetPlugin(w http.ResponseWriter, r *http.Request) {
 
 // render parses and executes templates fresh for each request.
 func (h *Handler) render(w http.ResponseWriter, layout, page string, data any) {
-	t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/"+layout, "templates/"+page, "templates/plugin_row.html")
+	t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/"+layout, "templates/"+page, "templates/plugin_row.html", "templates/plugin_config.html")
 	if err != nil {
 		h.serverError(w, "parsing templates", err)
 		return
