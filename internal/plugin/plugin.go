@@ -32,6 +32,8 @@ type Plugin struct {
 	LastStarted  *time.Time                `json:"lastStarted,omitempty"`
 	LastStopped  *time.Time                `json:"lastStopped,omitempty"`
 	LastError    string                    `json:"lastError,omitempty"`
+	LastExitCode *int                      `json:"lastExitCode,omitempty"`
+	NextRun      *time.Time                `json:"nextRun,omitempty"`
 }
 
 // ContainerName returns the deterministic Docker container name for this plugin.

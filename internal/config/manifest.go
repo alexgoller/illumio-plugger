@@ -69,6 +69,18 @@ func LoadManifest(path string) (*PluginManifest, error) {
 	return &m, nil
 }
 
+// LoadManifestFromBytes parses and validates a manifest from raw YAML bytes.
+func LoadManifestFromBytes(data []byte) (*PluginManifest, error) {
+	var m PluginManifest
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("parsing manifest: %w", err)
+	}
+	if err := m.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid manifest: %w", err)
+	}
+	return &m, nil
+}
+
 // Validate checks that the manifest has all required fields.
 func (m *PluginManifest) Validate() error {
 	if m.Name == "" {
