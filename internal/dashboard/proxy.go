@@ -14,37 +14,45 @@ import (
 	"time"
 )
 
-// attrPattern matches href="..." and src="..." with absolute paths.
+// attrPattern matches href="...", src="...", action="..." with absolute paths.
 var attrPattern = regexp.MustCompile(`((?:href|src|action)=["'])(/[^"']*)(["'])`)
+
+// jsPattern matches fetch('/...'), url: '/...', '/api/...' patterns in JavaScript.
+var jsPattern = regexp.MustCompile(`((?:fetch|url:|\.get|\.post|\.put|\.delete|\.patch)\s*\(\s*['"])(/[^'"]*?)(['"])`)
 
 // rewriteAbsoluteURLs rewrites absolute paths in HTML attributes to include
 // the proxy prefix, so href="/watchers" becomes href="/plugins/name/ui/watchers".
 // Skips external URLs (http://, https://, //) and already-prefixed paths.
 func rewriteAbsoluteURLs(body []byte, prefix string) []byte {
-	return attrPattern.ReplaceAllFunc(body, func(match []byte) []byte {
-		parts := attrPattern.FindSubmatch(match)
-		if len(parts) != 4 {
-			return match
+	rewriter := func(pattern *regexp.Regexp) func([]byte) []byte {
+		return func(match []byte) []byte {
+			parts := pattern.FindSubmatch(match)
+			if len(parts) != 4 {
+				return match
+			}
+			before := parts[1] // e.g. href=" or fetch('
+			path := parts[2]   // e.g. /watchers
+			after := parts[3]  // e.g. " or '
+
+			pathStr := string(path)
+
+			// Skip if already rewritten
+			if strings.HasPrefix(pathStr, prefix) {
+				return match
+			}
+
+			newPath := strings.TrimSuffix(prefix, "/") + pathStr
+			result := make([]byte, 0, len(before)+len(newPath)+len(after))
+			result = append(result, before...)
+			result = append(result, []byte(newPath)...)
+			result = append(result, after...)
+			return result
 		}
-		attr := parts[1]   // e.g. href="
-		path := parts[2]   // e.g. /watchers
-		quote := parts[3]  // e.g. "
+	}
 
-		pathStr := string(path)
-
-		// Skip if already rewritten
-		if strings.HasPrefix(pathStr, prefix) {
-			return match
-		}
-
-		// Rewrite: /watchers -> /plugins/name/ui/watchers
-		newPath := strings.TrimSuffix(prefix, "/") + pathStr
-		result := make([]byte, 0, len(attr)+len(newPath)+len(quote))
-		result = append(result, attr...)
-		result = append(result, []byte(newPath)...)
-		result = append(result, quote...)
-		return result
-	})
+	body = attrPattern.ReplaceAllFunc(body, rewriter(attrPattern))
+	body = jsPattern.ReplaceAllFunc(body, rewriter(jsPattern))
+	return body
 }
 
 // handlePluginProxy reverse-proxies requests to plugin container UIs.
