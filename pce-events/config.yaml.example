@@ -4,10 +4,13 @@
 config:
   # PCE connection
   pce: your-pce.example.com
+  pce_port: 8443
   pce_api_user: api_xxxxxxxxxxxx
   pce_api_secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   pce_org: 1
   pce_poll_interval: 10
+  pce_timeout: 60
+  verify_tls: false
 
   # Web UI (served on port 8443)
   httpd: true
