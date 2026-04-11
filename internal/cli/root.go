@@ -77,6 +77,11 @@ func initApp() error {
 		return fmt.Errorf("setting up logging: %w", err)
 	}
 
+	// Set DOCKER_HOST from config if configured and not already set
+	if cfg.Plugger.DockerSocket != "" && os.Getenv("DOCKER_HOST") == "" {
+		os.Setenv("DOCKER_HOST", cfg.Plugger.DockerSocket)
+	}
+
 	rt, err := container.NewDockerRuntime()
 	if err != nil {
 		return fmt.Errorf("connecting to container runtime: %w", err)

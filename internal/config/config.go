@@ -29,6 +29,7 @@ type PluggerConfig struct {
 	EventPollInterval int    `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
 	Registry          string `yaml:"registry"          mapstructure:"registry"`
 	WebhookToken      string `yaml:"webhookToken"      mapstructure:"webhookToken"`
+	DockerSocket      string `yaml:"dockerSocket"      mapstructure:"dockerSocket"`
 }
 
 type LoggingConfig struct {
@@ -113,6 +114,8 @@ plugger:
   dataDir: ` + DefaultDataDir() + `
   network: plugger-net
   eventPollInterval: 30
+  # dockerSocket: unix:///var/run/docker.sock
+  # webhookToken: ""
 
 logging:
   level: info
