@@ -36,6 +36,12 @@ var funcMap = template.FuncMap{
 	"contains": func(s, substr string) bool {
 		return strings.Contains(s, substr)
 	},
+	"deref": func(p *int) int {
+		if p == nil {
+			return -1
+		}
+		return *p
+	},
 	"configData": func(p *plugin.Plugin) map[string]any {
 		return map[string]any{
 			"Plugin":  p,
