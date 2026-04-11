@@ -1,0 +1,17 @@
+apiVersion: plugger/v1
+name: pce-posture-report
+version: 0.1.0
+image: pce-posture-report:latest
+
+schedule:
+  mode: cron
+  cron: "0 */6 * * *"    # every 6 hours
+
+env:
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

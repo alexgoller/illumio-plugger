@@ -1,0 +1,19 @@
+plugger: v1
+
+config:
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Report output directory (HTML + JSON reports)
+    required: true
+
+info:
+  title: PCE Posture Report
+  description: Generates security posture reports — workload health, enforcement coverage, label coverage, policy summary, posture score
+  author: Illumio
+  license: Apache-2.0
