@@ -55,6 +55,7 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 			}
 
 			schedulers := make(map[string]scheduler.Scheduler)
+			eventSchedulers := make(map[string]*scheduler.EventScheduler)
 			checkers := make(map[string]*health.Checker)
 
 			// Start each enabled plugin with appropriate scheduler
@@ -91,7 +92,15 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 						"schedule", p.Manifest.Schedule.Cron)
 
 				case "event":
-					slog.Warn("event-driven scheduling not yet implemented", "plugin", p.Name)
+					es := scheduler.NewEventScheduler(deps, p)
+					if err := es.Start(ctx); err != nil {
+						slog.Error("failed to start event scheduler", "plugin", p.Name, "error", err)
+						continue
+					}
+					schedulers[p.Name] = es
+					eventSchedulers[p.Name] = es
+					slog.Info("registered event plugin", "plugin", p.Name,
+						"eventTypes", p.Manifest.Events.Types)
 
 				default:
 					slog.Warn("unknown schedule mode", "plugin", p.Name, "mode", p.Manifest.Schedule.Mode)
@@ -102,9 +111,20 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 			slog.Info("orchestrator started", "plugins", activeCount)
 			fmt.Printf("Plugger running: %d plugin(s) active\n", activeCount)
 
+			// Set up event webhook registry
+			eventRegistry := dashboard.NewEventRegistry(app.Config.Plugger.WebhookToken)
+			for name, es := range eventSchedulers {
+				eventRegistry.Register(name, es)
+			}
+			if len(eventSchedulers) > 0 {
+				fmt.Printf("Event webhook: POST http://%s/api/events/trigger (token: %s)\n",
+					addr, eventRegistry.Token())
+			}
+
 			// Start dashboard
 			if !noDashboard {
 				handler := dashboard.NewHandler(app.Store, app.Runtime, app.Config, app.Logger)
+				handler.SetEventRegistry(eventRegistry)
 				mux := handler.Routes()
 				go func() {
 					slog.Info("dashboard starting", "addr", addr)

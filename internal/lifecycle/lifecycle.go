@@ -46,7 +46,7 @@ func StartPlugin(ctx context.Context, d *Deps, p *plugin.Plugin) error {
 
 	var memory int64
 	if p.Manifest.Resources != nil {
-		memory = parseMemory(p.Manifest.Resources.MemoryLimit)
+		memory = ParseMemory(p.Manifest.Resources.MemoryLimit)
 	}
 	var cpus string
 	if p.Manifest.Resources != nil {
@@ -174,7 +174,8 @@ func RestartPlugin(ctx context.Context, d *Deps, p *plugin.Plugin) error {
 	return StartPlugin(ctx, d, p)
 }
 
-func parseMemory(s string) int64 {
+// ParseMemory converts strings like "256m", "1g" to bytes.
+func ParseMemory(s string) int64 {
 	if s == "" {
 		return 0
 	}

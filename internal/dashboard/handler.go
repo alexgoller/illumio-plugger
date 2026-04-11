@@ -17,6 +17,7 @@ type Handler struct {
 	deps   *lifecycle.Deps
 	logger *slog.Logger
 	tmpl   *template.Template
+	events *EventRegistry
 }
 
 // NewHandler creates a new dashboard handler.
@@ -30,6 +31,11 @@ func NewHandler(store *plugin.Store, rt container.Runtime, cfg *config.Config, l
 		logger: logger,
 		tmpl:   parseTemplates(),
 	}
+}
+
+// SetEventRegistry attaches the event registry to the handler for webhook support.
+func (h *Handler) SetEventRegistry(r *EventRegistry) {
+	h.events = r
 }
 
 // Routes returns the HTTP mux with all dashboard routes registered.
@@ -55,8 +61,10 @@ func (h *Handler) Routes() *http.ServeMux {
 	// SSE log stream
 	mux.HandleFunc("GET /api/plugins/{name}/logs", h.handleLogs)
 
-	// Reverse proxy to plugin UIs
-	// Using GET {$} for the index to avoid conflict with proxy subtree
+	// Event webhook
+	mux.HandleFunc("POST /api/events/trigger", h.handleEventTrigger)
+	mux.HandleFunc("GET /api/events/stats", h.handleEventStats)
+
 	// Reverse proxy to plugin UIs — handle all HTTP methods
 	mux.Handle("/plugins/{name}/ui/", http.HandlerFunc(h.handlePluginProxy))
 

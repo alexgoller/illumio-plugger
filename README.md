@@ -183,7 +183,7 @@ resources:
   memoryLimit: 512m
 ```
 
-### Event-Driven Plugin (triggered by PCE events)
+### Event-Driven Plugin (triggered by webhooks)
 
 ```yaml
 apiVersion: plugger/v1
@@ -198,6 +198,105 @@ events:
   types:
     - workload.create
     - workload.update
+
+resources:
+  memoryLimit: 128m
+```
+
+Event-driven plugins are ephemeral — a new container is spawned for each matching event, runs, and is cleaned up. The event payload is injected as `PLUGGER_EVENT_PAYLOAD`.
+
+## Event-Driven Architecture
+
+Plugger receives events via a webhook endpoint and spawns containers for matching plugins. This decouples event sourcing from event handling — any system that can POST JSON can trigger plugins.
+
+### How It Works
+
+```
+PCE Events API ──→ pce-events (polling + matching) ──webhook──→ plugger /api/events/trigger ──→ spawn container
+PCE Traffic API ──→ pce-events (traffic watchers) ──webhook──→ plugger /api/events/trigger ──→ spawn container
+Any source ──────→ curl POST ──────────────────────────────────→ plugger /api/events/trigger ──→ spawn container
+```
+
+1. An event source (e.g. pce-events) sends a POST to `http://plugger:8800/api/events/trigger`
+2. Plugger matches `event_type` against installed event-mode plugins' `events.types`
+3. For each match: creates an ephemeral container with `PLUGGER_EVENT_PAYLOAD` set to the full event JSON
+4. Container runs, processes the event, exits
+5. Plugger cleans up the container
+
+### Webhook API
+
+```bash
+# Trigger an event (requires Bearer token)
+curl -X POST http://localhost:8800/api/events/trigger \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"event_type": "workload.create", "resource": {"href": "/orgs/1/workloads/abc"}}'
+
+# Check event stats
+curl http://localhost:8800/api/events/stats
+```
+
+**Response:**
+```json
+{
+  "event_type": "workload.create",
+  "triggered": ["workload-tagger"],
+  "skipped": ["traffic-monitor"],
+  "errors": {}
+}
+```
+
+### Authentication
+
+The webhook endpoint requires a Bearer token for security. Set it in config or let plugger auto-generate one:
+
+```yaml
+# ~/.plugger/config.yaml
+plugger:
+  webhookToken: "your-secret-token"
+```
+
+If `webhookToken` is not set, `plugger run` generates a random token and prints it at startup.
+
+### Connecting pce-events
+
+Configure pce-events to forward matching events to plugger's webhook:
+
+```yaml
+# pce-events config.yaml
+watchers:
+  "workload\\.create|workload\\.update":
+    - plugin: PCEWebhook
+      extra_data:
+        url: http://plugger:8800/api/events/trigger
+        bearer_token: YOUR_TOKEN
+
+  "blocked_traffic":
+    - plugin: PCEWebhook
+      extra_data:
+        url: http://plugger:8800/api/events/trigger
+        bearer_token: YOUR_TOKEN
+```
+
+### Concurrency
+
+Each event-mode plugin allows up to 5 concurrent containers by default. If the limit is reached, events are dropped with an error logged. This prevents runaway container creation from high-frequency events.
+
+### Example: Auto-Tagger Plugin
+
+```python
+# main.py — runs once per event, then exits
+import json, os
+from illumio import PolicyComputeEngine
+
+event = json.loads(os.environ["PLUGGER_EVENT_PAYLOAD"])
+pce = PolicyComputeEngine(url=os.environ["PCE_HOST"], port=os.environ["PCE_PORT"])
+pce.set_credentials(username=os.environ["PCE_API_KEY"], password=os.environ["PCE_API_SECRET"])
+
+if event["event_type"] == "workload.create":
+    href = event["resource"]["href"]
+    # Auto-label the new workload
+    pce.put(href, json.dumps({"description": "auto-tagged by plugger"}))
 ```
 
 ## In-Container Metadata (`/.plugger/metadata.yaml`)
@@ -278,7 +377,8 @@ internal/
 ├── scheduler/
 │   ├── scheduler.go             — Scheduler interface
 │   ├── daemon.go                — Daemon scheduler with auto-restart + exponential backoff
-│   └── cron.go                  — Cron scheduler using robfig/cron
+│   ├── cron.go                  — Cron scheduler using robfig/cron
+│   └── event.go                 — Event scheduler: ephemeral containers triggered by webhooks
 └── logging/                     — Structured logging setup (slog)
 plugin-templates/                — Plugin starter templates (go, shell, python)
 pce-health-monitor/              — Example: PCE health check plugin
@@ -301,10 +401,11 @@ pce-events/                      — Example: PCE event monitoring plugin
 - [x] In-container metadata discovery (ports, config, volumes)
 - [x] Plugin scaffolding (Go, shell, Python with Illumio SDK)
 - [x] Runtime abstraction (Docker implemented)
+- [x] Event-driven scheduling — webhook endpoint triggers ephemeral containers for matching plugins
+- [x] Webhook authentication with Bearer token
 - [x] 4 example plugins (health monitor, traffic reporter, policy diff, pce-events)
 
 ### Planned
-- [ ] Event-driven scheduling — plugger polls PCE events and triggers plugin containers
 - [ ] API key auto-creation and rotation
 - [ ] Kubernetes runtime (`KubernetesRuntime` implementing the `Runtime` interface)
 - [ ] Plugin registry — `plugger install vuln-sync` from OCI/HTTPS registry

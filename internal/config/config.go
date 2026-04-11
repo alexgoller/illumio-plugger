@@ -28,6 +28,7 @@ type PluggerConfig struct {
 	Network           string `yaml:"network"           mapstructure:"network"`
 	EventPollInterval int    `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
 	Registry          string `yaml:"registry"          mapstructure:"registry"`
+	WebhookToken      string `yaml:"webhookToken"      mapstructure:"webhookToken"`
 }
 
 type LoggingConfig struct {
