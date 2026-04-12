@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plugger — Illumio Plugin Registry</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700: '#313244', 800: '#1e1e2e', 900: '#11111b' } } } } }
+</script>
+<style>
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.fade-in { animation: fadeIn 0.4s ease-out both; }
+.fade-in-1 { animation-delay: 0.05s; }
+.fade-in-2 { animation-delay: 0.1s; }
+.fade-in-3 { animation-delay: 0.15s; }
+.fade-in-4 { animation-delay: 0.2s; }
+.fade-in-5 { animation-delay: 0.25s; }
+.card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+.card { transition: all 0.2s ease; }
+</style>
+</head>
+<body class="bg-dark-900 text-gray-200 min-h-screen dark">
+
+<!-- Hero -->
+<div class="border-b border-gray-800">
+<div class="max-w-6xl mx-auto px-6 py-16 text-center">
+    <div class="flex items-center justify-center gap-3 mb-4">
+        <svg class="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+        </svg>
+        <h1 class="text-4xl font-bold text-white">Plugger</h1>
+    </div>
+    <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-8">Plugin registry for Illumio PCE. Install plugins with a single command.</p>
+    <div class="flex items-center justify-center gap-3 flex-wrap">
+        <code class="bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-blue-300 font-mono">
+            plugger install ghcr.io/alexgoller/plugger-&lt;name&gt;:latest
+        </code>
+        <a href="https://github.com/alexgoller/illumio-plugger" class="inline-flex items-center gap-2 bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-300 hover:text-white hover:border-gray-500 transition-colors">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+        </a>
+    </div>
+</div>
+</div>
+
+<!-- Stats -->
+<div class="max-w-6xl mx-auto px-6 py-8">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-4 text-center fade-in">
+        <div class="text-3xl font-bold text-blue-400">5</div>
+        <div class="text-xs text-gray-500 mt-1">Plugins</div>
+    </div>
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-4 text-center fade-in">
+        <div class="text-3xl font-bold text-green-400">3</div>
+        <div class="text-xs text-gray-500 mt-1">Languages</div>
+    </div>
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-4 text-center fade-in">
+        <div class="text-3xl font-bold text-purple-400">3</div>
+        <div class="text-xs text-gray-500 mt-1">Schedule Modes</div>
+    </div>
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-4 text-center fade-in">
+        <div class="text-3xl font-bold text-yellow-400">Multi</div>
+        <div class="text-xs text-gray-500 mt-1">Arch (amd64/arm64)</div>
+    </div>
+</div>
+
+<!-- Filter tabs -->
+<div class="flex gap-2 mb-6 flex-wrap">
+    <button onclick="filter('all')" id="f-all" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white transition-colors">All</button>
+    <button onclick="filter('daemon')" id="f-daemon" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white transition-colors">Daemon</button>
+    <button onclick="filter('cron')" id="f-cron" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white transition-colors">Cron</button>
+    <button onclick="filter('ui')" id="f-ui" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white transition-colors">Has UI</button>
+</div>
+
+<!-- Plugin Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16" id="plugins">
+
+    <!-- PCE Health Monitor -->
+    <div class="card bg-dark-800 rounded-xl border border-gray-700 overflow-hidden fade-in fade-in-1" data-mode="daemon" data-ui="true">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">PCE Health Monitor</h3>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">pce-health-monitor</p>
+                </div>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-4">Real-time PCE health dashboard. Checks health, node availability, and API endpoints. Shows CPU, memory, disk, and service status.</p>
+            <div class="flex flex-wrap gap-1.5 mb-4">
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Python</span>
+                <span class="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">Web UI</span>
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Health Check</span>
+            </div>
+        </div>
+        <div class="border-t border-gray-700/50 px-6 py-3 bg-dark-700/20">
+            <code class="text-xs text-gray-500 break-all select-all">plugger install ghcr.io/alexgoller/plugger-pce-health-monitor:latest</code>
+        </div>
+    </div>
+
+    <!-- Traffic Reporter -->
+    <div class="card bg-dark-800 rounded-xl border border-gray-700 overflow-hidden fade-in fade-in-2" data-mode="daemon" data-ui="true">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">Traffic Reporter</h3>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">traffic-reporter</p>
+                </div>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-4">Interactive traffic flow analysis with Chart.js. Top sources, destinations, services, policy decision breakdown, and blocked flow table.</p>
+            <div class="flex flex-wrap gap-1.5 mb-4">
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Python</span>
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Illumio SDK</span>
+                <span class="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">Web UI</span>
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Chart.js</span>
+            </div>
+        </div>
+        <div class="border-t border-gray-700/50 px-6 py-3 bg-dark-700/20">
+            <code class="text-xs text-gray-500 break-all select-all">plugger install ghcr.io/alexgoller/plugger-traffic-reporter:latest</code>
+        </div>
+    </div>
+
+    <!-- Policy Diff -->
+    <div class="card bg-dark-800 rounded-xl border border-gray-700 overflow-hidden fade-in fade-in-3" data-mode="daemon" data-ui="true">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">Policy Diff</h3>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">policy-diff</p>
+                </div>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-4">Git-like policy change tracker. Field-level diffs, change history with snapshots, user attribution from audit events, and timeline visualization.</p>
+            <div class="flex flex-wrap gap-1.5 mb-4">
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Python</span>
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Illumio SDK</span>
+                <span class="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">Web UI</span>
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Chart.js</span>
+            </div>
+        </div>
+        <div class="border-t border-gray-700/50 px-6 py-3 bg-dark-700/20">
+            <code class="text-xs text-gray-500 break-all select-all">plugger install ghcr.io/alexgoller/plugger-policy-diff:latest</code>
+        </div>
+    </div>
+
+    <!-- PCE Posture Report -->
+    <div class="card bg-dark-800 rounded-xl border border-gray-700 overflow-hidden fade-in fade-in-4" data-mode="cron" data-ui="false">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">PCE Posture Report</h3>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">pce-posture-report</p>
+                </div>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-blue-900/50 text-blue-400">cron</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-4">Security posture scoring. Analyzes enforcement coverage, label coverage, policy rules, and managed workloads. Generates HTML + JSON reports on a schedule.</p>
+            <div class="flex flex-wrap gap-1.5 mb-4">
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Python</span>
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Illumio SDK</span>
+                <span class="text-xs bg-yellow-900/30 text-yellow-400 px-2 py-0.5 rounded">0 */6 * * *</span>
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">HTML Report</span>
+            </div>
+        </div>
+        <div class="border-t border-gray-700/50 px-6 py-3 bg-dark-700/20">
+            <code class="text-xs text-gray-500 break-all select-all">plugger install ghcr.io/alexgoller/plugger-pce-posture-report:latest</code>
+        </div>
+    </div>
+
+    <!-- PCE Events -->
+    <div class="card bg-dark-800 rounded-xl border border-gray-700 overflow-hidden fade-in fade-in-5" data-mode="daemon" data-ui="true">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">PCE Events</h3>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">pce-events</p>
+                </div>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-4">Real-time PCE event monitoring. 15+ output plugins: Slack, Teams, PagerDuty, Email, webhooks, Jira, ServiceNow, and more. Built on Pretty Cool Events.</p>
+            <div class="flex flex-wrap gap-1.5 mb-4">
+                <span class="text-xs bg-dark-700 text-gray-400 px-2 py-0.5 rounded">Python</span>
+                <span class="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">Web UI</span>
+                <span class="text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">Slack</span>
+                <span class="text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">Teams</span>
+                <span class="text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">PagerDuty</span>
+            </div>
+        </div>
+        <div class="border-t border-gray-700/50 px-6 py-3 bg-dark-700/20">
+            <code class="text-xs text-gray-500 break-all select-all">plugger install ghcr.io/alexgoller/plugger-pce-events:latest</code>
+        </div>
+    </div>
+
+</div>
+
+<!-- Build Your Own -->
+<div class="bg-dark-800 rounded-xl border border-gray-700 p-8 mb-16 text-center fade-in">
+    <h2 class="text-xl font-bold text-white mb-2">Build Your Own Plugin</h2>
+    <p class="text-gray-400 text-sm mb-6 max-w-lg mx-auto">Scaffold a new plugin in Go, Shell, or Python with the Illumio SDK pre-configured. Your plugin runs as a Docker container with automatic credential injection.</p>
+    <div class="flex flex-wrap gap-3 justify-center">
+        <code class="bg-dark-700 rounded-lg px-4 py-2 text-sm font-mono text-green-300">plugger create my-plugin -t go</code>
+        <code class="bg-dark-700 rounded-lg px-4 py-2 text-sm font-mono text-yellow-300">plugger create my-plugin -t shell</code>
+        <code class="bg-dark-700 rounded-lg px-4 py-2 text-sm font-mono text-blue-300">plugger create my-plugin -t python</code>
+    </div>
+    <p class="text-gray-500 text-xs mt-4">
+        <a href="https://github.com/alexgoller/illumio-plugger/blob/main/docs/plugin-development.md" class="text-blue-400 hover:text-blue-300">Plugin Development Guide &rarr;</a>
+    </p>
+</div>
+
+<!-- Footer -->
+<div class="text-center text-xs text-gray-600 pb-8">
+    <a href="https://github.com/alexgoller/illumio-plugger" class="text-gray-500 hover:text-gray-400">alexgoller/illumio-plugger</a>
+    &middot; <a href="https://github.com/alexgoller/illumio-plugger/blob/main/docs/getting-started.md" class="text-gray-500 hover:text-gray-400">Docs</a>
+    &middot; <a href="https://github.com/alexgoller/illumio-plugger/blob/main/docs/cli-reference.md" class="text-gray-500 hover:text-gray-400">CLI Reference</a>
+</div>
+</div>
+
+<script>
+function filter(mode) {
+    document.querySelectorAll('#plugins > div').forEach(card => {
+        if (mode === 'all') { card.style.display = ''; }
+        else if (mode === 'ui') { card.style.display = card.dataset.ui === 'true' ? '' : 'none'; }
+        else { card.style.display = card.dataset.mode === mode ? '' : 'none'; }
+    });
+    document.querySelectorAll('[id^="f-"]').forEach(btn => {
+        btn.className = btn.id === 'f-'+mode
+            ? 'px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white transition-colors'
+            : 'px-3 py-1.5 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white transition-colors';
+    });
+}
+</script>
+</body>
+</html>
