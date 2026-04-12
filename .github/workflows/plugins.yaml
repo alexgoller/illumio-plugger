@@ -1,0 +1,67 @@
+name: Build Plugin Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pce-health-monitor/**'
+      - 'traffic-reporter/**'
+      - 'policy-diff/**'
+      - 'pce-posture-report/**'
+      - 'pce-events/**'
+      - '.github/workflows/plugins.yaml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: ${{ github.repository_owner }}
+
+jobs:
+  build-plugins:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        plugin:
+          - name: pce-health-monitor
+            context: pce-health-monitor
+          - name: traffic-reporter
+            context: traffic-reporter
+          - name: policy-diff
+            context: policy-diff
+          - name: pce-posture-report
+            context: pce-posture-report
+          - name: pce-events
+            context: pce-events
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.plugin.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.plugin.context }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/plugger-${{ matrix.plugin.name }}:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/plugger-${{ matrix.plugin.name }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.description=Plugger plugin: ${{ matrix.plugin.name }}
