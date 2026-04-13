@@ -50,6 +50,18 @@ const pluggerProxyScript = `<script data-plugger-proxy>
         return _xhrOpen.apply(this, arguments);
     };
 
+    // Patch EventSource (SSE)
+    if (window.EventSource) {
+        var _ES = window.EventSource;
+        window.EventSource = function(url, opts) {
+            return new _ES(rewrite(url), opts);
+        };
+        window.EventSource.prototype = _ES.prototype;
+        Object.defineProperty(window.EventSource, 'CONNECTING', {value: 0});
+        Object.defineProperty(window.EventSource, 'OPEN', {value: 1});
+        Object.defineProperty(window.EventSource, 'CLOSED', {value: 2});
+    }
+
     // Patch WebSocket
     if (window.WebSocket) {
         var _WS = window.WebSocket;
