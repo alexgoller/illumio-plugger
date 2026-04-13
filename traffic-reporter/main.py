@@ -36,6 +36,7 @@ traffic_state = {
     "top_services": [],
     "blocked_flows": [],
     "policy_decisions": {},
+    "sankey_links": [],
     "error": None,
 }
 
@@ -94,6 +95,9 @@ def poll_traffic(pce):
         svc_counter = Counter()
         decisions = Counter()
         blocked = []
+        # Sankey: source→service and service→destination links
+        src_svc_links = Counter()  # (src, svc) -> connections
+        svc_dst_links = Counter()  # (svc, dst) -> connections
 
         for flow in flows:
             src = flow.get("src", {})
@@ -116,6 +120,8 @@ def poll_traffic(pce):
             src_counter[src_name] += num_connections
             dst_counter[dst_name] += num_connections
             svc_counter[svc_name] += num_connections
+            src_svc_links[(src_name, svc_name)] += num_connections
+            svc_dst_links[(svc_name, dst_name)] += num_connections
 
             decision = flow.get("policy_decision", "unknown")
             decisions[decision] += num_connections
@@ -138,6 +144,13 @@ def poll_traffic(pce):
             traffic_state["top_services"] = svc_counter.most_common(20)
             traffic_state["blocked_flows"] = sorted(blocked, key=lambda x: x["connections"], reverse=True)[:50]
             traffic_state["policy_decisions"] = dict(decisions)
+            # Sankey links: top source→service and service→destination
+            sankey = []
+            for (src, svc), count in src_svc_links.most_common(30):
+                sankey.append({"from": src, "to": svc, "flow": count})
+            for (svc, dst), count in svc_dst_links.most_common(30):
+                sankey.append({"from": svc, "to": dst + " ", "flow": count})  # space suffix to disambiguate dst from src nodes
+            traffic_state["sankey_links"] = sankey
             traffic_state["error"] = None
 
         log.info("Poll #%d: %d flows, %d blocked",
@@ -164,6 +177,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <title>Traffic Reporter</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.12.1/dist/chartjs-chart-sankey.min.js"></script>
 <script>
 tailwind.config = {
     darkMode: 'class',
@@ -220,6 +234,13 @@ tailwind.config = {
             <div class="text-4xl font-bold text-yellow-400" id="stat-unknown">—</div>
             <div class="text-sm text-gray-500 mt-2">Unknown Decision</div>
         </div>
+    </div>
+
+    <!-- Sankey: Traffic Flow Diagram -->
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-6 mb-8 fade-in">
+        <h2 class="text-lg font-semibold text-white mb-2">Traffic Flow</h2>
+        <p class="text-xs text-gray-500 mb-4">Source &rarr; Service &rarr; Destination (top 30 flows by connection count)</p>
+        <div style="height:450px;"><canvas id="chart-sankey"></canvas></div>
     </div>
 
     <!-- Charts Row 1: Policy Decisions + Top Services -->
@@ -317,7 +338,7 @@ const CHART_DEFAULTS = {
     }
 };
 
-let chartDecisions, chartServices, chartSources, chartDestinations;
+let chartDecisions, chartServices, chartSources, chartDestinations, chartSankey;
 
 function formatNum(n) {
     if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
@@ -384,6 +405,33 @@ function initCharts() {
         data: { labels: [], datasets: [{ data: [], backgroundColor: '#f9a8d433', borderColor: '#f9a8d4', borderWidth: 1, borderRadius: 4 }] },
         options: barOpts
     });
+
+    chartSankey = new Chart(document.getElementById('chart-sankey'), {
+        type: 'sankey',
+        data: { datasets: [{ data: [], colorFrom: '#a78bfa', colorTo: '#22d3ee', colorMode: 'gradient', labels: {}, priority: {}, size: 'max' }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e1e2e',
+                    borderColor: '#313244',
+                    borderWidth: 1,
+                    titleColor: '#cdd6f4',
+                    bodyColor: '#a6adc8',
+                    padding: 12,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(ctx) {
+                            const d = ctx.dataset.data[ctx.dataIndex];
+                            return d.from + ' → ' + d.to.trim() + ': ' + formatNum(d.flow);
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 function updateDashboard(data) {
@@ -445,6 +493,21 @@ function updateDashboard(data) {
     chartDestinations.data.labels = dst.map(s => truncate(s[0], 30));
     chartDestinations.data.datasets[0].data = dst.map(s => s[1]);
     chartDestinations.update('none');
+
+    // Sankey
+    const sankeyData = (data.sankey_links || []);
+    if (sankeyData.length > 0) {
+        // Build color map based on node type
+        const colorMap = {};
+        sankeyData.forEach(d => {
+            if (!colorMap[d.from]) colorMap[d.from] = d.from.match(/^\d+\//) ? '#93c5fd' : '#a78bfa';
+            if (!colorMap[d.to]) colorMap[d.to] = d.to.match(/^\d+\//) ? '#93c5fd' : '#f9a8d4';
+        });
+        chartSankey.data.datasets[0].data = sankeyData;
+        chartSankey.data.datasets[0].colorFrom = (c) => colorMap[c.dataset.data[c.dataIndex].from] || '#a78bfa';
+        chartSankey.data.datasets[0].colorTo = (c) => colorMap[c.dataset.data[c.dataIndex].to] || '#22d3ee';
+        chartSankey.update('none');
+    }
 
     // Blocked table
     const blockedFlows = data.blocked_flows || [];
