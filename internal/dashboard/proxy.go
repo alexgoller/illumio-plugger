@@ -142,13 +142,19 @@ func (h *Handler) handlePluginProxy(w http.ResponseWriter, r *http.Request) {
 
 	target, _ := url.Parse(fmt.Sprintf("http://localhost:%d", hostPort))
 	proxy := &httputil.ReverseProxy{
+		// Flush immediately for streaming responses (SSE, chunked)
+		FlushInterval: -1,
 		Director: func(req *http.Request) {
 			req.URL.Scheme = target.Scheme
 			req.URL.Host = target.Host
 			req.URL.Path = targetPath
 			req.URL.RawQuery = r.URL.RawQuery
 			req.Host = target.Host
-			req.Header.Del("Accept-Encoding")
+			// Only strip Accept-Encoding for HTML pages (need to rewrite body).
+			// Leave it for SSE/API/binary responses so streaming works.
+			if r.Header.Get("Accept") == "" || strings.Contains(r.Header.Get("Accept"), "text/html") {
+				req.Header.Del("Accept-Encoding")
+			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			// Rewrite Location headers for redirects
@@ -159,6 +165,14 @@ func (h *Handler) handlePluginProxy(w http.ResponseWriter, r *http.Request) {
 			}
 
 			ct := resp.Header.Get("Content-Type")
+
+			// Don't buffer streaming responses (SSE, chunked)
+			if strings.Contains(ct, "text/event-stream") {
+				resp.Header.Set("X-Accel-Buffering", "no")
+				resp.Header.Set("Cache-Control", "no-cache")
+				return nil
+			}
+
 			if !strings.Contains(ct, "text/html") {
 				return nil
 			}
