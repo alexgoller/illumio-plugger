@@ -55,8 +55,31 @@ def get_pce():
     return pce
 
 
+label_cache = {}  # href -> {"key": "app", "value": "erp"}
+
+
+def fetch_labels(pce):
+    """Fetch all labels from PCE and build href→key/value cache."""
+    global label_cache
+    try:
+        resp = pce.get("/labels")
+        if resp.status_code == 200:
+            labels = resp.json()
+            for lbl in labels:
+                href = lbl.get("href", "")
+                if href:
+                    label_cache[href] = {"key": lbl.get("key", ""), "value": lbl.get("value", "")}
+            log.info("Loaded %d labels into cache", len(label_cache))
+    except Exception as e:
+        log.warning("Failed to fetch labels: %s", e)
+
+
 def poll_traffic(pce):
     """Poll traffic analysis from PCE and update state."""
+    # Refresh label cache if empty
+    if not label_cache:
+        fetch_labels(pce)
+
     lookback_hours = int(os.environ.get("LOOKBACK_HOURS", "24"))
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=lookback_hours)
@@ -99,6 +122,31 @@ def poll_traffic(pce):
         src_svc_links = Counter()  # (src, svc) -> connections
         svc_dst_links = Counter()  # (svc, dst) -> connections
 
+        def extract_label_group(endpoint):
+            """Extract app|env label tuple from a flow endpoint using label cache."""
+            if not isinstance(endpoint, dict):
+                return None
+            labels = endpoint.get("labels", [])
+            if not labels:
+                wl = endpoint.get("workload", {}) or {}
+                labels = wl.get("labels", [])
+            if not labels:
+                return None
+            label_map = {}
+            for lbl in labels:
+                if isinstance(lbl, dict):
+                    href = lbl.get("href", "")
+                    if href and href in label_cache:
+                        cached = label_cache[href]
+                        label_map[cached["key"]] = cached["value"]
+                    elif lbl.get("key") and lbl.get("value"):
+                        label_map[lbl["key"]] = lbl["value"]
+            app = label_map.get("app", "")
+            env = label_map.get("env", "")
+            if app or env:
+                return f"{app}|{env}" if app and env else (app or env)
+            return None
+
         for flow in flows:
             src = flow.get("src", {})
             dst = flow.get("dst", {})
@@ -111,6 +159,10 @@ def poll_traffic(pce):
             if isinstance(dst, dict):
                 dst_name = (dst.get("workload", {}) or {}).get("hostname", "") or dst.get("ip", "unknown")
 
+            # Label-based grouping for Sankey
+            src_group = extract_label_group(src) or src_name
+            dst_group = extract_label_group(dst) or dst_name
+
             port = service.get("port", "?") if isinstance(service, dict) else "?"
             proto = service.get("proto", "?") if isinstance(service, dict) else "?"
             svc_name = f"{port}/{proto}"
@@ -120,8 +172,8 @@ def poll_traffic(pce):
             src_counter[src_name] += num_connections
             dst_counter[dst_name] += num_connections
             svc_counter[svc_name] += num_connections
-            src_svc_links[(src_name, svc_name)] += num_connections
-            svc_dst_links[(svc_name, dst_name)] += num_connections
+            src_svc_links[(src_group, svc_name)] += num_connections
+            svc_dst_links[(svc_name, dst_group)] += num_connections
 
             decision = flow.get("policy_decision", "unknown")
             decisions[decision] += num_connections
@@ -597,6 +649,8 @@ def main():
 
     pce = get_pce()
     log.info("Connected to PCE: %s", pce.base_url)
+
+    fetch_labels(pce)
 
     poller = threading.Thread(target=poller_loop, args=(pce,), daemon=True)
     poller.start()
