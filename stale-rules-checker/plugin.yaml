@@ -1,6 +1,6 @@
 apiVersion: plugger/v1
 name: stale-rules-checker
-version: 0.1.0
+version: 0.2.0
 image: stale-rules-checker:latest
 
 schedule:
@@ -19,6 +19,19 @@ env:
   - name: PCE_TLS_SKIP_VERIFY
     required: false
     default: "true"
+  - name: AI_PROVIDER
+    required: false
+    default: ""
+  - name: AI_API_KEY
+    required: false
+    default: ""
+    secret: true
+  - name: AI_MODEL
+    required: false
+    default: ""
+  - name: AI_BASE_URL
+    required: false
+    default: ""
 
 health:
   endpoint: /healthz

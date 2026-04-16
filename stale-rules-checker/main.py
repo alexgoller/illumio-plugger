@@ -503,7 +503,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
     <div class="flex gap-6 border-b border-gray-700 mb-6">
         <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-active cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Suggested Rules</button>
-        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Auto-Suggest Rules</button>
+        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">AI Suggested Rules</button>
         <button onclick="showTab('stale')" id="tab-stale" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Stale Rules</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
     </div>
@@ -566,7 +566,7 @@ function update(data) {
     document.getElementById('stats').innerHTML = `
         <div class="bg-dark-800 rounded-xl border border-red-900/30 p-5 fade-in"><div class="text-3xl font-bold text-red-400">${formatNum(bs.total_blocked_connections||0)}</div><div class="text-xs text-gray-500 mt-1">Blocked Connections</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in"><div class="text-3xl font-bold text-orange-400">${bs.unique_pairs||0}</div><div class="text-xs text-gray-500 mt-1">Blocked App|Env Pairs</div></div>
-        <div class="bg-dark-800 rounded-xl border border-emerald-900/30 p-5 fade-in"><div class="text-3xl font-bold text-emerald-400">${(data.auto_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">Auto-Suggest Rules</div></div>
+        <div class="bg-dark-800 rounded-xl border border-emerald-900/30 p-5 fade-in"><div class="text-3xl font-bold text-emerald-400">${(data.auto_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">AI Suggested Rules</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in"><div class="text-3xl font-bold text-gray-400">${(data.stale_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">Stale/Disabled Rules</div></div>
     `;
 
@@ -617,40 +617,67 @@ function update(data) {
         `).join('')}</div>
     ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Suggestions</div><div class="text-gray-500 mt-2">No high-volume blocked traffic patterns detected.</div></div>';
 
-    // Auto-suggest rules (intra app|env)
+    // AI Suggested rules (intra app|env)
     const autoRules = data.auto_rules || [];
+    const analyses = data.ai_analyses || {};
+    const aiEnabled = data.ai_config && data.ai_config.enabled;
     document.getElementById('panel-auto').innerHTML = autoRules.length ? `
-        <div class="space-y-4">${autoRules.map((r, i) => `
-            <div class="bg-dark-800 rounded-xl border border-emerald-900/30 p-5">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <h2 class="text-lg font-semibold text-white">AI Suggested Rules</h2>
+                ${aiEnabled ? `<span class="text-xs bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded">AI: ${data.ai_config.provider} / ${data.ai_config.model}</span>` : '<span class="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded">AI not configured</span>'}
+            </div>
+            ${aiEnabled ? `<button onclick="analyzeAll()" class="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">Analyze All with AI</button>` : ''}
+        </div>
+        <div class="space-y-4">${autoRules.map((r, i) => {
+            const a = analyses[String(i)] || {};
+            const hasAI = a.recommendation;
+            const provisioned = a.provisioned;
+            const recColor = a.recommendation === 'approve' ? 'emerald' : a.recommendation === 'reject' ? 'red' : 'yellow';
+            const riskColor = a.risk_level === 'low' ? 'emerald' : a.risk_level === 'high' ? 'red' : 'yellow';
+            return `
+            <div class="bg-dark-800 rounded-xl border ${hasAI ? (a.recommendation === 'approve' ? 'border-emerald-900/50' : a.recommendation === 'reject' ? 'border-red-900/50' : 'border-yellow-900/50') : 'border-gray-700'} p-5" id="rule-card-${i}">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-3">
                         <span class="px-2.5 py-1 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-400">${r.app_env}</span>
                         <span class="text-gray-400 text-sm">Intra-scope rule</span>
+                        ${hasAI ? `<span class="px-2 py-0.5 rounded text-xs font-medium bg-${recColor}-900/50 text-${recColor}-400">AI: ${a.recommendation.toUpperCase()}</span>` : ''}
+                        ${hasAI ? `<span class="px-2 py-0.5 rounded text-xs bg-${riskColor}-900/30 text-${riskColor}-400">Risk: ${a.risk_level}</span>` : ''}
+                        ${provisioned && provisioned.success ? '<span class="px-2 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">Provisioned to Draft</span>' : ''}
                     </div>
                     <div class="flex items-center gap-3 text-xs text-gray-500">
-                        <span>${formatNum(r.total_connections)} blocked connections</span>
+                        <span>${formatNum(r.total_connections)} blocked</span>
                         <span>${r.host_count} hosts</span>
+                        ${hasAI && a.confidence ? `<span>Confidence: ${Math.round(a.confidence * 100)}%</span>` : ''}
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-1.5 mb-3">
                     ${r.services.map(s => `<span class="text-xs px-2 py-0.5 rounded ${s.name ? 'bg-blue-900/30 text-blue-300' : 'bg-dark-700 text-gray-400'}">${s.name || s.port+'/'+s.proto} <span class="text-gray-500">(${formatNum(s.connections)})</span></span>`).join('')}
                 </div>
-                <details class="group">
-                    <summary class="text-xs text-blue-400 cursor-pointer hover:text-blue-300">Show ruleset JSON (ready to provision)</summary>
-                    <div class="mt-2 bg-dark-900 rounded-lg p-3 overflow-x-auto">
-                        <pre class="text-xs text-gray-300 font-mono whitespace-pre">${JSON.stringify(r.ruleset_json, null, 2)}</pre>
-                    </div>
-                    <div class="mt-2 flex gap-2">
-                        <button onclick="navigator.clipboard.writeText(JSON.stringify(autoRules[${i}].ruleset_json, null, 2));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy JSON',2000)"
-                            class="px-3 py-1 text-xs rounded bg-dark-700 text-gray-300 hover:bg-dark-700/80 transition-colors">Copy JSON</button>
-                    </div>
-                </details>
-            </div>
-        `).join('')}</div>
+                ${hasAI ? `
+                <div class="bg-dark-700/30 rounded-lg p-3 mb-3 border-l-2 border-${recColor}-500">
+                    <div class="text-sm text-gray-300 mb-1">${a.reasoning}</div>
+                    ${a.suggested_modifications ? `<div class="text-xs text-${recColor}-400 mt-1">Suggestion: ${a.suggested_modifications}</div>` : ''}
+                </div>` : ''}
+                <div class="flex items-center gap-2">
+                    ${aiEnabled && !hasAI ? `<button onclick="analyzeRule(${i})" id="ai-btn-${i}" class="px-3 py-1.5 text-xs rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white transition-colors flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        AI Analyze</button>` : ''}
+                    ${!provisioned || !provisioned.success ? `<button onclick="provisionRule(${i})" id="prov-btn-${i}" class="px-3 py-1.5 text-xs rounded-lg bg-blue-700 hover:bg-blue-600 text-white transition-colors">Provision to Draft</button>` : ''}
+                    <button onclick="toggleJSON(${i})" class="px-3 py-1.5 text-xs rounded-lg bg-dark-700 text-gray-300 hover:bg-dark-700/80 transition-colors">Show JSON</button>
+                    <button onclick="navigator.clipboard.writeText(JSON.stringify(autoRules[${i}].ruleset_json,null,2));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)" class="px-3 py-1.5 text-xs rounded-lg bg-dark-700 text-gray-300 hover:bg-dark-700/80 transition-colors">Copy</button>
+                </div>
+                <div id="json-${i}" style="display:none;" class="mt-3 bg-dark-900 rounded-lg p-3 overflow-x-auto">
+                    <pre class="text-xs text-gray-300 font-mono whitespace-pre">${JSON.stringify(r.ruleset_json, null, 2)}</pre>
+                </div>
+                ${provisioned && !provisioned.success ? `<div class="mt-2 text-xs text-red-400">Provision failed: ${provisioned.error}</div>` : ''}
+            </div>`;
+        }).join('')}</div>
         <div class="mt-4 p-4 bg-dark-800 rounded-xl border border-gray-700">
-            <p class="text-xs text-gray-500">These rules allow all workloads within the same app|env scope to communicate on the observed blocked ports. Review before provisioning — you may want to restrict to specific roles.</p>
+            <p class="text-xs text-gray-500">AI Suggested rules allow workloads within the same app|env scope to communicate on observed blocked ports. "Provision to Draft" creates the ruleset in PCE draft policy — you must still provision from the PCE to activate.</p>
         </div>
-    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Auto-Suggestions</div><div class="text-gray-500 mt-2">No intra-app|env blocked traffic detected.</div></div>';
+    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No AI Suggestions</div><div class="text-gray-500 mt-2">No intra-app|env blocked traffic detected.</div></div>';
 
     // Stale rules
     const stale = data.stale_rules || [];
@@ -681,7 +708,57 @@ function update(data) {
 }
 
 async function fetchData() {
-    try { update(await (await fetch(BASE + '/api/report')).json()); } catch(e) { console.error(e); }
+    try { const d = await (await fetch(BASE + '/api/report')).json(); window._lastData = d; update(d); } catch(e) { console.error(e); }
+}
+
+function toggleJSON(i) {
+    const el = document.getElementById('json-'+i);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function analyzeRule(index) {
+    const btn = document.getElementById('ai-btn-'+index);
+    if (btn) { btn.textContent = 'Analyzing...'; btn.disabled = true; }
+    try {
+        const resp = await fetch(BASE + '/api/ai/analyze', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({index: index})
+        });
+        const result = await resp.json();
+        if (result.error) { alert('AI Error: ' + result.error); return; }
+        await fetchData(); // refresh to show result
+    } catch(e) { alert('AI request failed: ' + e); }
+    finally { if (btn) { btn.textContent = 'AI Analyze'; btn.disabled = false; } }
+}
+
+async function analyzeAll() {
+    const rules = (window._lastData || {}).auto_rules || [];
+    for (let i = 0; i < rules.length; i++) {
+        const a = (window._lastData.ai_analyses || {})[String(i)];
+        if (!a || !a.recommendation) {
+            await analyzeRule(i);
+            await new Promise(r => setTimeout(r, 500)); // small delay between calls
+        }
+    }
+}
+
+async function provisionRule(index) {
+    const btn = document.getElementById('prov-btn-'+index);
+    if (!confirm('Provision this AI Suggested rule to PCE draft policy?')) return;
+    if (btn) { btn.textContent = 'Provisioning...'; btn.disabled = true; }
+    try {
+        const resp = await fetch(BASE + '/api/provision/' + index, {
+            method: 'POST', headers: {'Content-Type':'application/json'}
+        });
+        const result = await resp.json();
+        if (result.success) {
+            alert('Provisioned to draft: ' + result.name);
+        } else {
+            alert('Provision failed: ' + result.error);
+        }
+        await fetchData();
+    } catch(e) { alert('Provision failed: ' + e); }
+    finally { if (btn) { btn.textContent = 'Provision to Draft'; btn.disabled = false; } }
 }
 
 initCharts();
@@ -692,13 +769,46 @@ setInterval(fetchData, 30000);
 </body></html>"""
 
 
+# ============================================================
+# AI Advisor + Provisioning
+# ============================================================
+
+ai_advisor = None
+pce_client = None
+ai_analyses = {}  # index -> analysis result
+
+
+def provision_rule(pce, ruleset_json):
+    """Provision a ruleset to PCE draft policy."""
+    try:
+        # POST to create draft ruleset
+        resp = pce.post("/sec_policy/draft/rule_sets", json=ruleset_json)
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            href = result.get("href", "")
+            log.info("Provisioned ruleset to draft: %s", href)
+            return {"success": True, "href": href, "name": ruleset_json.get("name", "")}
+        else:
+            error = resp.text[:200]
+            log.error("Provision failed: HTTP %d: %s", resp.status_code, error)
+            return {"success": False, "error": f"HTTP {resp.status_code}: {error}"}
+    except Exception as e:
+        log.error("Provision error: %s", e)
+        return {"success": False, "error": str(e)}
+
+
 class ReportHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/healthz":
             self.send_json(200, {"status": "healthy"})
         elif self.path == "/api/report":
             with state_lock:
-                self.send_json(200, dict(report_state))
+                data = dict(report_state)
+            data["ai_analyses"] = ai_analyses
+            data["ai_config"] = ai_advisor.get_config() if ai_advisor else {"enabled": False}
+            self.send_json(200, data)
+        elif self.path == "/api/ai/config":
+            self.send_json(200, ai_advisor.get_config() if ai_advisor else {"enabled": False})
         elif self.path == "/":
             body = DASHBOARD_HTML.encode()
             self.send_response(200)
@@ -708,10 +818,83 @@ class ReportHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length > 0 else b""
+
+        if self.path == "/api/ai/analyze":
+            self.handle_ai_analyze(body)
+        elif self.path.startswith("/api/provision/"):
+            self.handle_provision(body)
+        else:
+            self.send_error(404)
+
+    def handle_ai_analyze(self, body):
+        """AI-analyze a specific auto-rule by index."""
+        try:
+            req = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            self.send_json(400, {"error": "Invalid JSON"})
+            return
+
+        index = req.get("index", -1)
+        with state_lock:
+            auto_rules = report_state.get("auto_rules", [])
+
+        if index < 0 or index >= len(auto_rules):
+            self.send_json(400, {"error": f"Invalid index {index}"})
+            return
+
+        if not ai_advisor or not ai_advisor.is_enabled():
+            self.send_json(400, {"error": "AI not configured. Set AI_PROVIDER and AI_API_KEY environment variables."})
+            return
+
+        rule = auto_rules[index]
+        lookback = report_state.get("blocked_summary", {}).get("lookback_hours", 24)
+
+        log.info("AI analyzing: %s (%d connections)", rule["app_env"], rule["total_connections"])
+        result = ai_advisor.analyze(rule, lookback_hours=lookback)
+        ai_analyses[str(index)] = result
+
+        self.send_json(200, result)
+
+    def handle_provision(self, body):
+        """Provision an auto-rule to PCE draft."""
+        try:
+            index = int(self.path.split("/")[-1])
+        except ValueError:
+            self.send_json(400, {"error": "Invalid index"})
+            return
+
+        with state_lock:
+            auto_rules = report_state.get("auto_rules", [])
+
+        if index < 0 or index >= len(auto_rules):
+            self.send_json(400, {"error": f"Invalid index {index}"})
+            return
+
+        rule = auto_rules[index]
+        ruleset_json = rule.get("ruleset_json", {})
+
+        if not ruleset_json:
+            self.send_json(400, {"error": "No ruleset JSON available"})
+            return
+
+        log.info("Provisioning to draft: %s", ruleset_json.get("name", ""))
+        result = provision_rule(pce_client, ruleset_json)
+
+        # Store provision status in analysis
+        if str(index) not in ai_analyses:
+            ai_analyses[str(index)] = {}
+        ai_analyses[str(index)]["provisioned"] = result
+
+        self.send_json(200, result)
+
     def send_json(self, code, data):
         body = json.dumps(data, indent=2, default=str).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
 
@@ -720,15 +903,21 @@ class ReportHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    global ai_advisor, pce_client
+
     log.info("Starting stale-rules-checker...")
     port = int(os.environ.get("HTTP_PORT", "8080"))
 
-    pce = get_pce()
-    log.info("Connected to PCE: %s", pce.base_url)
+    pce_client = get_pce()
+    log.info("Connected to PCE: %s", pce_client.base_url)
 
-    poller = threading.Thread(target=poller_loop, args=(pce,), daemon=True)
+    # Initialize AI advisor
+    from ai_advisor import AIAdvisor
+    ai_advisor = AIAdvisor()
+
+    poller = threading.Thread(target=poller_loop, args=(pce_client,), daemon=True)
     poller.start()
-    run_check(pce)
+    run_check(pce_client)
 
     server = HTTPServer(("0.0.0.0", port), ReportHandler)
     log.info("Dashboard on http://0.0.0.0:%d", port)

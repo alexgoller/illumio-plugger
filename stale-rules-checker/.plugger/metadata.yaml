@@ -4,7 +4,7 @@ ports:
   - port: 8080
     protocol: tcp
     name: dashboard
-    description: Blocked traffic analysis and rule gap detection
+    description: AI-powered blocked traffic analysis, rule suggestions, and auto-provisioning
     type: ui
     path: /
 
@@ -29,9 +29,33 @@ config:
     required: false
     type: bool
     default: "true"
+  - name: AI_PROVIDER
+    description: LLM provider for AI Suggested analysis (anthropic, openai, ollama)
+    required: false
+    type: string
+    default: ""
+  - name: AI_API_KEY
+    description: API key for the LLM provider
+    required: false
+    type: secret
+  - name: AI_MODEL
+    description: Model to use (e.g. claude-sonnet-4-20250514, gpt-4o, llama3)
+    required: false
+    type: string
+    default: ""
+  - name: AI_BASE_URL
+    description: Base URL for Ollama or custom API endpoints
+    required: false
+    type: string
+    default: ""
+
+volumes:
+  - path: /data
+    description: Report output directory
+    required: false
 
 info:
   title: Stale Rules Checker
-  description: Finds blocked traffic grouped by app|env, detects disabled/empty rulesets, and suggests missing rules based on traffic patterns
+  description: AI-powered blocked traffic analysis — finds rule gaps, suggests policies with LLM reasoning, and provisions to PCE draft with one click
   author: Illumio
   license: Apache-2.0
