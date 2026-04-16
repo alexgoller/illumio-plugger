@@ -1,0 +1,37 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Blocked traffic analysis and rule gap detection
+    type: ui
+    path: /
+
+config:
+  - name: POLL_INTERVAL
+    description: Seconds between analysis runs
+    required: false
+    type: int
+    default: "300"
+  - name: LOOKBACK_HOURS
+    description: Hours of traffic to analyze
+    required: false
+    type: int
+    default: "24"
+  - name: MAX_RESULTS
+    description: Maximum flows to query
+    required: false
+    type: int
+    default: "10000"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+info:
+  title: Stale Rules Checker
+  description: Finds blocked traffic grouped by app|env, detects disabled/empty rulesets, and suggests missing rules based on traffic patterns
+  author: Illumio
+  license: Apache-2.0
