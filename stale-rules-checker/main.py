@@ -40,9 +40,9 @@ report_state = {
     "blocked_summary": {},     # total blocked connections, unique pairs, etc.
     # Stale rules (active rules with no traffic)
     "stale_rules": [],         # [{ruleset, rule, scopes, services, reason}]
+    "suggested_rules": [],     # high-volume blocked pairs
+    "auto_rules": [],          # PCE-ready rule JSON for intra-app|env
     "stale_summary": {},
-    # All observed app|env pairs with traffic
-    "active_pairs": [],        # [{pair, connections, services}]
     # Label cache
     "label_count": 0,
 }
@@ -271,11 +271,149 @@ def find_stale_rules(pce, blocked_pairs):
                 "severity": "high",
             })
 
-    return stale, suggested_rules, {
+    # Build auto-suggest rules for intra-app|env blocked traffic
+    auto_rules = build_auto_suggestions(pce, blocked_pairs)
+
+    return stale, suggested_rules, auto_rules, {
         "stale_rulesets": len([s for s in stale if "Ruleset" in s.get("reason", "")]),
         "disabled_rules": len([s for s in stale if "disabled" in s.get("reason", "").lower()]),
         "suggested_rules": len(suggested_rules),
+        "auto_rules": len(auto_rules),
     }
+
+
+# Proto number to name mapping
+PROTO_MAP = {"6": "tcp", "17": "udp"}
+
+
+def build_auto_suggestions(pce, blocked_pairs):
+    """Build PCE-ready rule suggestions for same app|env blocked pairs."""
+    # Resolve label values to hrefs for rule building
+    value_to_href = {}
+    for href, info in label_cache.items():
+        key_val = (info["key"], info["value"])
+        value_to_href[key_val] = href
+
+    # Fetch existing services to match port/proto
+    svc_by_port = {}
+    try:
+        resp = pce.get("/sec_policy/active/services")
+        if resp.status_code == 200:
+            for svc in resp.json():
+                if isinstance(svc, dict):
+                    for sp in svc.get("service_ports", []):
+                        if isinstance(sp, dict):
+                            port = sp.get("port")
+                            proto = sp.get("proto")
+                            if port and proto:
+                                svc_by_port[(port, proto)] = {
+                                    "href": svc.get("href", ""),
+                                    "name": svc.get("name", ""),
+                                }
+    except Exception:
+        pass
+
+    auto_rules = []
+
+    for pair in blocked_pairs:
+        src_g = pair["src_group"]
+        dst_g = pair["dst_group"]
+
+        # Only auto-suggest for same app|env (intra-scope)
+        if src_g != dst_g:
+            continue
+
+        if pair["total_connections"] < 10:
+            continue
+
+        # Parse the app|env tuple
+        parts = src_g.split("|")
+        if len(parts) != 2:
+            continue
+        app_val, env_val = parts[0], parts[1]
+
+        app_href = value_to_href.get(("app", app_val), "")
+        env_href = value_to_href.get(("env", env_val), "")
+
+        if not app_href or not env_href:
+            continue
+
+        # Build service list from blocked traffic
+        rule_services = []
+        for svc_str, count in pair["services"]:
+            try:
+                port_s, proto_s = svc_str.split("/")
+                port = int(port_s)
+                proto = int(proto_s)
+                proto_name = PROTO_MAP.get(str(proto), str(proto))
+
+                # Check if a named service exists
+                existing = svc_by_port.get((port, proto))
+                if existing:
+                    rule_services.append({
+                        "href": existing["href"],
+                        "name": existing["name"],
+                        "port": port,
+                        "proto": proto_name,
+                        "connections": count,
+                    })
+                else:
+                    rule_services.append({
+                        "port": port,
+                        "proto": proto_name,
+                        "connections": count,
+                    })
+            except (ValueError, IndexError):
+                continue
+
+        if not rule_services:
+            continue
+
+        # Build the PCE-compatible rule JSON
+        scope_labels = [{"href": app_href}, {"href": env_href}]
+
+        ingress_services = []
+        for rs in rule_services:
+            if "href" in rs and rs["href"]:
+                ingress_services.append({"href": rs["href"]})
+            else:
+                proto_num = 6 if rs["proto"] == "tcp" else 17 if rs["proto"] == "udp" else int(rs["proto"])
+                ingress_services.append({"port": rs["port"], "proto": proto_num})
+
+        rule_json = {
+            "enabled": True,
+            "providers": [{"actors": "ams"}],    # all workloads in scope
+            "consumers": [{"actors": "ams"}],    # all workloads in scope
+            "ingress_services": ingress_services,
+            "resolve_labels_as": {
+                "providers": ["workloads"],
+                "consumers": ["workloads"],
+            },
+        }
+
+        ruleset_json = {
+            "name": f"plugger-auto | {app_val} | {env_val}",
+            "enabled": True,
+            "scopes": [scope_labels],
+            "rules": [rule_json],
+        }
+
+        auto_rules.append({
+            "app_env": src_g,
+            "app": app_val,
+            "env": env_val,
+            "app_href": app_href,
+            "env_href": env_href,
+            "services": rule_services,
+            "total_connections": pair["total_connections"],
+            "host_count": pair["host_count"],
+            "ruleset_json": ruleset_json,
+            "rule_json": rule_json,
+        })
+
+    # Sort by connections
+    auto_rules.sort(key=lambda x: -x["total_connections"])
+    return auto_rules
 
 
 def run_check(pce):
@@ -285,7 +423,7 @@ def run_check(pce):
 
     try:
         blocked_pairs, blocked_summary = analyze_traffic(pce)
-        stale_rules, suggested_rules, stale_summary = find_stale_rules(pce, blocked_pairs)
+        stale_rules, suggested_rules, auto_rules, stale_summary = find_stale_rules(pce, blocked_pairs)
 
         with state_lock:
             report_state["last_check"] = datetime.now(timezone.utc).isoformat()
@@ -294,14 +432,15 @@ def run_check(pce):
             report_state["blocked_summary"] = blocked_summary
             report_state["stale_rules"] = stale_rules
             report_state["suggested_rules"] = suggested_rules
+            report_state["auto_rules"] = auto_rules
             report_state["stale_summary"] = stale_summary
             report_state["label_count"] = len(label_cache)
             report_state["error"] = None
 
-        log.info("Check #%d: %d blocked pairs (%d connections), %d stale rules, %d suggestions",
+        log.info("Check #%d: %d blocked pairs (%d connections), %d stale rules, %d suggestions, %d auto-rules",
                  report_state["check_count"], len(blocked_pairs),
                  blocked_summary["total_blocked_connections"],
-                 len(stale_rules), len(suggested_rules))
+                 len(stale_rules), len(suggested_rules), len(auto_rules))
 
     except Exception as e:
         log.exception("Analysis failed")
@@ -364,12 +503,14 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
     <div class="flex gap-6 border-b border-gray-700 mb-6">
         <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-active cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Suggested Rules</button>
+        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Auto-Suggest Rules</button>
         <button onclick="showTab('stale')" id="tab-stale" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Stale Rules</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
     </div>
 
     <div id="panel-blocked"></div>
     <div id="panel-suggested" style="display:none;"></div>
+    <div id="panel-auto" style="display:none;"></div>
     <div id="panel-stale" style="display:none;"></div>
     <div id="panel-chart" style="display:none;">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -385,7 +526,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
 <script>
 const BASE = (() => { const m = window.location.pathname.match(/^(\/plugins\/[^/]+\/ui)/); return m ? m[1] : ''; })();
-const tabs = ['blocked','suggested','stale','chart'];
+const tabs = ['blocked','suggested','auto','stale','chart'];
 let chartBlocked, chartServices;
 
 function showTab(name) {
@@ -425,7 +566,7 @@ function update(data) {
     document.getElementById('stats').innerHTML = `
         <div class="bg-dark-800 rounded-xl border border-red-900/30 p-5 fade-in"><div class="text-3xl font-bold text-red-400">${formatNum(bs.total_blocked_connections||0)}</div><div class="text-xs text-gray-500 mt-1">Blocked Connections</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in"><div class="text-3xl font-bold text-orange-400">${bs.unique_pairs||0}</div><div class="text-xs text-gray-500 mt-1">Blocked App|Env Pairs</div></div>
-        <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in"><div class="text-3xl font-bold text-yellow-400">${(data.suggested_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">Suggested Rules</div></div>
+        <div class="bg-dark-800 rounded-xl border border-emerald-900/30 p-5 fade-in"><div class="text-3xl font-bold text-emerald-400">${(data.auto_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">Auto-Suggest Rules</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in"><div class="text-3xl font-bold text-gray-400">${(data.stale_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">Stale/Disabled Rules</div></div>
     `;
 
@@ -475,6 +616,41 @@ function update(data) {
             </div>
         `).join('')}</div>
     ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Suggestions</div><div class="text-gray-500 mt-2">No high-volume blocked traffic patterns detected.</div></div>';
+
+    // Auto-suggest rules (intra app|env)
+    const autoRules = data.auto_rules || [];
+    document.getElementById('panel-auto').innerHTML = autoRules.length ? `
+        <div class="space-y-4">${autoRules.map((r, i) => `
+            <div class="bg-dark-800 rounded-xl border border-emerald-900/30 p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <span class="px-2.5 py-1 rounded-lg text-sm font-semibold bg-emerald-900/40 text-emerald-400">${r.app_env}</span>
+                        <span class="text-gray-400 text-sm">Intra-scope rule</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                        <span>${formatNum(r.total_connections)} blocked connections</span>
+                        <span>${r.host_count} hosts</span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 mb-3">
+                    ${r.services.map(s => `<span class="text-xs px-2 py-0.5 rounded ${s.name ? 'bg-blue-900/30 text-blue-300' : 'bg-dark-700 text-gray-400'}">${s.name || s.port+'/'+s.proto} <span class="text-gray-500">(${formatNum(s.connections)})</span></span>`).join('')}
+                </div>
+                <details class="group">
+                    <summary class="text-xs text-blue-400 cursor-pointer hover:text-blue-300">Show ruleset JSON (ready to provision)</summary>
+                    <div class="mt-2 bg-dark-900 rounded-lg p-3 overflow-x-auto">
+                        <pre class="text-xs text-gray-300 font-mono whitespace-pre">${JSON.stringify(r.ruleset_json, null, 2)}</pre>
+                    </div>
+                    <div class="mt-2 flex gap-2">
+                        <button onclick="navigator.clipboard.writeText(JSON.stringify(autoRules[${i}].ruleset_json, null, 2));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy JSON',2000)"
+                            class="px-3 py-1 text-xs rounded bg-dark-700 text-gray-300 hover:bg-dark-700/80 transition-colors">Copy JSON</button>
+                    </div>
+                </details>
+            </div>
+        `).join('')}</div>
+        <div class="mt-4 p-4 bg-dark-800 rounded-xl border border-gray-700">
+            <p class="text-xs text-gray-500">These rules allow all workloads within the same app|env scope to communicate on the observed blocked ports. Review before provisioning — you may want to restrict to specific roles.</p>
+        </div>
+    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Auto-Suggestions</div><div class="text-gray-500 mt-2">No intra-app|env blocked traffic detected.</div></div>';
 
     // Stale rules
     const stale = data.stale_rules || [];
