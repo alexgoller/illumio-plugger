@@ -86,10 +86,10 @@ def resolve_label(href):
     return None, None
 
 
-def endpoint_to_group(endpoint):
-    """Extract app|env from a flow endpoint."""
+def endpoint_labels(endpoint):
+    """Extract full label map {key: value} from a flow endpoint."""
     if not isinstance(endpoint, dict):
-        return None
+        return {}
 
     labels = endpoint.get("labels", [])
     if not labels:
@@ -97,7 +97,7 @@ def endpoint_to_group(endpoint):
         labels = wl.get("labels", [])
 
     if not labels:
-        return None
+        return {}
 
     label_map = {}
     for lbl in labels if isinstance(labels, list) else []:
@@ -110,11 +110,22 @@ def endpoint_to_group(endpoint):
             elif lbl.get("key") and lbl.get("value"):
                 label_map[lbl["key"]] = lbl["value"]
 
-    app = label_map.get("app", "")
-    env = label_map.get("env", "")
+    return label_map
+
+
+def endpoint_to_group(endpoint):
+    """Extract app|env from a flow endpoint."""
+    lm = endpoint_labels(endpoint)
+    app = lm.get("app", "")
+    env = lm.get("env", "")
     if app or env:
         return f"{app}|{env}" if app and env else (app or env)
     return None
+
+
+def endpoint_role(endpoint):
+    """Extract role label from a flow endpoint."""
+    return endpoint_labels(endpoint).get("role", "")
 
 
 def endpoint_name(endpoint):
@@ -161,8 +172,8 @@ def analyze_traffic(pce):
 
     log.info("Got %d blocked flows", len(flows))
 
-    # Group blocked traffic by app|env pairs
-    pair_data = defaultdict(lambda: {"connections": 0, "services": Counter(), "hosts": set(), "decision": Counter()})
+    # Group blocked traffic by app|env pairs AND capture role-level detail
+    pair_data = defaultdict(lambda: {"connections": 0, "services": Counter(), "hosts": set(), "decision": Counter(), "role_pairs": Counter()})
 
     for flow in flows:
         src = flow.get("src", {})
@@ -173,6 +184,8 @@ def analyze_traffic(pce):
 
         src_group = endpoint_to_group(src) or endpoint_name(src)
         dst_group = endpoint_to_group(dst) or endpoint_name(dst)
+        src_role = endpoint_role(src) or "unknown"
+        dst_role = endpoint_role(dst) or "unknown"
 
         port = service.get("port", "?") if isinstance(service, dict) else "?"
         proto = service.get("proto", "?") if isinstance(service, dict) else "?"
@@ -184,10 +197,28 @@ def analyze_traffic(pce):
         pair_data[key]["decision"][decision] += num
         pair_data[key]["hosts"].add(endpoint_name(src))
         pair_data[key]["hosts"].add(endpoint_name(dst))
+        # Track role-to-role communication with services
+        role_key = (src_role, dst_role, svc)
+        pair_data[key]["role_pairs"][role_key] += num
 
     # Sort by connections
     blocked_pairs = []
     for (src_g, dst_g), data in sorted(pair_data.items(), key=lambda x: -x[1]["connections"]):
+        # Build role tier data: {(src_role, dst_role): {services: Counter, connections: int}}
+        role_tiers = defaultdict(lambda: {"services": Counter(), "connections": 0})
+        for (sr, dr, svc), count in data["role_pairs"].items():
+            role_tiers[(sr, dr)]["services"][svc] += count
+            role_tiers[(sr, dr)]["connections"] += count
+
+        role_tier_list = []
+        for (sr, dr), rd in sorted(role_tiers.items(), key=lambda x: -x[1]["connections"]):
+            role_tier_list.append({
+                "src_role": sr,
+                "dst_role": dr,
+                "services": rd["services"].most_common(10),
+                "connections": rd["connections"],
+            })
+
         blocked_pairs.append({
             "src_group": src_g,
             "dst_group": dst_g,
@@ -195,6 +226,7 @@ def analyze_traffic(pce):
             "services": data["services"].most_common(10),
             "decisions": dict(data["decision"]),
             "host_count": len(data["hosts"]),
+            "role_tiers": role_tier_list,
         })
 
     total_blocked = sum(d["connections"] for d in pair_data.values())
@@ -286,15 +318,55 @@ def find_stale_rules(pce, blocked_pairs):
 PROTO_MAP = {"6": "tcp", "17": "udp"}
 
 
+# Services flagged as risky/insecure — go to "FOR REVIEW" ruleset
+RISKY_PORTS = {
+    20: "FTP data",
+    21: "FTP control",
+    23: "Telnet",
+    69: "TFTP",
+    135: "MS-RPC",
+    137: "NetBIOS",
+    138: "NetBIOS",
+    139: "NetBIOS/SMB",
+    445: "SMB",
+    1433: None,  # MSSQL — allowed but flagged in some contexts
+    3389: "RDP",
+    5900: "VNC",
+    5985: "WinRM",
+    5986: "WinRM-HTTPS",
+}
+
+# Ports that are always risky regardless of context
+ALWAYS_RISKY = {20, 21, 23, 69, 135, 137, 138, 139, 5900}
+
+
+def is_risky_service(port, proto_name):
+    """Check if a service should be flagged for review."""
+    if port in ALWAYS_RISKY:
+        return True, RISKY_PORTS.get(port, "insecure protocol")
+    if port == 3389 and proto_name == "tcp":
+        return True, "RDP — review lateral movement risk"
+    if port == 445 and proto_name == "tcp":
+        return True, "SMB — review ransomware risk"
+    return False, ""
+
+
 def build_auto_suggestions(pce, blocked_pairs):
-    """Build PCE-ready rule suggestions for same app|env blocked pairs."""
-    # Resolve label values to hrefs for rule building
+    """Build tiered policy suggestions for same app|env blocked pairs.
+
+    Three security tiers:
+    - LOW:  All workloads → all workloads, all services (intra-scope open)
+    - MED:  Role → Role, all services (tier-based, respects app architecture)
+    - HIGH: Role → Role, only observed services (full micro-segmentation)
+
+    Risky services (FTP, telnet, RDP, SMB, etc.) are split into a separate
+    "FOR REVIEW" ruleset regardless of tier.
+    """
     value_to_href = {}
     for href, info in label_cache.items():
-        key_val = (info["key"], info["value"])
-        value_to_href[key_val] = href
+        value_to_href[(info["key"], info["value"])] = href
 
-    # Fetch existing services to match port/proto
+    # Fetch existing services
     svc_by_port = {}
     try:
         resp = pce.get("/sec_policy/active/services")
@@ -319,14 +391,11 @@ def build_auto_suggestions(pce, blocked_pairs):
         src_g = pair["src_group"]
         dst_g = pair["dst_group"]
 
-        # Only auto-suggest for same app|env (intra-scope)
         if src_g != dst_g:
             continue
-
         if pair["total_connections"] < 10:
             continue
 
-        # Parse the app|env tuple
         parts = src_g.split("|")
         if len(parts) != 2:
             continue
@@ -334,72 +403,211 @@ def build_auto_suggestions(pce, blocked_pairs):
 
         app_href = value_to_href.get(("app", app_val), "")
         env_href = value_to_href.get(("env", env_val), "")
-
         if not app_href or not env_href:
             continue
 
-        # Build service list from blocked traffic
-        rule_services = []
+        scope_labels = [
+            {"label": {"href": app_href}, "exclusion": False},
+            {"label": {"href": env_href}, "exclusion": False},
+        ]
+
+        # Classify all services as clean or risky
+        all_services = []
+        clean_services = []
+        risky_services = []
+
         for svc_str, count in pair["services"]:
             try:
                 port_s, proto_s = svc_str.split("/")
                 port = int(port_s)
                 proto = int(proto_s)
                 proto_name = PROTO_MAP.get(str(proto), str(proto))
-
-                # Check if a named service exists
                 existing = svc_by_port.get((port, proto))
+
+                svc_entry = {
+                    "port": port,
+                    "proto": proto_name,
+                    "connections": count,
+                }
                 if existing:
-                    rule_services.append({
-                        "href": existing["href"],
-                        "name": existing["name"],
-                        "port": port,
-                        "proto": proto_name,
-                        "connections": count,
-                    })
+                    svc_entry["href"] = existing["href"]
+                    svc_entry["name"] = existing["name"]
+
+                risky, reason = is_risky_service(port, proto_name)
+                if risky:
+                    svc_entry["risky"] = True
+                    svc_entry["risk_reason"] = reason
+                    risky_services.append(svc_entry)
                 else:
-                    rule_services.append({
-                        "port": port,
-                        "proto": proto_name,
-                        "connections": count,
-                    })
+                    clean_services.append(svc_entry)
+                all_services.append(svc_entry)
             except (ValueError, IndexError):
                 continue
 
-        if not rule_services:
+        if not all_services:
             continue
 
-        # Build the PCE-compatible rule JSON
-        scope_labels = [
-            {"label": {"href": app_href}, "exclusion": False},
-            {"label": {"href": env_href}, "exclusion": False},
-        ]
+        # Build role tier data for medium/high security
+        role_tiers = pair.get("role_tiers", [])
 
-        ingress_services = []
-        for rs in rule_services:
-            if "href" in rs and rs["href"]:
-                ingress_services.append({"href": rs["href"]})
-            else:
-                proto_num = 6 if rs["proto"] == "tcp" else 17 if rs["proto"] == "udp" else int(rs["proto"])
-                ingress_services.append({"port": rs["port"], "proto": proto_num})
+        # Helper to build ingress_services list for PCE
+        def build_ingress(svcs):
+            result = []
+            for s in svcs:
+                if s.get("href"):
+                    result.append({"href": s["href"]})
+                else:
+                    pn = 6 if s["proto"] == "tcp" else 17 if s["proto"] == "udp" else int(s["proto"])
+                    result.append({"port": s["port"], "proto": pn})
+            return result
 
-        rule_json = {
+        # ===== LOW SECURITY: All workloads → all workloads, all clean services =====
+        low_rules = [{
             "enabled": True,
-            "providers": [{"actors": "ams"}],    # all workloads in scope
-            "consumers": [{"actors": "ams"}],    # all workloads in scope
-            "ingress_services": ingress_services,
-            "resolve_labels_as": {
-                "providers": ["workloads"],
-                "consumers": ["workloads"],
-            },
-        }
-
-        ruleset_json = {
+            "providers": [{"actors": "ams"}],
+            "consumers": [{"actors": "ams"}],
+            "ingress_services": build_ingress(clean_services) if clean_services else build_ingress(all_services),
+            "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+        }]
+        low_ruleset = {
             "name": f"plugger-auto | {app_val} | {env_val}",
+            "description": "AI Suggested: intra-scope rule (low security)",
             "enabled": True,
             "scopes": [scope_labels],
-            "rules": [rule_json],
+            "rules": low_rules,
         }
+
+        # ===== MEDIUM SECURITY: Role → Role, all services per tier =====
+        med_rules = []
+        if role_tiers:
+            seen_pairs = set()
+            for tier in role_tiers:
+                sr, dr = tier["src_role"], tier["dst_role"]
+                if sr == "unknown" or dr == "unknown":
+                    continue
+                pair_key = (sr, dr)
+                if pair_key in seen_pairs:
+                    continue
+                seen_pairs.add(pair_key)
+
+                sr_href = value_to_href.get(("role", sr), "")
+                dr_href = value_to_href.get(("role", dr), "")
+                if not sr_href or not dr_href:
+                    continue
+
+                # Collect clean services for this role pair
+                tier_svcs = []
+                for svc_str, count in tier["services"]:
+                    try:
+                        p, pr = svc_str.split("/")
+                        port, proto = int(p), int(pr)
+                        pn = PROTO_MAP.get(str(proto), str(proto))
+                        risky, _ = is_risky_service(port, pn)
+                        if not risky:
+                            existing = svc_by_port.get((port, proto))
+                            entry = {"port": port, "proto": pn, "connections": count}
+                            if existing:
+                                entry["href"] = existing["href"]
+                            tier_svcs.append(entry)
+                    except (ValueError, IndexError):
+                        continue
+
+                if not tier_svcs:
+                    continue
+
+                med_rules.append({
+                    "enabled": True,
+                    "providers": [{"label": {"href": dr_href}}],
+                    "consumers": [{"label": {"href": sr_href}}],
+                    "ingress_services": build_ingress(tier_svcs),
+                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                })
+
+        if not med_rules:
+            med_rules = low_rules  # fallback if no role data
+
+        med_ruleset = {
+            "name": f"plugger-auto | {app_val} | {env_val} | tiered",
+            "description": "AI Suggested: role-tiered rules (medium security)",
+            "enabled": True,
+            "scopes": [scope_labels],
+            "rules": med_rules,
+        }
+
+        # ===== HIGH SECURITY: Role → Role, only observed services =====
+        high_rules = []
+        if role_tiers:
+            seen_pairs = set()
+            for tier in role_tiers:
+                sr, dr = tier["src_role"], tier["dst_role"]
+                if sr == "unknown" or dr == "unknown":
+                    continue
+                pair_key = (sr, dr)
+                if pair_key in seen_pairs:
+                    continue
+                seen_pairs.add(pair_key)
+
+                sr_href = value_to_href.get(("role", sr), "")
+                dr_href = value_to_href.get(("role", dr), "")
+                if not sr_href or not dr_href:
+                    continue
+
+                # Only observed clean services for this specific role pair
+                tier_svcs = []
+                for svc_str, count in tier["services"]:
+                    try:
+                        p, pr = svc_str.split("/")
+                        port, proto = int(p), int(pr)
+                        pn = PROTO_MAP.get(str(proto), str(proto))
+                        risky, _ = is_risky_service(port, pn)
+                        if not risky:
+                            existing = svc_by_port.get((port, proto))
+                            entry = {"port": port, "proto": pn, "connections": count}
+                            if existing:
+                                entry["href"] = existing["href"]
+                            tier_svcs.append(entry)
+                    except (ValueError, IndexError):
+                        continue
+
+                if not tier_svcs:
+                    continue
+
+                high_rules.append({
+                    "enabled": True,
+                    "providers": [{"label": {"href": dr_href}}],
+                    "consumers": [{"label": {"href": sr_href}}],
+                    "ingress_services": build_ingress(tier_svcs),
+                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                })
+
+        if not high_rules:
+            high_rules = med_rules  # fallback
+
+        high_ruleset = {
+            "name": f"plugger-auto | {app_val} | {env_val} | strict",
+            "description": "AI Suggested: strict role+service rules (high security)",
+            "enabled": True,
+            "scopes": [scope_labels],
+            "rules": high_rules,
+        }
+
+        # ===== REVIEW RULESET: risky services only =====
+        review_ruleset = None
+        if risky_services:
+            review_rules = [{
+                "enabled": True,
+                "providers": [{"actors": "ams"}],
+                "consumers": [{"actors": "ams"}],
+                "ingress_services": build_ingress(risky_services),
+                "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+            }]
+            review_ruleset = {
+                "name": f"plugger-review | {app_val} | {env_val} | FOR REVIEW",
+                "description": "AI Suggested: FLAGGED — contains insecure/risky protocols. Review before provisioning.",
+                "enabled": True,
+                "scopes": [scope_labels],
+                "rules": review_rules,
+            }
 
         auto_rules.append({
             "app_env": src_g,
@@ -407,14 +615,24 @@ def build_auto_suggestions(pce, blocked_pairs):
             "env": env_val,
             "app_href": app_href,
             "env_href": env_href,
-            "services": rule_services,
+            "services": all_services,
+            "clean_services": clean_services,
+            "risky_services": risky_services,
+            "role_tiers": role_tiers,
             "total_connections": pair["total_connections"],
             "host_count": pair["host_count"],
-            "ruleset_json": ruleset_json,
-            "rule_json": rule_json,
+            # Three tier rulesets
+            "tiers": {
+                "low": low_ruleset,
+                "medium": med_ruleset,
+                "high": high_ruleset,
+            },
+            "review_ruleset": review_ruleset,
+            # Default to medium for the provision button
+            "ruleset_json": med_ruleset,
+            "rule_json": med_rules[0] if med_rules else low_rules[0],
         })
 
-    # Sort by connections
     auto_rules.sort(key=lambda x: -x["total_connections"])
     return auto_rules
 
@@ -655,26 +873,46 @@ function update(data) {
                         ${hasAI && a.confidence ? `<span>Confidence: ${Math.round(a.confidence * 100)}%</span>` : ''}
                     </div>
                 </div>
-                <div class="flex flex-wrap gap-1.5 mb-3">
-                    ${r.services.map(s => `<span class="text-xs px-2 py-0.5 rounded ${s.name ? 'bg-blue-900/30 text-blue-300' : 'bg-dark-700 text-gray-400'}">${s.name || s.port+'/'+s.proto} <span class="text-gray-500">(${formatNum(s.connections)})</span></span>`).join('')}
+                <div class="flex flex-wrap gap-1.5 mb-2">
+                    ${(r.clean_services||r.services).map(s => `<span class="text-xs px-2 py-0.5 rounded ${s.name ? 'bg-blue-900/30 text-blue-300' : 'bg-dark-700 text-gray-400'}">${s.name || s.port+'/'+s.proto} <span class="text-gray-500">(${formatNum(s.connections)})</span></span>`).join('')}
                 </div>
+                ${(r.risky_services||[]).length ? `<div class="flex flex-wrap gap-1.5 mb-3">
+                    <span class="text-xs text-red-400 font-medium">Flagged:</span>
+                    ${r.risky_services.map(s => `<span class="text-xs px-2 py-0.5 rounded bg-red-900/30 text-red-400" title="${s.risk_reason||''}">${s.name || s.port+'/'+s.proto} ⚠</span>`).join('')}
+                </div>` : ''}
+                ${(r.role_tiers||[]).length > 1 ? `<div class="mb-3 text-xs text-gray-500">
+                    Role tiers: ${r.role_tiers.filter(t=>t.src_role!=='unknown').slice(0,5).map(t => `<span class="text-gray-400">${t.src_role}→${t.dst_role}</span>`).join(', ')}
+                </div>` : ''}
                 ${hasAI ? `
                 <div class="bg-dark-700/30 rounded-lg p-3 mb-3 border-l-2 border-${recColor}-500">
                     <div class="text-sm text-gray-300 mb-1">${a.reasoning}</div>
                     ${a.suggested_modifications ? `<div class="text-xs text-${recColor}-400 mt-1">Suggestion: ${a.suggested_modifications}</div>` : ''}
                 </div>` : ''}
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                     ${aiEnabled && !hasAI ? `<button onclick="analyzeRule(${i})" id="ai-btn-${i}" class="px-3 py-1.5 text-xs rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white transition-colors flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                         AI Analyze</button>` : ''}
-                    ${!provisioned || !provisioned.success ? `<button onclick="provisionRule(${i})" id="prov-btn-${i}" class="px-3 py-1.5 text-xs rounded-lg bg-blue-700 hover:bg-blue-600 text-white transition-colors">Provision to Draft</button>` : ''}
-                    <button onclick="toggleJSON(${i})" class="px-3 py-1.5 text-xs rounded-lg bg-dark-700 text-gray-300 hover:bg-dark-700/80 transition-colors">Show JSON</button>
-                    <button onclick="navigator.clipboard.writeText(JSON.stringify(autoRules[${i}].ruleset_json,null,2));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)" class="px-3 py-1.5 text-xs rounded-lg bg-dark-700 text-gray-300 hover:bg-dark-700/80 transition-colors">Copy</button>
+                    ${!provisioned || !provisioned.success ? `
+                        <span class="text-xs text-gray-500 ml-1">Provision:</span>
+                        <button onclick="provisionTier(${i},'low')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200 transition-colors" title="All workloads ↔ All workloads, all clean services">Low</button>
+                        <button onclick="provisionTier(${i},'medium')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200 transition-colors" title="Role → Role, all services per tier">Medium</button>
+                        <button onclick="provisionTier(${i},'high')" class="px-2 py-1 text-xs rounded bg-purple-800 hover:bg-purple-700 text-purple-200 transition-colors" title="Role → Role, only observed services">High</button>
+                    ` : `<span class="text-xs text-blue-400">✓ Provisioned</span>`}
+                    ${(r.risky_services||[]).length && (!provisioned || !provisioned.success) ? `<button onclick="provisionTier(${i},'review')" class="px-2 py-1 text-xs rounded bg-red-900 hover:bg-red-800 text-red-200 transition-colors" title="Provision risky services as FOR REVIEW">+ Review</button>` : ''}
+                    <button onclick="toggleJSON(${i})" class="px-2 py-1 text-xs rounded bg-dark-700 text-gray-400 hover:bg-dark-700/80 transition-colors">JSON</button>
                 </div>
-                <div id="json-${i}" style="display:none;" class="mt-3 bg-dark-900 rounded-lg p-3 overflow-x-auto">
-                    <pre class="text-xs text-gray-300 font-mono whitespace-pre">${JSON.stringify(r.ruleset_json, null, 2)}</pre>
+                <div id="json-${i}" style="display:none;" class="mt-3">
+                    <div class="flex gap-2 mb-2">
+                        <button onclick="showTierJSON(${i},'low')" class="text-xs text-green-400 hover:text-green-300">Low</button>
+                        <button onclick="showTierJSON(${i},'medium')" class="text-xs text-blue-400 hover:text-blue-300">Medium</button>
+                        <button onclick="showTierJSON(${i},'high')" class="text-xs text-purple-400 hover:text-purple-300">High</button>
+                        ${r.review_ruleset ? `<button onclick="showTierJSON(${i},'review')" class="text-xs text-red-400 hover:text-red-300">Review</button>` : ''}
+                    </div>
+                    <div class="bg-dark-900 rounded-lg p-3 overflow-x-auto">
+                        <pre id="json-pre-${i}" class="text-xs text-gray-300 font-mono whitespace-pre">${JSON.stringify(r.tiers?.medium || r.ruleset_json, null, 2)}</pre>
+                    </div>
                 </div>
-                ${provisioned && !provisioned.success ? `<div class="mt-2 text-xs text-red-400">Provision failed: ${provisioned.error}</div>` : ''}
+                ${provisioned && !provisioned.success ? `<div class="mt-2 text-xs text-red-400">Error: ${provisioned.error}</div>` : ''}
             </div>`;
         }).join('')}</div>
         <div class="mt-4 p-4 bg-dark-800 rounded-xl border border-gray-700">
@@ -743,6 +981,30 @@ async function analyzeAll() {
             await new Promise(r => setTimeout(r, 500)); // small delay between calls
         }
     }
+}
+
+function showTierJSON(index, tier) {
+    const r = (window._lastData || {}).auto_rules[index];
+    if (!r) return;
+    const data = tier === 'review' ? r.review_ruleset : (r.tiers || {})[tier] || r.ruleset_json;
+    document.getElementById('json-pre-'+index).textContent = JSON.stringify(data, null, 2);
+}
+
+async function provisionTier(index, tier) {
+    const tierNames = {low:'Low Security',medium:'Medium Security',high:'High Security',review:'FOR REVIEW'};
+    if (!confirm(`Provision ${tierNames[tier]||tier} rule to PCE draft?`)) return;
+    try {
+        const resp = await fetch(BASE + '/api/provision/' + index + '/' + tier, {
+            method: 'POST', headers: {'Content-Type':'application/json'}
+        });
+        const result = await resp.json();
+        if (result.success) {
+            alert('Provisioned to draft: ' + result.name);
+        } else {
+            alert('Provision failed: ' + result.error);
+        }
+        await fetchData();
+    } catch(e) { alert('Provision failed: ' + e); }
 }
 
 async function provisionRule(index) {
@@ -862,12 +1124,16 @@ class ReportHandler(BaseHTTPRequestHandler):
         self.send_json(200, result)
 
     def handle_provision(self, body):
-        """Provision an auto-rule to PCE draft."""
+        """Provision an auto-rule to PCE draft. Supports tier selection and review provisioning."""
+        # Parse path: /api/provision/{index} or /api/provision/{index}/{tier}
+        path_parts = self.path.rstrip("/").split("/")
         try:
-            index = int(self.path.split("/")[-1])
-        except ValueError:
+            index = int(path_parts[3])  # /api/provision/{index}
+        except (ValueError, IndexError):
             self.send_json(400, {"error": "Invalid index"})
             return
+
+        tier = path_parts[4] if len(path_parts) > 4 else "medium"
 
         with state_lock:
             auto_rules = report_state.get("auto_rules", [])
@@ -877,19 +1143,40 @@ class ReportHandler(BaseHTTPRequestHandler):
             return
 
         rule = auto_rules[index]
-        ruleset_json = rule.get("ruleset_json", {})
+        results = []
 
-        if not ruleset_json:
-            self.send_json(400, {"error": "No ruleset JSON available"})
-            return
+        if tier == "review":
+            # Provision only the review ruleset
+            review_rs = rule.get("review_ruleset")
+            if not review_rs:
+                self.send_json(400, {"error": "No risky services to review"})
+                return
+            log.info("Provisioning FOR REVIEW: %s", review_rs.get("name", ""))
+            results.append(provision_rule(pce_client, review_rs))
+        else:
+            # Provision the selected tier
+            tiers = rule.get("tiers", {})
+            ruleset_json = tiers.get(tier, rule.get("ruleset_json", {}))
+            if not ruleset_json:
+                self.send_json(400, {"error": f"No ruleset for tier '{tier}'"})
+                return
+            log.info("Provisioning %s tier: %s", tier, ruleset_json.get("name", ""))
+            results.append(provision_rule(pce_client, ruleset_json))
 
-        log.info("Provisioning to draft: %s", ruleset_json.get("name", ""))
-        result = provision_rule(pce_client, ruleset_json)
+            # Also provision review ruleset if it exists and tier != low
+            if tier != "low" and rule.get("review_ruleset"):
+                review_rs = rule["review_ruleset"]
+                log.info("Provisioning FOR REVIEW: %s", review_rs.get("name", ""))
+                results.append(provision_rule(pce_client, review_rs))
 
-        # Store provision status in analysis
+        # Store provision status
         if str(index) not in ai_analyses:
             ai_analyses[str(index)] = {}
-        ai_analyses[str(index)]["provisioned"] = result
+        ai_analyses[str(index)]["provisioned"] = results[0]
+        if len(results) > 1:
+            ai_analyses[str(index)]["review_provisioned"] = results[1]
+
+        result = results[0]
 
         self.send_json(200, result)
 
