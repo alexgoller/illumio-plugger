@@ -42,7 +42,8 @@ report_state = {
     "stale_rules": [],         # [{ruleset, rule, scopes, services, reason}]
     "suggested_rules": [],     # high-volume blocked pairs
     "auto_rules": [],          # PCE-ready rule JSON for intra-app|env
-    "inter_rules": [],         # cross app|env suggestions
+    "inter_rules": [],         # cross app|env suggestions (non-infra)
+    "infra_rules": [],         # consolidated infrastructure rulesets
     "stale_summary": {},
     # Label cache
     "label_count": 0,
@@ -638,6 +639,242 @@ def build_auto_suggestions(pce, blocked_pairs):
     return auto_rules
 
 
+# Well-known infrastructure services
+INFRA_SERVICES = {
+    5666: "monitoring-nrpe",
+    161: "monitoring-snmp",
+    9090: "monitoring-prometheus",
+    53: "dns",
+    123: "ntp",
+    514: "syslog",
+    389: "ldap",
+    636: "ldaps",
+    88: "kerberos",
+    22: "ssh-mgmt",
+    3389: "rdp-mgmt",
+}
+
+# Minimum fan-out/fan-in to be considered infrastructure
+INFRA_THRESHOLD = 4
+
+
+def detect_infrastructure(blocked_pairs):
+    """Detect infrastructure apps and build consolidated infra rulesets.
+
+    Returns:
+    - infra_rules: consolidated infrastructure rulesets
+    - infra_apps: set of app|env pairs classified as infrastructure
+    """
+    from collections import Counter, defaultdict
+
+    # Only look at inter-scope pairs
+    inter_pairs = [p for p in blocked_pairs
+                   if p["src_group"] != p["dst_group"]
+                   and "|" in p.get("src_group", "")
+                   and "|" in p.get("dst_group", "")]
+
+    # Count fan-out (source talks to N destinations) and fan-in (destination receives from N sources)
+    src_destinations = defaultdict(set)
+    dst_sources = defaultdict(set)
+    src_services = defaultdict(lambda: Counter())
+    dst_services = defaultdict(lambda: Counter())
+    src_connections = Counter()
+    dst_connections = Counter()
+
+    for p in inter_pairs:
+        sg, dg = p["src_group"], p["dst_group"]
+        src_destinations[sg].add(dg)
+        dst_sources[dg].add(sg)
+        src_connections[sg] += p["total_connections"]
+        dst_connections[dg] += p["total_connections"]
+        for svc_str, count in p["services"]:
+            src_services[sg][svc_str] += count
+            dst_services[dg][svc_str] += count
+
+    # Classify infrastructure sources (fan-out >= threshold)
+    infra_sources = {}
+    for app, dests in src_destinations.items():
+        if len(dests) >= INFRA_THRESHOLD:
+            # Determine the primary services this infra app uses
+            top_svcs = src_services[app].most_common(5)
+            infra_sources[app] = {
+                "fan_out": len(dests),
+                "destinations": sorted(dests),
+                "services": top_svcs,
+                "connections": src_connections[app],
+                "direction": "outbound",
+                "description": f"{app} connects to {len(dests)} different apps",
+            }
+
+    # Classify infrastructure destinations (fan-in >= threshold)
+    infra_destinations = {}
+    for app, srcs in dst_sources.items():
+        if len(srcs) >= INFRA_THRESHOLD:
+            top_svcs = dst_services[app].most_common(5)
+            infra_destinations[app] = {
+                "fan_in": len(srcs),
+                "sources": sorted(srcs),
+                "services": top_svcs,
+                "connections": dst_connections[app],
+                "direction": "inbound",
+                "description": f"{len(srcs)} different apps connect to {app}",
+            }
+
+    # Build consolidated infra rulesets
+    value_to_href = {}
+    for href, info in label_cache.items():
+        value_to_href[(info["key"], info["value"])] = href
+
+    svc_by_port = {}
+    try:
+        from illumio import PolicyComputeEngine
+        # Reuse cached services from the caller — but we don't have access here
+        # So we'll pass services through the caller instead
+        pass
+    except Exception:
+        pass
+
+    infra_rules = []
+    infra_apps = set()
+
+    # Infra sources: "monitoring → All on nagios"
+    for app, data in infra_sources.items():
+        infra_apps.add(app)
+        parts = app.split("|")
+        if len(parts) != 2:
+            continue
+        app_val, env_val = parts
+
+        app_href = value_to_href.get(("app", app_val), "")
+        env_href = value_to_href.get(("env", env_val), "")
+        if not app_href:
+            continue
+
+        # Parse services
+        rule_svcs = []
+        for svc_str, count in data["services"]:
+            try:
+                p, pr = svc_str.split("/")
+                port, proto = int(p), int(pr)
+                proto_name = PROTO_MAP.get(str(proto), str(proto))
+                risky, _ = is_risky_service(port, proto_name)
+                entry = {"port": port, "proto": proto_name, "connections": count}
+                # Check infra service name
+                if port in INFRA_SERVICES:
+                    entry["name"] = INFRA_SERVICES[port]
+                rule_svcs.append(entry)
+            except (ValueError, IndexError):
+                continue
+
+        if not rule_svcs:
+            continue
+
+        def build_ingress_local(svcs):
+            result = []
+            for s in svcs:
+                pn = 6 if s["proto"] == "tcp" else 17 if s["proto"] == "udp" else int(s["proto"])
+                result.append({"port": s["port"], "proto": pn})
+            return result
+
+        # Scope: the infra app's env (or all if it spans envs)
+        scope = []
+        if env_href:
+            scope = [{"label": {"href": env_href}, "exclusion": False}]
+
+        infra_rules.append({
+            "app_env": app,
+            "app": app_val,
+            "env": env_val,
+            "direction": "outbound",
+            "description": data["description"],
+            "fan": data["fan_out"],
+            "targets": data["destinations"],
+            "services": rule_svcs,
+            "total_connections": data["connections"],
+            "ruleset_json": {
+                "name": f"plugger-infra | {app_val} → All | {env_val}",
+                "description": f"AI Suggested: Infrastructure — {app_val} connects to {data['fan_out']} apps. Consolidated rule.",
+                "enabled": True,
+                "scopes": [scope] if scope else [[]],
+                "rules": [{
+                    "enabled": True,
+                    "consumers": [{"label": {"href": app_href}}] + ([{"label": {"href": env_href}}] if env_href else []),
+                    "providers": [{"actors": "ams"}],
+                    "ingress_services": build_ingress_local(rule_svcs),
+                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                }],
+            },
+        })
+
+    # Infra destinations: "All → AD on LDAP"
+    for app, data in infra_destinations.items():
+        infra_apps.add(app)
+        parts = app.split("|")
+        if len(parts) != 2:
+            continue
+        app_val, env_val = parts
+
+        app_href = value_to_href.get(("app", app_val), "")
+        env_href = value_to_href.get(("env", env_val), "")
+        if not app_href:
+            continue
+
+        rule_svcs = []
+        for svc_str, count in data["services"]:
+            try:
+                p, pr = svc_str.split("/")
+                port, proto = int(p), int(pr)
+                proto_name = PROTO_MAP.get(str(proto), str(proto))
+                entry = {"port": port, "proto": proto_name, "connections": count}
+                if port in INFRA_SERVICES:
+                    entry["name"] = INFRA_SERVICES[port]
+                rule_svcs.append(entry)
+            except (ValueError, IndexError):
+                continue
+
+        if not rule_svcs:
+            continue
+
+        def build_ingress_local2(svcs):
+            result = []
+            for s in svcs:
+                pn = 6 if s["proto"] == "tcp" else 17 if s["proto"] == "udp" else int(s["proto"])
+                result.append({"port": s["port"], "proto": pn})
+            return result
+
+        scope = []
+        if env_href:
+            scope = [{"label": {"href": env_href}, "exclusion": False}]
+
+        infra_rules.append({
+            "app_env": app,
+            "app": app_val,
+            "env": env_val,
+            "direction": "inbound",
+            "description": data["description"],
+            "fan": data["fan_in"],
+            "targets": data["sources"],
+            "services": rule_svcs,
+            "total_connections": data["connections"],
+            "ruleset_json": {
+                "name": f"plugger-infra | All → {app_val} | {env_val}",
+                "description": f"AI Suggested: Infrastructure — {data['fan_in']} apps connect to {app_val}. Consolidated rule.",
+                "enabled": True,
+                "scopes": [scope] if scope else [[]],
+                "rules": [{
+                    "enabled": True,
+                    "consumers": [{"actors": "ams"}],
+                    "providers": [{"label": {"href": app_href}}] + ([{"label": {"href": env_href}}] if env_href else []),
+                    "ingress_services": build_ingress_local2(rule_svcs),
+                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                }],
+            },
+        })
+
+    infra_rules.sort(key=lambda x: -x["total_connections"])
+    return infra_rules, infra_apps
+
+
 def build_inter_scope_suggestions(pce, blocked_pairs):
     """Build policy suggestions for cross app|env blocked traffic.
 
@@ -905,7 +1142,13 @@ def run_check(pce):
     try:
         blocked_pairs, blocked_summary = analyze_traffic(pce)
         stale_rules, suggested_rules, auto_rules, stale_summary = find_stale_rules(pce, blocked_pairs)
-        inter_rules = build_inter_scope_suggestions(pce, blocked_pairs)
+        # Detect infrastructure and build consolidated rules
+        infra_rules, infra_apps = detect_infrastructure(blocked_pairs)
+
+        # Build inter-scope but filter out infra pairs
+        all_inter = build_inter_scope_suggestions(pce, blocked_pairs)
+        inter_rules = [r for r in all_inter
+                       if r["src_group"] not in infra_apps and r["dst_group"] not in infra_apps]
 
         with state_lock:
             report_state["last_check"] = datetime.now(timezone.utc).isoformat()
@@ -916,14 +1159,15 @@ def run_check(pce):
             report_state["suggested_rules"] = suggested_rules
             report_state["auto_rules"] = auto_rules
             report_state["inter_rules"] = inter_rules
+            report_state["infra_rules"] = infra_rules
             report_state["stale_summary"] = stale_summary
             report_state["label_count"] = len(label_cache)
             report_state["error"] = None
 
-        log.info("Check #%d: %d blocked pairs (%d connections), %d intra-rules, %d inter-rules, %d stale",
+        log.info("Check #%d: %d blocked pairs (%d connections), %d intra, %d inter, %d infra, %d stale",
                  report_state["check_count"], len(blocked_pairs),
                  blocked_summary["total_blocked_connections"],
-                 len(auto_rules), len(inter_rules), len(stale_rules))
+                 len(auto_rules), len(inter_rules), len(infra_rules), len(stale_rules))
 
     except Exception as e:
         log.exception("Analysis failed")
@@ -986,6 +1230,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
     <div class="flex gap-6 border-b border-gray-700 mb-6">
         <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-active cursor-pointer">Intra-Scope</button>
         <button onclick="showTab('inter')" id="tab-inter" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Cross-Scope</button>
+        <button onclick="showTab('infra')" id="tab-infra" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Infrastructure</button>
         <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
         <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">All Suggestions</button>
@@ -994,6 +1239,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
     <div id="panel-auto"></div>
     <div id="panel-inter" style="display:none;"></div>
+    <div id="panel-infra" style="display:none;"></div>
     <div id="panel-blocked" style="display:none;"></div>
     <div id="panel-suggested" style="display:none;"></div>
     <div id="panel-stale" style="display:none;"></div>
@@ -1011,7 +1257,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
 <script>
 const BASE = (() => { const m = window.location.pathname.match(/^(\/plugins\/[^/]+\/ui)/); return m ? m[1] : ''; })();
-const tabs = ['auto','inter','blocked','chart','suggested','stale'];
+const tabs = ['auto','inter','infra','blocked','chart','suggested','stale'];
 let chartBlocked, chartServices;
 
 function showTab(name) {
@@ -1266,6 +1512,47 @@ function update(data) {
         }).join('')}</div>
     ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Cross-Scope Traffic</div><div class="text-gray-500 mt-2">No blocked traffic between different applications detected.</div></div>';
 
+    // Infrastructure rules
+    const infraRules = data.infra_rules || [];
+    document.getElementById('panel-infra').innerHTML = infraRules.length ? `
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+                <h2 class="text-lg font-semibold text-white">Infrastructure Rules (${infraRules.length} consolidated)</h2>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">These apps talk to many different applications — consolidated into single broad rulesets instead of per-app pairs.</p>
+        <div class="space-y-3">${infraRules.map((r, i) => {
+            const dirIcon = r.direction === 'outbound' ? '→' : '←';
+            const dirLabel = r.direction === 'outbound' ? r.app + ' → All' : 'All → ' + r.app;
+            const provisioned = (data.ai_analyses || {})['infra_'+i]?.provisioned;
+            return `
+            <div class="bg-dark-800 rounded-xl border border-cyan-900/30 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded text-xs font-semibold ${r.direction==='outbound' ? 'bg-cyan-900/40 text-cyan-400' : 'bg-teal-900/40 text-teal-400'}">${dirLabel}</span>
+                        <span class="text-xs text-gray-500">${r.env}</span>
+                        <span class="px-1.5 py-0.5 rounded text-xs bg-dark-700 text-gray-400">${r.direction === 'outbound' ? 'fan-out' : 'fan-in'}: ${r.fan}</span>
+                        ${provisioned && provisioned.success ? '<span class="px-1.5 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">Provisioned</span>' : ''}
+                    </div>
+                    <span class="text-xs text-gray-500">${formatNum(r.total_connections)} connections</span>
+                </div>
+                <div class="text-xs text-gray-400 mb-2">${r.description}</div>
+                <div class="flex flex-wrap gap-1 mb-2">
+                    ${r.services.map(s => `<span class="text-xs px-1.5 py-0.5 rounded bg-cyan-900/20 text-cyan-300">${s.name||s.port+'/'+s.proto} <span class="text-gray-500">(${formatNum(s.connections)})</span></span>`).join('')}
+                </div>
+                <div class="text-xs text-gray-500 mb-2">Targets: ${r.targets.slice(0,5).join(', ')}${r.targets.length > 5 ? ' +' + (r.targets.length-5) + ' more' : ''}</div>
+                <div class="flex items-center gap-2">
+                    ${!provisioned || !provisioned.success ? `<button onclick="provisionInfra(${i})" class="px-3 py-1 text-xs rounded bg-cyan-700 hover:bg-cyan-600 text-white transition-colors">Provision to Draft</button>` : ''}
+                    <button onclick="toggleInfraJSON(${i})" class="px-2 py-1 text-xs rounded bg-dark-700 text-gray-400 hover:bg-dark-700/80 transition-colors">JSON</button>
+                </div>
+                <div id="infra-json-${i}" style="display:none;" class="mt-2 bg-dark-900 rounded-lg p-3 overflow-x-auto">
+                    <pre class="text-xs text-gray-300 font-mono whitespace-pre">${JSON.stringify(r.ruleset_json, null, 2)}</pre>
+                </div>
+            </div>`;
+        }).join('')}</div>
+    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Infrastructure Patterns</div><div class="text-gray-500 mt-2">No apps detected with high fan-out/fan-in.</div></div>';
+
     // Stale rules
     const stale = data.stale_rules || [];
     document.getElementById('panel-stale').innerHTML = stale.length ? `
@@ -1398,6 +1685,24 @@ async function provisionInter(index, tier) {
     } catch(e) { alert('Failed: ' + e); }
 }
 
+function toggleInfraJSON(i) {
+    const el = document.getElementById('infra-json-'+i);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function provisionInfra(index) {
+    if (!confirm('Provision this infrastructure rule to PCE draft?')) return;
+    try {
+        const resp = await fetch(BASE + '/api/provision/infra/' + index, {
+            method: 'POST', headers: {'Content-Type':'application/json'}
+        });
+        const result = await resp.json();
+        if (result.success) alert('Provisioned: ' + result.name);
+        else alert('Failed: ' + result.error);
+        await fetchData();
+    } catch(e) { alert('Failed: ' + e); }
+}
+
 initCharts();
 document.getElementById('api-link').href = BASE + '/api/report';
 fetchData();
@@ -1503,15 +1808,17 @@ class ReportHandler(BaseHTTPRequestHandler):
         self.send_json(200, result)
 
     def handle_provision(self, body):
-        """Provision a rule to PCE draft. Supports intra and inter scope."""
-        # Parse path: /api/provision/{index}/{tier} or /api/provision/inter/{index}/{tier}
+        """Provision a rule to PCE draft. Supports intra, inter, and infra scope."""
         path_parts = self.path.rstrip("/").split("/")
-        # /api/provision/inter/{index}/{tier} or /api/provision/{index}/{tier}
         is_inter = "inter" in path_parts
+        is_infra = "infra" in path_parts
 
         try:
-            if is_inter:
-                # /api/provision/inter/{index}/{tier}
+            if is_infra:
+                idx_pos = path_parts.index("infra") + 1
+                index = int(path_parts[idx_pos])
+                tier = "infra"
+            elif is_inter:
                 idx_pos = path_parts.index("inter") + 1
                 index = int(path_parts[idx_pos])
                 tier = path_parts[idx_pos + 1] if len(path_parts) > idx_pos + 1 else "level2"
@@ -1523,7 +1830,9 @@ class ReportHandler(BaseHTTPRequestHandler):
             return
 
         with state_lock:
-            if is_inter:
+            if is_infra:
+                auto_rules = report_state.get("infra_rules", [])
+            elif is_inter:
                 auto_rules = report_state.get("inter_rules", [])
             else:
                 auto_rules = report_state.get("auto_rules", [])
@@ -1560,7 +1869,7 @@ class ReportHandler(BaseHTTPRequestHandler):
                 results.append(provision_rule(pce_client, review_rs))
 
         # Store provision status
-        key = f"inter_{index}" if is_inter else str(index)
+        key = f"infra_{index}" if is_infra else (f"inter_{index}" if is_inter else str(index))
         if key not in ai_analyses:
             ai_analyses[key] = {}
         ai_analyses[key]["provisioned"] = results[0]
