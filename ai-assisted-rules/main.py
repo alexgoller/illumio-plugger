@@ -42,6 +42,7 @@ report_state = {
     "stale_rules": [],         # [{ruleset, rule, scopes, services, reason}]
     "suggested_rules": [],     # high-volume blocked pairs
     "auto_rules": [],          # PCE-ready rule JSON for intra-app|env
+    "inter_rules": [],         # cross app|env suggestions
     "stale_summary": {},
     # Label cache
     "label_count": 0,
@@ -637,6 +638,265 @@ def build_auto_suggestions(pce, blocked_pairs):
     return auto_rules
 
 
+def build_inter_scope_suggestions(pce, blocked_pairs):
+    """Build policy suggestions for cross app|env blocked traffic.
+
+    Three levels:
+    - Level 1: App A ↔ App B (all clean services) — broadest
+    - Level 2: App A ↔ App B (only observed services)
+    - Level 3: Role@A → Role@B (only observed services) — strictest
+
+    Cross-env traffic always flagged FOR REVIEW.
+    """
+    value_to_href = {}
+    for href, info in label_cache.items():
+        value_to_href[(info["key"], info["value"])] = href
+
+    svc_by_port = {}
+    try:
+        resp = pce.get("/sec_policy/active/services")
+        if resp.status_code == 200:
+            for svc in resp.json():
+                if isinstance(svc, dict):
+                    for sp in svc.get("service_ports", []):
+                        if isinstance(sp, dict):
+                            port = sp.get("port")
+                            proto = sp.get("proto")
+                            if port and proto:
+                                svc_by_port[(port, proto)] = {"href": svc.get("href", ""), "name": svc.get("name", "")}
+    except Exception:
+        pass
+
+    def build_ingress(svcs):
+        result = []
+        for s in svcs:
+            if s.get("href"):
+                result.append({"href": s["href"]})
+            else:
+                pn = 6 if s["proto"] == "tcp" else 17 if s["proto"] == "udp" else int(s["proto"])
+                result.append({"port": s["port"], "proto": pn})
+        return result
+
+    inter_rules = []
+
+    for pair in blocked_pairs:
+        src_g = pair["src_group"]
+        dst_g = pair["dst_group"]
+
+        # Only inter-scope pairs
+        if src_g == dst_g:
+            continue
+        if "|" not in src_g or "|" not in dst_g:
+            continue
+        if pair["total_connections"] < 50:
+            continue
+
+        src_parts = src_g.split("|")
+        dst_parts = dst_g.split("|")
+        if len(src_parts) != 2 or len(dst_parts) != 2:
+            continue
+
+        src_app, src_env = src_parts
+        dst_app, dst_env = dst_parts
+
+        # Resolve hrefs
+        src_app_href = value_to_href.get(("app", src_app), "")
+        src_env_href = value_to_href.get(("env", src_env), "")
+        dst_app_href = value_to_href.get(("app", dst_app), "")
+        dst_env_href = value_to_href.get(("env", dst_env), "")
+
+        if not all([src_app_href, src_env_href, dst_app_href, dst_env_href]):
+            continue
+
+        # Classify risk
+        cross_env = src_env != dst_env
+        risk_class = "cross-env" if cross_env else "cross-app"
+        if cross_env:
+            risk_level = "high"
+            risk_reason = f"Cross-environment traffic ({src_env} → {dst_env})"
+        else:
+            risk_level = "medium"
+            risk_reason = f"Cross-application traffic in {src_env}"
+
+        # Build services
+        all_services = []
+        clean_services = []
+        risky_services = []
+        for svc_str, count in pair["services"]:
+            try:
+                p, pr = svc_str.split("/")
+                port, proto = int(p), int(pr)
+                proto_name = PROTO_MAP.get(str(proto), str(proto))
+                existing = svc_by_port.get((port, proto))
+                entry = {"port": port, "proto": proto_name, "connections": count}
+                if existing:
+                    entry["href"] = existing["href"]
+                    entry["name"] = existing["name"]
+                risky, reason = is_risky_service(port, proto_name)
+                if risky:
+                    entry["risky"] = True
+                    entry["risk_reason"] = reason
+                    risky_services.append(entry)
+                else:
+                    clean_services.append(entry)
+                all_services.append(entry)
+            except (ValueError, IndexError):
+                continue
+
+        if not all_services:
+            continue
+
+        # Consumer scope (source app|env)
+        consumer_scope = [
+            {"label": {"href": src_app_href}, "exclusion": False},
+            {"label": {"href": src_env_href}, "exclusion": False},
+        ]
+        # Provider scope (destination app|env)
+        provider_scope = [
+            {"label": {"href": dst_app_href}, "exclusion": False},
+            {"label": {"href": dst_env_href}, "exclusion": False},
+        ]
+
+        # ===== LEVEL 1: App A → App B, all clean services =====
+        level1_ruleset = {
+            "name": f"plugger-auto | {src_app} ({src_env}) → {dst_app} ({dst_env})",
+            "description": f"AI Suggested: cross-scope rule (level 1 — app-to-app, all clean services)",
+            "enabled": True,
+            "scopes": [consumer_scope],  # scoped to consumer side
+            "rules": [{
+                "enabled": True,
+                "consumers": [{"actors": "ams"}],
+                "providers": [{"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                "ingress_services": build_ingress(clean_services) if clean_services else build_ingress(all_services),
+                "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+            }],
+        }
+
+        # ===== LEVEL 2: App A → App B, observed services only =====
+        level2_ruleset = {
+            "name": f"plugger-auto | {src_app} ({src_env}) → {dst_app} ({dst_env}) | services",
+            "description": f"AI Suggested: cross-scope rule (level 2 — observed services only)",
+            "enabled": True,
+            "scopes": [consumer_scope],
+            "rules": [{
+                "enabled": True,
+                "consumers": [{"actors": "ams"}],
+                "providers": [{"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                "ingress_services": build_ingress(clean_services),
+                "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+            }],
+        }
+
+        # ===== LEVEL 3: Role@A → Role@B, observed services =====
+        role_tiers = pair.get("role_tiers", [])
+        level3_rules = []
+        if role_tiers:
+            seen = set()
+            for tier in role_tiers:
+                sr, dr = tier["src_role"], tier["dst_role"]
+                if sr == "unknown" or dr == "unknown":
+                    continue
+                if (sr, dr) in seen:
+                    continue
+                seen.add((sr, dr))
+
+                sr_href = value_to_href.get(("role", sr), "")
+                dr_href = value_to_href.get(("role", dr), "")
+                if not sr_href or not dr_href:
+                    continue
+
+                tier_svcs = []
+                for svc_str, count in tier["services"]:
+                    try:
+                        p, pr = svc_str.split("/")
+                        port, proto = int(p), int(pr)
+                        pn = PROTO_MAP.get(str(proto), str(proto))
+                        risky, _ = is_risky_service(port, pn)
+                        if not risky:
+                            existing = svc_by_port.get((port, proto))
+                            entry = {"port": port, "proto": pn, "connections": count}
+                            if existing:
+                                entry["href"] = existing["href"]
+                            tier_svcs.append(entry)
+                    except (ValueError, IndexError):
+                        continue
+
+                if not tier_svcs:
+                    continue
+
+                level3_rules.append({
+                    "enabled": True,
+                    "consumers": [{"label": {"href": sr_href}}],
+                    "providers": [{"label": {"href": dr_href}}, {"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                    "ingress_services": build_ingress(tier_svcs),
+                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                })
+
+        level3_ruleset = {
+            "name": f"plugger-auto | {src_app} ({src_env}) → {dst_app} ({dst_env}) | strict",
+            "description": f"AI Suggested: cross-scope rule (level 3 — role-to-role, observed services)",
+            "enabled": True,
+            "scopes": [consumer_scope],
+            "rules": level3_rules if level3_rules else level2_ruleset["rules"],
+        }
+
+        # Review ruleset for risky services
+        review_ruleset = None
+        if risky_services:
+            review_ruleset = {
+                "name": f"plugger-review | {src_app} ({src_env}) → {dst_app} ({dst_env}) | FOR REVIEW",
+                "description": f"AI Suggested: FLAGGED cross-scope — contains insecure protocols. {risk_reason}.",
+                "enabled": True,
+                "scopes": [consumer_scope],
+                "rules": [{
+                    "enabled": True,
+                    "consumers": [{"actors": "ams"}],
+                    "providers": [{"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                    "ingress_services": build_ingress(risky_services),
+                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                }],
+            }
+
+        # Cross-env always gets an extra review flag
+        if cross_env and not review_ruleset:
+            review_ruleset = {
+                "name": f"plugger-review | {src_app} ({src_env}) → {dst_app} ({dst_env}) | CROSS-ENV REVIEW",
+                "description": f"AI Suggested: CROSS-ENVIRONMENT traffic. {risk_reason}. Requires explicit approval.",
+                "enabled": True,
+                "scopes": [consumer_scope],
+                "rules": level1_ruleset["rules"],
+            }
+
+        inter_rules.append({
+            "src_group": src_g,
+            "dst_group": dst_g,
+            "src_app": src_app,
+            "src_env": src_env,
+            "dst_app": dst_app,
+            "dst_env": dst_env,
+            "risk_class": risk_class,
+            "risk_level": risk_level,
+            "risk_reason": risk_reason,
+            "cross_env": cross_env,
+            "services": all_services,
+            "clean_services": clean_services,
+            "risky_services": risky_services,
+            "role_tiers": role_tiers,
+            "total_connections": pair["total_connections"],
+            "host_count": pair["host_count"],
+            "tiers": {
+                "level1": level1_ruleset,
+                "level2": level2_ruleset,
+                "level3": level3_ruleset,
+            },
+            "review_ruleset": review_ruleset,
+            "ruleset_json": level2_ruleset,  # default
+        })
+
+    inter_rules.sort(key=lambda x: (-1 if x["cross_env"] else 0, -x["total_connections"]))
+    return inter_rules
+
+
 def run_check(pce):
     """Full analysis cycle."""
     if not label_cache:
@@ -645,6 +905,7 @@ def run_check(pce):
     try:
         blocked_pairs, blocked_summary = analyze_traffic(pce)
         stale_rules, suggested_rules, auto_rules, stale_summary = find_stale_rules(pce, blocked_pairs)
+        inter_rules = build_inter_scope_suggestions(pce, blocked_pairs)
 
         with state_lock:
             report_state["last_check"] = datetime.now(timezone.utc).isoformat()
@@ -654,14 +915,15 @@ def run_check(pce):
             report_state["stale_rules"] = stale_rules
             report_state["suggested_rules"] = suggested_rules
             report_state["auto_rules"] = auto_rules
+            report_state["inter_rules"] = inter_rules
             report_state["stale_summary"] = stale_summary
             report_state["label_count"] = len(label_cache)
             report_state["error"] = None
 
-        log.info("Check #%d: %d blocked pairs (%d connections), %d stale rules, %d suggestions, %d auto-rules",
+        log.info("Check #%d: %d blocked pairs (%d connections), %d intra-rules, %d inter-rules, %d stale",
                  report_state["check_count"], len(blocked_pairs),
                  blocked_summary["total_blocked_connections"],
-                 len(stale_rules), len(suggested_rules), len(auto_rules))
+                 len(auto_rules), len(inter_rules), len(stale_rules))
 
     except Exception as e:
         log.exception("Analysis failed")
@@ -722,7 +984,8 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
     <!-- Tabs -->
     <div class="flex gap-6 border-b border-gray-700 mb-6">
-        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-active cursor-pointer">AI Suggested Rules</button>
+        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-active cursor-pointer">Intra-Scope</button>
+        <button onclick="showTab('inter')" id="tab-inter" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Cross-Scope</button>
         <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
         <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">All Suggestions</button>
@@ -730,6 +993,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
     </div>
 
     <div id="panel-auto"></div>
+    <div id="panel-inter" style="display:none;"></div>
     <div id="panel-blocked" style="display:none;"></div>
     <div id="panel-suggested" style="display:none;"></div>
     <div id="panel-stale" style="display:none;"></div>
@@ -747,7 +1011,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
 <script>
 const BASE = (() => { const m = window.location.pathname.match(/^(\/plugins\/[^/]+\/ui)/); return m ? m[1] : ''; })();
-const tabs = ['blocked','suggested','auto','stale','chart'];
+const tabs = ['auto','inter','blocked','chart','suggested','stale'];
 let chartBlocked, chartServices;
 
 function showTab(name) {
@@ -920,6 +1184,57 @@ function update(data) {
         </div>
     ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No AI Suggestions</div><div class="text-gray-500 mt-2">No intra-app|env blocked traffic detected.</div></div>';
 
+    // Cross-scope rules
+    const interRules = data.inter_rules || [];
+    const interAnalyses = data.ai_analyses || {};
+    document.getElementById('panel-inter').innerHTML = interRules.length ? `
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-white">Cross-Scope Traffic (${interRules.length} pairs)</h2>
+            <div class="flex gap-2 text-xs">
+                <span class="px-2 py-0.5 rounded bg-yellow-900/30 text-yellow-400">${interRules.filter(r=>!r.cross_env).length} same-env</span>
+                <span class="px-2 py-0.5 rounded bg-red-900/30 text-red-400">${interRules.filter(r=>r.cross_env).length} cross-env</span>
+            </div>
+        </div>
+        <div class="space-y-3">${interRules.map((r, i) => {
+            const idx = 'inter_'+i;
+            const a = interAnalyses[idx] || {};
+            const hasAI = a.recommendation;
+            const provisioned = a.provisioned;
+            const envColor = r.cross_env ? 'red' : 'yellow';
+            const recColor = a.recommendation === 'approve' ? 'emerald' : a.recommendation === 'reject' ? 'red' : 'yellow';
+            return `
+            <div class="bg-dark-800 rounded-xl border border-${envColor}-900/30 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <code class="text-xs bg-${envColor}-900/20 text-${envColor}-300 px-1.5 py-0.5 rounded">${r.src_group}</code>
+                        <span class="text-gray-500">→</span>
+                        <code class="text-xs bg-${envColor}-900/20 text-${envColor}-300 px-1.5 py-0.5 rounded">${r.dst_group}</code>
+                        <span class="px-1.5 py-0.5 rounded text-xs bg-${envColor}-900/40 text-${envColor}-400">${r.risk_class}</span>
+                        ${hasAI ? `<span class="px-1.5 py-0.5 rounded text-xs bg-${recColor}-900/50 text-${recColor}-400">AI: ${a.recommendation}</span>` : ''}
+                        ${provisioned && provisioned.success ? '<span class="px-1.5 py-0.5 rounded text-xs bg-blue-900/50 text-blue-400">Provisioned</span>' : ''}
+                    </div>
+                    <span class="text-xs text-gray-500">${formatNum(r.total_connections)} conns, ${r.host_count} hosts</span>
+                </div>
+                <div class="flex flex-wrap gap-1 mb-2">
+                    ${(r.clean_services||[]).map(s => `<span class="text-xs px-1.5 py-0.5 rounded bg-dark-700 text-gray-400">${s.name||s.port+'/'+s.proto}</span>`).join('')}
+                    ${(r.risky_services||[]).map(s => `<span class="text-xs px-1.5 py-0.5 rounded bg-red-900/30 text-red-400">${s.name||s.port+'/'+s.proto} ⚠</span>`).join('')}
+                </div>
+                ${r.risk_reason ? `<div class="text-xs text-${envColor}-400 mb-2">${r.risk_reason}</div>` : ''}
+                ${hasAI ? `<div class="bg-dark-700/30 rounded p-2 mb-2 border-l-2 border-${recColor}-500 text-sm text-gray-300">${a.reasoning}${a.suggested_modifications ? '<br><span class=text-xs>'+a.suggested_modifications+'</span>' : ''}</div>` : ''}
+                <div class="flex items-center gap-2 flex-wrap">
+                    ${aiEnabled && !hasAI ? `<button onclick="analyzeInter(${i})" class="px-2 py-1 text-xs rounded bg-emerald-700 hover:bg-emerald-600 text-white transition-colors">AI Analyze</button>` : ''}
+                    ${!provisioned || !provisioned.success ? `
+                        <span class="text-xs text-gray-500">Provision:</span>
+                        <button onclick="provisionInter(${i},'level1')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200" title="App A ↔ App B, all clean services">L1: Apps</button>
+                        <button onclick="provisionInter(${i},'level2')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200" title="App A ↔ App B, observed services">L2: Services</button>
+                        <button onclick="provisionInter(${i},'level3')" class="px-2 py-1 text-xs rounded bg-purple-800 hover:bg-purple-700 text-purple-200" title="Role → Role, observed services">L3: Roles</button>
+                    ` : ''}
+                    ${r.review_ruleset && (!provisioned || !provisioned.success) ? `<button onclick="provisionInter(${i},'review')" class="px-2 py-1 text-xs rounded bg-red-900 hover:bg-red-800 text-red-200">+ Review</button>` : ''}
+                </div>
+            </div>`;
+        }).join('')}</div>
+    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Cross-Scope Traffic</div><div class="text-gray-500 mt-2">No blocked traffic between different applications detected.</div></div>';
+
     // Stale rules
     const stale = data.stale_rules || [];
     document.getElementById('panel-stale').innerHTML = stale.length ? `
@@ -1026,6 +1341,32 @@ async function provisionRule(index) {
     finally { if (btn) { btn.textContent = 'Provision to Draft'; btn.disabled = false; } }
 }
 
+async function analyzeInter(index) {
+    try {
+        const resp = await fetch(BASE + '/api/ai/analyze', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({index: index, scope: 'inter'})
+        });
+        const result = await resp.json();
+        if (result.error) { alert('AI Error: ' + result.error); return; }
+        await fetchData();
+    } catch(e) { alert('AI failed: ' + e); }
+}
+
+async function provisionInter(index, tier) {
+    const tierNames = {level1:'Level 1 (App→App)',level2:'Level 2 (Services)',level3:'Level 3 (Roles)',review:'FOR REVIEW'};
+    if (!confirm(`Provision ${tierNames[tier]||tier} cross-scope rule to PCE draft?`)) return;
+    try {
+        const resp = await fetch(BASE + '/api/provision/inter/' + index + '/' + tier, {
+            method: 'POST', headers: {'Content-Type':'application/json'}
+        });
+        const result = await resp.json();
+        if (result.success) alert('Provisioned: ' + result.name);
+        else alert('Failed: ' + result.error);
+        await fetchData();
+    } catch(e) { alert('Failed: ' + e); }
+}
+
 initCharts();
 document.getElementById('api-link').href = BASE + '/api/report';
 fetchData();
@@ -1095,7 +1436,7 @@ class ReportHandler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def handle_ai_analyze(self, body):
-        """AI-analyze a specific auto-rule by index."""
+        """AI-analyze a specific rule by index. Supports scope=inter for cross-scope."""
         try:
             req = json.loads(body) if body else {}
         except json.JSONDecodeError:
@@ -1103,10 +1444,15 @@ class ReportHandler(BaseHTTPRequestHandler):
             return
 
         index = req.get("index", -1)
-        with state_lock:
-            auto_rules = report_state.get("auto_rules", [])
+        scope = req.get("scope", "intra")
 
-        if index < 0 or index >= len(auto_rules):
+        with state_lock:
+            if scope == "inter":
+                rules_list = report_state.get("inter_rules", [])
+            else:
+                rules_list = report_state.get("auto_rules", [])
+
+        if index < 0 or index >= len(rules_list):
             self.send_json(400, {"error": f"Invalid index {index}"})
             return
 
@@ -1114,29 +1460,42 @@ class ReportHandler(BaseHTTPRequestHandler):
             self.send_json(400, {"error": "AI not configured. Set AI_PROVIDER and AI_API_KEY environment variables."})
             return
 
-        rule = auto_rules[index]
+        rule = rules_list[index]
         lookback = report_state.get("blocked_summary", {}).get("lookback_hours", 24)
 
-        log.info("AI analyzing: %s (%d connections)", rule["app_env"], rule["total_connections"])
+        name = rule.get("app_env", rule.get("src_group", "?"))
+        log.info("AI analyzing (%s): %s (%d connections)", scope, name, rule["total_connections"])
         result = ai_advisor.analyze(rule, lookback_hours=lookback)
-        ai_analyses[str(index)] = result
+        key = f"inter_{index}" if scope == "inter" else str(index)
+        ai_analyses[key] = result
 
         self.send_json(200, result)
 
     def handle_provision(self, body):
-        """Provision an auto-rule to PCE draft. Supports tier selection and review provisioning."""
-        # Parse path: /api/provision/{index} or /api/provision/{index}/{tier}
+        """Provision a rule to PCE draft. Supports intra and inter scope."""
+        # Parse path: /api/provision/{index}/{tier} or /api/provision/inter/{index}/{tier}
         path_parts = self.path.rstrip("/").split("/")
+        # /api/provision/inter/{index}/{tier} or /api/provision/{index}/{tier}
+        is_inter = "inter" in path_parts
+
         try:
-            index = int(path_parts[3])  # /api/provision/{index}
+            if is_inter:
+                # /api/provision/inter/{index}/{tier}
+                idx_pos = path_parts.index("inter") + 1
+                index = int(path_parts[idx_pos])
+                tier = path_parts[idx_pos + 1] if len(path_parts) > idx_pos + 1 else "level2"
+            else:
+                index = int(path_parts[3])
+                tier = path_parts[4] if len(path_parts) > 4 else "medium"
         except (ValueError, IndexError):
-            self.send_json(400, {"error": "Invalid index"})
+            self.send_json(400, {"error": "Invalid path"})
             return
 
-        tier = path_parts[4] if len(path_parts) > 4 else "medium"
-
         with state_lock:
-            auto_rules = report_state.get("auto_rules", [])
+            if is_inter:
+                auto_rules = report_state.get("inter_rules", [])
+            else:
+                auto_rules = report_state.get("auto_rules", [])
 
         if index < 0 or index >= len(auto_rules):
             self.send_json(400, {"error": f"Invalid index {index}"})
@@ -1170,11 +1529,12 @@ class ReportHandler(BaseHTTPRequestHandler):
                 results.append(provision_rule(pce_client, review_rs))
 
         # Store provision status
-        if str(index) not in ai_analyses:
-            ai_analyses[str(index)] = {}
-        ai_analyses[str(index)]["provisioned"] = results[0]
+        key = f"inter_{index}" if is_inter else str(index)
+        if key not in ai_analyses:
+            ai_analyses[key] = {}
+        ai_analyses[key]["provisioned"] = results[0]
         if len(results) > 1:
-            ai_analyses[str(index)]["review_provisioned"] = results[1]
+            ai_analyses[key]["review_provisioned"] = results[1]
 
         result = results[0]
 
