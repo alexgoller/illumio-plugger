@@ -28,7 +28,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
-log = logging.getLogger("stale_rules_checker")
+log = logging.getLogger("ai_assisted_rules")
 
 state_lock = threading.Lock()
 report_state = {
@@ -463,7 +463,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stale Rules Checker</title>
+<title>AI Assisted Rules</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
@@ -489,9 +489,9 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
                 <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                 </svg>
-                Stale Rules Checker
+                AI Assisted Rules
             </h1>
-            <p class="text-gray-500 mt-1">Blocked traffic analysis and rule gap detection</p>
+            <p class="text-gray-500 mt-1">AI-powered policy advisor for Illumio PCE</p>
         </div>
         <div class="flex items-center gap-3">
             <div id="status-dot" class="w-3 h-3 rounded-full bg-gray-600"></div>
@@ -504,16 +504,16 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
     <!-- Tabs -->
     <div class="flex gap-6 border-b border-gray-700 mb-6">
-        <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-active cursor-pointer">Blocked Traffic</button>
-        <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Suggested Rules</button>
-        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">AI Suggested Rules</button>
-        <button onclick="showTab('stale')" id="tab-stale" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Stale Rules</button>
+        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-active cursor-pointer">AI Suggested Rules</button>
+        <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
+        <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">All Suggestions</button>
+        <button onclick="showTab('stale')" id="tab-stale" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Stale Rules</button>
     </div>
 
-    <div id="panel-blocked"></div>
+    <div id="panel-auto"></div>
+    <div id="panel-blocked" style="display:none;"></div>
     <div id="panel-suggested" style="display:none;"></div>
-    <div id="panel-auto" style="display:none;"></div>
     <div id="panel-stale" style="display:none;"></div>
     <div id="panel-chart" style="display:none;">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -908,7 +908,7 @@ class ReportHandler(BaseHTTPRequestHandler):
 def main():
     global ai_advisor, pce_client
 
-    log.info("Starting stale-rules-checker...")
+    log.info("Starting AI Assisted Rules...")
     port = int(os.environ.get("HTTP_PORT", "8080"))
 
     pce_client = get_pce()

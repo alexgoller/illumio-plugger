@@ -1,7 +1,7 @@
 apiVersion: plugger/v1
-name: stale-rules-checker
+name: ai-assisted-rules
 version: 0.2.0
-image: stale-rules-checker:latest
+image: ai-assisted-rules:latest
 
 schedule:
   mode: daemon
