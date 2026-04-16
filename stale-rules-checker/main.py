@@ -370,7 +370,10 @@ def build_auto_suggestions(pce, blocked_pairs):
             continue
 
         # Build the PCE-compatible rule JSON
-        scope_labels = [{"href": app_href}, {"href": env_href}]
+        scope_labels = [
+            {"label": {"href": app_href}, "exclusion": False},
+            {"label": {"href": env_href}, "exclusion": False},
+        ]
 
         ingress_services = []
         for rs in rule_services:
