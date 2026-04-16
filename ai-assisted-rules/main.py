@@ -1144,9 +1144,23 @@ function update(data) {
                     <span class="text-xs text-red-400 font-medium">Flagged:</span>
                     ${r.risky_services.map(s => `<span class="text-xs px-2 py-0.5 rounded bg-red-900/30 text-red-400" title="${s.risk_reason||''}">${s.name || s.port+'/'+s.proto} ⚠</span>`).join('')}
                 </div>` : ''}
-                ${(r.role_tiers||[]).length > 1 ? `<div class="mb-3 text-xs text-gray-500">
-                    Role tiers: ${r.role_tiers.filter(t=>t.src_role!=='unknown').slice(0,5).map(t => `<span class="text-gray-400">${t.src_role}→${t.dst_role}</span>`).join(', ')}
-                </div>` : ''}
+                <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
+                    <div class="bg-green-900/10 border border-green-900/20 rounded-lg p-2.5">
+                        <div class="font-medium text-green-400 mb-1">Low Security</div>
+                        <div class="text-gray-400">All workloads ↔ All workloads</div>
+                        <div class="text-gray-500 mt-0.5">${(r.clean_services||r.services||[]).length} services, 1 rule</div>
+                    </div>
+                    <div class="bg-blue-900/10 border border-blue-900/20 rounded-lg p-2.5">
+                        <div class="font-medium text-blue-400 mb-1">Medium Security</div>
+                        <div class="text-gray-400">${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown').length > 0 ? r.role_tiers.filter(t=>t.src_role!=='unknown').slice(0,3).map(t=>t.src_role+'→'+t.dst_role).join(', ')+(r.role_tiers.length>3?' +more':'') : 'Role → Role per tier'}</div>
+                        <div class="text-gray-500 mt-0.5">All services per pair, ${r.tiers?.medium?.rules?.length||'?'} rules</div>
+                    </div>
+                    <div class="bg-purple-900/10 border border-purple-900/20 rounded-lg p-2.5">
+                        <div class="font-medium text-purple-400 mb-1">High Security</div>
+                        <div class="text-gray-400">${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown').length > 0 ? 'Role → Role, observed ports only' : 'Observed services only'}</div>
+                        <div class="text-gray-500 mt-0.5">Specific services per pair, ${r.tiers?.high?.rules?.length||'?'} rules</div>
+                    </div>
+                </div>
                 ${hasAI ? `
                 <div class="bg-dark-700/30 rounded-lg p-3 mb-3 border-l-2 border-${recColor}-500">
                     <div class="text-sm text-gray-300 mb-1">${a.reasoning}</div>
@@ -1220,14 +1234,31 @@ function update(data) {
                     ${(r.risky_services||[]).map(s => `<span class="text-xs px-1.5 py-0.5 rounded bg-red-900/30 text-red-400">${s.name||s.port+'/'+s.proto} ⚠</span>`).join('')}
                 </div>
                 ${r.risk_reason ? `<div class="text-xs text-${envColor}-400 mb-2">${r.risk_reason}</div>` : ''}
+                <div class="grid grid-cols-3 gap-2 mb-2 text-xs">
+                    <div class="bg-green-900/10 border border-green-900/20 rounded-lg p-2">
+                        <div class="font-medium text-green-400 mb-0.5">L1: App → App</div>
+                        <div class="text-gray-400">${r.src_app} → ${r.dst_app}</div>
+                        <div class="text-gray-500">${(r.clean_services||[]).length} services, 1 rule</div>
+                    </div>
+                    <div class="bg-blue-900/10 border border-blue-900/20 rounded-lg p-2">
+                        <div class="font-medium text-blue-400 mb-0.5">L2: Observed Svc</div>
+                        <div class="text-gray-400">${r.src_app} → ${r.dst_app}</div>
+                        <div class="text-gray-500">Only seen ports, ${r.tiers?.level2?.rules?.length||1} rules</div>
+                    </div>
+                    <div class="bg-purple-900/10 border border-purple-900/20 rounded-lg p-2">
+                        <div class="font-medium text-purple-400 mb-0.5">L3: Role → Role</div>
+                        <div class="text-gray-400">${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown').slice(0,2).map(t=>t.src_role+'→'+t.dst_role).join(', ')||'per role pair'}</div>
+                        <div class="text-gray-500">Strict, ${r.tiers?.level3?.rules?.length||'?'} rules</div>
+                    </div>
+                </div>
                 ${hasAI ? `<div class="bg-dark-700/30 rounded p-2 mb-2 border-l-2 border-${recColor}-500 text-sm text-gray-300">${a.reasoning}${a.suggested_modifications ? '<br><span class=text-xs>'+a.suggested_modifications+'</span>' : ''}</div>` : ''}
                 <div class="flex items-center gap-2 flex-wrap">
                     ${aiEnabled && !hasAI ? `<button onclick="analyzeInter(${i})" class="px-2 py-1 text-xs rounded bg-emerald-700 hover:bg-emerald-600 text-white transition-colors">AI Analyze</button>` : ''}
                     ${!provisioned || !provisioned.success ? `
                         <span class="text-xs text-gray-500">Provision:</span>
-                        <button onclick="provisionInter(${i},'level1')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200" title="App A ↔ App B, all clean services">L1: Apps</button>
-                        <button onclick="provisionInter(${i},'level2')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200" title="App A ↔ App B, observed services">L2: Services</button>
-                        <button onclick="provisionInter(${i},'level3')" class="px-2 py-1 text-xs rounded bg-purple-800 hover:bg-purple-700 text-purple-200" title="Role → Role, observed services">L3: Roles</button>
+                        <button onclick="provisionInter(${i},'level1')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200" title="App A ↔ App B, all clean services">L1</button>
+                        <button onclick="provisionInter(${i},'level2')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200" title="App A ↔ App B, observed services">L2</button>
+                        <button onclick="provisionInter(${i},'level3')" class="px-2 py-1 text-xs rounded bg-purple-800 hover:bg-purple-700 text-purple-200" title="Role → Role, observed services">L3</button>
                     ` : ''}
                     ${r.review_ruleset && (!provisioned || !provisioned.success) ? `<button onclick="provisionInter(${i},'review')" class="px-2 py-1 text-xs rounded bg-red-900 hover:bg-red-800 text-red-200">+ Review</button>` : ''}
                 </div>
