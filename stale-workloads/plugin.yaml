@@ -1,0 +1,38 @@
+apiVersion: plugger/v1
+name: stale-workloads
+version: 0.1.0
+image: stale-workloads:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: POLL_INTERVAL
+    required: false
+    default: "600"
+  - name: STALE_DAYS
+    required: false
+    default: "7"
+  - name: OFFLINE_HOURS
+    required: false
+    default: "24"
+  - name: CHECK_TRAFFIC
+    required: false
+    default: "true"
+  - name: TRAFFIC_LOOKBACK_HOURS
+    required: false
+    default: "168"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"
