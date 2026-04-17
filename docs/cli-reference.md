@@ -4,13 +4,27 @@
 
 ### `plugger init`
 
-Initialize the plugger configuration directory.
+Interactive setup wizard — auto-detects Docker, configures PCE connection.
 
 ```bash
-plugger init
+plugger init [flags]
 ```
 
-Creates `~/.plugger/` with a default `config.yaml`. Safe to run multiple times — won't overwrite existing config.
+**What it does:**
+1. Creates `~/.plugger/` directory structure
+2. Auto-detects Docker socket (Docker Desktop, Colima, Rancher, Podman)
+3. Reads PCE credentials from `.env` file or environment variables
+4. Prompts for missing values (PCE host, API key, API secret)
+5. Tests PCE connectivity
+6. Writes `config.yaml` with all detected settings
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--non-interactive` | `false` | Skip interactive prompts (use env vars/.env only) |
+
+Safe to run multiple times — won't overwrite existing config.
 
 ---
 

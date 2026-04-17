@@ -79,21 +79,56 @@ plugger --config /path/to/config.yaml run
 
 ### Docker Socket
 
-If your Docker socket is not at the default location (`/var/run/docker.sock`), set:
+`plugger init` auto-detects your Docker socket. You can also set it manually:
+
+```yaml
+# In config.yaml
+plugger:
+  dockerSocket: unix:///var/run/docker.sock
+```
+
+Or via environment variable:
 
 ```bash
 export DOCKER_HOST=unix:///path/to/docker.sock
 ```
 
-For Docker Desktop on macOS, this is typically:
+**Auto-detected paths** (checked in order):
+| Platform | Path |
+|----------|------|
+| `DOCKER_HOST` env | Whatever is set |
+| Linux default | `/var/run/docker.sock` |
+| Docker Desktop (macOS) | `~/.docker/run/docker.sock` |
+| Colima | `~/.colima/default/docker.sock` |
+| Rancher Desktop | `~/.rd/docker.sock` |
+| Podman | `/run/user/{uid}/podman/podman.sock` |
+
+### .env File Support
+
+`plugger init` reads `.env` files from the current directory or `~/.plugger/.env`:
 
 ```bash
-export DOCKER_HOST=unix://$HOME/.docker/run/docker.sock
+# .env
+PCE_HOST=pce.example.com
+PCE_PORT=8443
+PCE_ORG_ID=1
+API_KEY=api_xxxxxxxxxxxx
+API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
+
+Both `API_KEY` and `PCE_API_KEY` formats are accepted.
 
 ## Installing Plugins
 
-Plugger supports three install sources:
+Plugger supports four install sources:
+
+### Registry Name (recommended)
+
+```bash
+plugger install pce-health-monitor
+```
+
+Looks up the plugin in configured registries, pulls the image from GHCR.
 
 ### Local Manifest File
 
