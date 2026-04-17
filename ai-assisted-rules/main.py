@@ -44,6 +44,8 @@ report_state = {
     "auto_rules": [],          # PCE-ready rule JSON for intra-app|env
     "inter_rules": [],         # cross app|env suggestions (non-infra)
     "infra_rules": [],         # consolidated infrastructure rulesets
+    "label_gaps": [],          # workloads missing labels
+    "label_summary": {},       # label gap statistics
     "stale_summary": {},
     # Label cache
     "label_count": 0,
@@ -1183,6 +1185,10 @@ def run_check(pce):
         inter_rules = [r for r in all_inter
                        if r["src_group"] not in infra_apps and r["dst_group"] not in infra_apps]
 
+        # Analyze label gaps
+        from label_advisor import analyze_label_gaps
+        label_gaps, label_summary = analyze_label_gaps(pce, label_cache)
+
         with state_lock:
             report_state["last_check"] = datetime.now(timezone.utc).isoformat()
             report_state["check_count"] += 1
@@ -1193,14 +1199,19 @@ def run_check(pce):
             report_state["auto_rules"] = auto_rules
             report_state["inter_rules"] = inter_rules
             report_state["infra_rules"] = infra_rules
+            report_state["label_gaps"] = label_gaps
+            report_state["label_summary"] = label_summary
             report_state["stale_summary"] = stale_summary
             report_state["label_count"] = len(label_cache)
             report_state["error"] = None
 
-        log.info("Check #%d: %d blocked pairs (%d connections), %d intra, %d inter, %d infra, %d stale",
+        missing_role = label_summary.get("missing_role", 0)
+        suggestions = label_summary.get("suggestions_made", 0)
+        log.info("Check #%d: %d blocked pairs (%d connections), %d intra, %d inter, %d infra, %d label gaps (%d suggestions)",
                  report_state["check_count"], len(blocked_pairs),
                  blocked_summary["total_blocked_connections"],
-                 len(auto_rules), len(inter_rules), len(infra_rules), len(stale_rules))
+                 len(auto_rules), len(inter_rules), len(infra_rules),
+                 missing_role, suggestions)
 
     except Exception as e:
         log.exception("Analysis failed")
@@ -1264,6 +1275,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
         <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-active cursor-pointer">Intra-Scope</button>
         <button onclick="showTab('inter')" id="tab-inter" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Cross-Scope</button>
         <button onclick="showTab('infra')" id="tab-infra" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Infrastructure</button>
+        <button onclick="showTab('labels')" id="tab-labels" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Label Gaps</button>
         <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
         <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">All Suggestions</button>
@@ -1273,6 +1285,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
     <div id="panel-auto"></div>
     <div id="panel-inter" style="display:none;"></div>
     <div id="panel-infra" style="display:none;"></div>
+    <div id="panel-labels" style="display:none;"></div>
     <div id="panel-blocked" style="display:none;"></div>
     <div id="panel-suggested" style="display:none;"></div>
     <div id="panel-stale" style="display:none;"></div>
@@ -1290,7 +1303,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
 <script>
 const BASE = (() => { const m = window.location.pathname.match(/^(\/plugins\/[^/]+\/ui)/); return m ? m[1] : ''; })();
-const tabs = ['auto','inter','infra','blocked','chart','suggested','stale'];
+const tabs = ['auto','inter','infra','labels','blocked','chart','suggested','stale'];
 let chartBlocked, chartServices;
 
 function showTab(name) {
@@ -1626,6 +1639,67 @@ function update(data) {
         }).join('')}</div>
     ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Infrastructure Patterns</div><div class="text-gray-500 mt-2">No apps detected with high fan-out/fan-in.</div></div>';
 
+    // Label Gaps
+    const labelGaps = (data.label_gaps || []).filter(g => g.missing.includes('role'));
+    const labelSummary = data.label_summary || {};
+    const labelAnalyses = data.ai_analyses || {};
+    document.getElementById('panel-labels').innerHTML = labelGaps.length ? `
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <h2 class="text-lg font-semibold text-white">Label Gaps — Missing Roles (${labelGaps.length} workloads)</h2>
+            </div>
+            <div class="flex gap-2 text-xs">
+                <span class="px-2 py-0.5 rounded bg-amber-900/30 text-amber-400">${labelSummary.suggestions_made||0} suggestions</span>
+                <span class="px-2 py-0.5 rounded bg-gray-700 text-gray-400">${labelSummary.fully_labeled||0}/${labelSummary.total_workloads||0} fully labeled</span>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">Workloads missing role labels cannot use Application Tiered or High Security policies. Add role labels to enable tiered micro-segmentation.</p>
+        <div class="bg-dark-800 rounded-xl border border-gray-700 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead><tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
+                    <th class="px-4 py-3">Hostname</th>
+                    <th class="px-4 py-3">App|Env</th>
+                    <th class="px-4 py-3">Missing</th>
+                    <th class="px-4 py-3">Suggested Role</th>
+                    <th class="px-4 py-3">Confidence</th>
+                    <th class="px-4 py-3 text-right">Actions</th>
+                </tr></thead>
+                <tbody>${labelGaps.map((g, i) => {
+                    const s = g.suggestion;
+                    const aiResult = labelAnalyses['label_'+i];
+                    const displayRole = aiResult?.role || (s ? s.role : '');
+                    const displayConf = aiResult?.confidence || (s ? s.confidence : 0);
+                    const displayReason = aiResult?.reasoning || (s ? s.reason : '');
+                    const confColor = displayConf > 0.7 ? 'emerald' : displayConf > 0.4 ? 'yellow' : 'gray';
+                    return `
+                    <tr class="border-b border-gray-700/30 hover:bg-dark-700/30">
+                        <td class="px-4 py-2"><code class="text-xs">${g.hostname}</code></td>
+                        <td class="px-4 py-2"><span class="text-xs text-gray-400">${g.app_env || '—'}</span></td>
+                        <td class="px-4 py-2"><span class="text-xs text-amber-400">${g.missing.join(', ')}</span></td>
+                        <td class="px-4 py-2">
+                            ${displayRole ? `<span class="px-2 py-0.5 rounded text-xs bg-${confColor}-900/30 text-${confColor}-400">${displayRole}</span>` : '<span class="text-xs text-gray-600">—</span>'}
+                            ${displayReason ? `<div class="text-[10px] text-gray-500 mt-0.5 max-w-xs truncate" title="${displayReason}">${displayReason}</div>` : ''}
+                        </td>
+                        <td class="px-4 py-2">
+                            ${displayConf ? `<span class="text-xs text-${confColor}-400">${Math.round(displayConf*100)}%</span>` : ''}
+                            ${s?.source ? `<span class="text-[10px] text-gray-600 ml-1">${s.source}</span>` : ''}
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                ${aiEnabled ? `<button onclick="aiSuggestLabel(${i})" class="px-2 py-0.5 text-[10px] rounded bg-emerald-800 hover:bg-emerald-700 text-emerald-200">AI</button>` : ''}
+                                ${displayRole ? `<button onclick="applyLabel('${g.href}','${displayRole}')" class="px-2 py-0.5 text-[10px] rounded bg-blue-800 hover:bg-blue-700 text-blue-200">Apply</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>
+        </div>
+        <div class="mt-4 p-3 bg-dark-800 rounded-xl border border-gray-700 text-xs text-gray-500">
+            Suggestions use traffic patterns (ports served) and hostname heuristics. AI analysis adds process data and reasoning. "Apply" sets the role label directly on the PCE workload.
+        </div>
+    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">All Roles Assigned</div><div class="text-gray-500 mt-2">Every workload has a role label. Tiered policies can be fully applied.</div></div>';
+
     // Stale rules
     const stale = data.stale_rules || [];
     document.getElementById('panel-stale').innerHTML = stale.length ? `
@@ -1758,6 +1832,35 @@ async function provisionInter(index, tier) {
     } catch(e) { alert('Failed: ' + e); }
 }
 
+async function aiSuggestLabel(index) {
+    try {
+        const resp = await fetch('/api/ai/suggest-label', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({index: index})
+        });
+        const result = await resp.json();
+        if (result.error) { alert('AI Error: ' + result.error); return; }
+        await fetchData();
+    } catch(e) { alert('AI failed: ' + e); }
+}
+
+async function applyLabel(workloadHref, role) {
+    if (!confirm('Apply role="' + role + '" to this workload on the PCE?')) return;
+    try {
+        const resp = await fetch('/api/labels/apply', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({workload_href: workloadHref, role: role})
+        });
+        const result = await resp.json();
+        if (result.success) {
+            alert('Applied role=' + role);
+            await fetchData();
+        } else {
+            alert('Failed: ' + result.error);
+        }
+    } catch(e) { alert('Failed: ' + e); }
+}
+
 function toggleInfraJSON(i) {
     const el = document.getElementById('infra-json-'+i);
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
@@ -1839,6 +1942,10 @@ class ReportHandler(BaseHTTPRequestHandler):
 
         if self.path == "/api/ai/analyze":
             self.handle_ai_analyze(body)
+        elif self.path == "/api/ai/suggest-label":
+            self.handle_ai_suggest_label(body)
+        elif self.path == "/api/labels/apply":
+            self.handle_apply_label(body)
         elif self.path.startswith("/api/provision/"):
             self.handle_provision(body)
         else:
@@ -1952,6 +2059,124 @@ class ReportHandler(BaseHTTPRequestHandler):
         result = results[0]
 
         self.send_json(200, result)
+
+    def handle_ai_suggest_label(self, body):
+        """AI-suggest a role label for a workload."""
+        try:
+            req = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            self.send_json(400, {"error": "Invalid JSON"})
+            return
+
+        index = req.get("index", -1)
+        with state_lock:
+            gaps = report_state.get("label_gaps", [])
+
+        # Filter to only missing-role gaps
+        role_gaps = [g for g in gaps if "role" in g.get("missing", [])]
+
+        if index < 0 or index >= len(role_gaps):
+            self.send_json(400, {"error": f"Invalid index {index}"})
+            return
+
+        if not ai_advisor or not ai_advisor.is_enabled():
+            self.send_json(400, {"error": "AI not configured"})
+            return
+
+        gap = role_gaps[index]
+
+        # Fetch process data if possible
+        processes = []
+        listening_ports = []
+        try:
+            if gap.get("href"):
+                proc_resp = pce_client.get(f"{gap['href']}/processes")
+                if proc_resp.status_code == 200:
+                    for p in proc_resp.json()[:20]:
+                        if isinstance(p, dict):
+                            processes.append(p.get("name", "") or p.get("service", ""))
+                            if p.get("port"):
+                                listening_ports.append(p["port"])
+        except Exception:
+            pass
+
+        workload_data = {
+            "hostname": gap["hostname"],
+            "ip": gap.get("ip", ""),
+            "app": gap.get("app", ""),
+            "env": gap.get("env", ""),
+            "labels": gap.get("labels", {}),
+            "suggestion": gap.get("suggestion"),
+            "processes": [p for p in processes if p],
+            "listening_ports": listening_ports,
+        }
+
+        log.info("AI suggesting label for: %s", gap["hostname"])
+        result = ai_advisor.suggest_label(workload_data)
+        ai_analyses[f"label_{index}"] = result
+        self.send_json(200, result)
+
+    def handle_apply_label(self, body):
+        """Apply a role label to a workload via PCE API."""
+        try:
+            req = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            self.send_json(400, {"error": "Invalid JSON"})
+            return
+
+        workload_href = req.get("workload_href", "")
+        role_value = req.get("role", "")
+
+        if not workload_href or not role_value:
+            self.send_json(400, {"error": "workload_href and role are required"})
+            return
+
+        # Find or create the role label
+        value_to_href = {}
+        for href, info in label_cache.items():
+            if info["key"] == "role" and info["value"] == role_value:
+                value_to_href[role_value] = href
+                break
+
+        role_href = value_to_href.get(role_value, "")
+        if not role_href:
+            # Create the label
+            try:
+                resp = pce_client.post("/labels", json={"key": "role", "value": role_value})
+                if resp.status_code in (200, 201):
+                    role_href = resp.json().get("href", "")
+                    label_cache[role_href] = {"key": "role", "value": role_value}
+                    log.info("Created label role=%s: %s", role_value, role_href)
+                else:
+                    self.send_json(400, {"error": f"Failed to create label: HTTP {resp.status_code}"})
+                    return
+            except Exception as e:
+                self.send_json(400, {"error": f"Failed to create label: {e}"})
+                return
+
+        # Get current workload labels
+        try:
+            wl_resp = pce_client.get(workload_href)
+            if wl_resp.status_code != 200:
+                self.send_json(400, {"error": f"Failed to fetch workload: HTTP {wl_resp.status_code}"})
+                return
+            wl = wl_resp.json()
+            current_labels = wl.get("labels", [])
+
+            # Add role label
+            # PCE only accepts {"href": "..."} — strip any extra fields
+            new_labels = [{"href": l["href"]} for l in current_labels if isinstance(l, dict) and l.get("href")]
+            new_labels.append({"href": role_href})
+
+            # Update workload
+            update_resp = pce_client.put(workload_href, json={"labels": new_labels})
+            if update_resp.status_code in (200, 204):
+                log.info("Applied role=%s to %s", role_value, wl.get("hostname", workload_href))
+                self.send_json(200, {"success": True, "role": role_value, "href": role_href})
+            else:
+                self.send_json(400, {"error": f"Failed to update workload: HTTP {update_resp.status_code}"})
+        except Exception as e:
+            self.send_json(400, {"error": f"Failed to apply label: {e}"})
 
     def send_json(self, code, data):
         body = json.dumps(data, indent=2, default=str).encode()

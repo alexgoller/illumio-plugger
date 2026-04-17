@@ -215,6 +215,56 @@ class AIAdvisor:
         result = json.loads(resp.read().decode())
         return result.get("message", {}).get("content", "")
 
+    def suggest_label(self, workload_data):
+        """Use AI to suggest a role label based on hostname, traffic, and process data."""
+        if not self.enabled:
+            return {"error": "AI not configured"}
+
+        hostname = workload_data.get("hostname", "")
+        ip = workload_data.get("ip", "")
+        app = workload_data.get("app", "")
+        env = workload_data.get("env", "")
+        existing_labels = workload_data.get("labels", {})
+        existing_suggestion = workload_data.get("suggestion", {})
+        processes = workload_data.get("processes", [])
+        listening_ports = workload_data.get("listening_ports", [])
+
+        prompt = f"""Suggest a role label for this Illumio workload that is missing one.
+
+## Workload Details
+- **Hostname**: {hostname}
+- **IP**: {ip}
+- **Application**: {app}
+- **Environment**: {env}
+- **Existing labels**: {json.dumps(existing_labels)}
+
+## Traffic/Process Signals
+- **Listening ports**: {', '.join(str(p) for p in listening_ports) or 'unknown'}
+- **Running processes**: {', '.join(processes[:10]) or 'unknown'}
+{f'- **Heuristic suggestion**: {existing_suggestion.get("role", "")} (confidence: {existing_suggestion.get("confidence", 0):.0%}, source: {existing_suggestion.get("source", "")})' if existing_suggestion else ''}
+
+## Available role labels in this PCE
+Common roles: web, db, processing, loadbalancer, gateway, cache, jumpbox, monitoring, syslog, dns, dc, mailserver, filer, time, worker
+
+## Instructions
+Based on the hostname, traffic patterns, processes, and application context, suggest the most appropriate role label.
+
+Respond with ONLY a JSON object:
+{{
+    "role": "the suggested role label",
+    "confidence": 0.0 to 1.0,
+    "reasoning": "brief explanation of why this role fits"
+}}"""
+
+        try:
+            response_text = self._call_llm(prompt)
+            result = self._parse_response(response_text)
+            result["ai_suggested"] = True
+            return result
+        except Exception as e:
+            log.error("AI label suggestion failed: %s", e)
+            return {"error": str(e)}
+
     def _parse_response(self, text):
         """Parse the LLM response JSON, handling markdown fences."""
         text = text.strip()
