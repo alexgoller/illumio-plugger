@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,12 +18,46 @@
                 }
             }
         }
+        // Theme: auto (system) / dark / light — saved in localStorage
+        ;(function() {
+            var saved = localStorage.getItem('plugger-theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches) || saved === null) {
+                document.documentElement.classList.add('dark');
+            }
+            if (saved === 'light') {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
     </script>
     <style>
         .log-container { max-height: 500px; }
         .log-container::-webkit-scrollbar { width: 8px; }
-        .log-container::-webkit-scrollbar-track { background: #1e1e2e; }
-        .log-container::-webkit-scrollbar-thumb { background: #585b70; border-radius: 4px; }
+        .log-container::-webkit-scrollbar-track { background: var(--scroll-track); }
+        .log-container::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 4px; }
+        :root { --scroll-track: #f3f4f6; --scroll-thumb: #d1d5db; }
+        .dark { --scroll-track: #1e1e2e; --scroll-thumb: #585b70; }
+
+        /* Light mode overrides */
+        html:not(.dark) body { background: #f9fafb; color: #1f2937; }
+        html:not(.dark) nav { background: #ffffff; border-color: #e5e7eb; }
+        html:not(.dark) nav a { color: #374151; }
+        html:not(.dark) nav a:hover { color: #111827; }
+        html:not(.dark) .bg-dark-800 { background: #ffffff; border-color: #e5e7eb; }
+        html:not(.dark) .bg-dark-900 { background: #f9fafb; }
+        html:not(.dark) .bg-dark-700 { background: #f3f4f6; }
+        html:not(.dark) .bg-dark-700\/50, html:not(.dark) .bg-dark-700\/30, html:not(.dark) .bg-dark-700\/20 { background: #f3f4f680; }
+        html:not(.dark) .border-gray-700 { border-color: #e5e7eb; }
+        html:not(.dark) .border-gray-700\/50, html:not(.dark) .border-gray-700\/30 { border-color: #e5e7eb80; }
+        html:not(.dark) .text-gray-200 { color: #1f2937; }
+        html:not(.dark) .text-gray-400 { color: #6b7280; }
+        html:not(.dark) .text-gray-500 { color: #9ca3af; }
+        html:not(.dark) .text-gray-600 { color: #d1d5db; }
+        html:not(.dark) .text-white { color: #111827; }
+        html:not(.dark) code { background: #e5e7eb; color: #374151; }
+
+        /* Theme toggle button */
+        .theme-btn { transition: all 0.2s; }
+        .theme-btn:hover { transform: scale(1.1); }
     </style>
 </head>
 <body class="bg-dark-900 text-gray-200 min-h-screen">
@@ -38,11 +72,46 @@
             <div class="flex items-center gap-4 text-sm text-gray-400">
                 <a href="/" class="hover:text-white transition-colors">Dashboard</a>
                 <a href="/registry" class="hover:text-white transition-colors">Registry</a>
+                <!-- Theme toggle -->
+                <div class="flex items-center gap-1 ml-2">
+                    <button onclick="setTheme('light')" class="theme-btn p-1 rounded hover:bg-dark-700" title="Light mode">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    </button>
+                    <button onclick="setTheme('auto')" class="theme-btn p-1 rounded hover:bg-dark-700" title="System default">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    </button>
+                    <button onclick="setTheme('dark')" class="theme-btn p-1 rounded hover:bg-dark-700" title="Dark mode">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
     <main class="max-w-7xl mx-auto px-6 py-8">
         {{block "content" .}}{{end}}
     </main>
+    <script>
+    function setTheme(mode) {
+        localStorage.setItem('plugger-theme', mode);
+        if (mode === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else if (mode === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            // auto — follow system
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+    }
+    // Listen for system theme changes when in auto mode
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (localStorage.getItem('plugger-theme') === 'auto' || !localStorage.getItem('plugger-theme')) {
+            setTheme('auto');
+        }
+    });
+    </script>
 </body>
 </html>
