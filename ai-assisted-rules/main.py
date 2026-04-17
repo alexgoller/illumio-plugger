@@ -1772,9 +1772,10 @@ function showTierJSON(index, tier) {
 
 async function provisionTier(index, tier) {
     const tierNames = {low:'Basic Ringfencing',medium:'Application Tiered',high:'High Security',review:'FOR REVIEW'};
-    if (!confirm(`Provision ${tierNames[tier]||tier} rule to PCE draft?`)) return;
+    if (!confirm('Provision ' + (tierNames[tier]||tier) + ' rule to PCE draft?')) return;
+    const url = '/api/provision/' + index + '/' + tier;
     try {
-        const resp = await fetch('/api/provision/' + index + '/' + tier, {
+        const resp = await fetch(url, {
             method: 'POST', headers: {'Content-Type':'application/json'}
         });
         const result = await resp.json();
@@ -1784,7 +1785,7 @@ async function provisionTier(index, tier) {
             alert('Provision failed: ' + result.error);
         }
         await fetchData();
-    } catch(e) { alert('Provision failed: ' + e); }
+    } catch(e) { alert('Provision error (' + url + '): ' + e); }
 }
 
 async function provisionRule(index) {
