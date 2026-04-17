@@ -12,6 +12,7 @@ import (
 	"github.com/illumio/plugger/internal/config"
 	ct "github.com/illumio/plugger/internal/container"
 	"github.com/illumio/plugger/internal/plugin"
+	"github.com/illumio/plugger/internal/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -76,10 +77,40 @@ func newInstallCmd() *cobra.Command {
 				}
 
 			default:
-				// Local file
+				// Try local file first
 				manifest, err = config.LoadManifest(source)
 				if err != nil {
-					return err
+					// Not a file — try registry lookup
+					mgr := registry.NewManager(app.Config.Plugger.DataDir)
+					regPlugin, regErr := mgr.FindPlugin(source)
+					if regErr == nil {
+						fmt.Printf("Found %q in registry (v%s)\n", regPlugin.Name, regPlugin.Version)
+						source = regPlugin.Image // switch to image-ref path
+
+						fmt.Printf("Pulling image %s...\n", source)
+						if pullErr := app.Runtime.Pull(ctx, source); pullErr != nil {
+							return fmt.Errorf("pulling image: %w", pullErr)
+						}
+						manifestBytes, mErr := app.Runtime.CopyFromImage(ctx, source, "/.plugger/manifest.yaml")
+						if mErr != nil {
+							manifestBytes, mErr = app.Runtime.CopyFromImage(ctx, source, "/.plugger/plugin.yaml")
+						}
+						if mErr != nil {
+							return fmt.Errorf("image %s does not contain a plugger manifest", source)
+						}
+						manifest, err = config.LoadManifestFromBytes(manifestBytes)
+						if err != nil {
+							return fmt.Errorf("parsing manifest from image: %w", err)
+						}
+						manifest.Image = source
+
+						metadataBytes, mdErr := app.Runtime.CopyFromImage(ctx, source, "/.plugger/metadata.yaml")
+						if mdErr == nil {
+							metadata, _ = config.ParseMetadata(metadataBytes)
+						}
+					} else {
+						return fmt.Errorf("not a file, URL, image ref, or registry plugin: %s", source)
+					}
 				}
 			}
 

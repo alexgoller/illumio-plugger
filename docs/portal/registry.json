@@ -1,0 +1,79 @@
+{
+  "name": "Illumio Official Plugin Registry",
+  "url": "https://alexgoller.github.io/illumio-plugger/registry.json",
+  "updated": "2026-04-17T00:00:00Z",
+  "plugins": [
+    {
+      "name": "pce-health-monitor",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-pce-health-monitor:latest",
+      "description": "Real-time PCE health dashboard with endpoint checks, CPU/memory/disk monitoring",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["monitoring", "health", "dashboard"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/pce-health-monitor"
+    },
+    {
+      "name": "traffic-reporter",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-traffic-reporter:latest",
+      "description": "Interactive traffic flow analysis with Chart.js — top talkers, blocked flows, policy decisions",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["traffic", "explorer", "visualization", "dashboard"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/traffic-reporter"
+    },
+    {
+      "name": "policy-diff",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-policy-diff:latest",
+      "description": "Git-like policy change tracker — field-level diffs, history snapshots, user attribution, audit trail",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["policy", "diff", "audit", "compliance", "dashboard"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-diff"
+    },
+    {
+      "name": "pce-posture-report",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-pce-posture-report:latest",
+      "description": "Security posture scoring — enforcement coverage, label coverage, policy rules, HTML+JSON reports",
+      "mode": "cron",
+      "has_ui": false,
+      "language": "python",
+      "tags": ["compliance", "reporting", "posture", "scoring"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/pce-posture-report"
+    },
+    {
+      "name": "pce-events",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-pce-events:latest",
+      "description": "Real-time PCE event monitoring — Slack, Teams, PagerDuty, Email, webhooks, 15+ output plugins",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["events", "notifications", "slack", "teams", "pagerduty", "alerting"],
+      "author": "Alex Goller",
+      "homepage": "https://github.com/alexgoller/illumio-pretty-cool-events"
+    },
+    {
+      "name": "ai-assisted-rules",
+      "version": "0.2.0",
+      "image": "ghcr.io/alexgoller/plugger-ai-assisted-rules:latest",
+      "description": "AI-powered policy advisor — blocked traffic analysis, tiered rule suggestions, auto-provisioning, label gap detection",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["ai", "policy", "rules", "automation", "llm", "dashboard"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ai-assisted-rules"
+    }
+  ]
+}
