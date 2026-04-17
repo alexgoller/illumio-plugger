@@ -473,7 +473,7 @@ def build_auto_suggestions(pce, blocked_pairs):
         }]
         low_ruleset = {
             "name": f"plugger-auto | {app_val} | {env_val}",
-            "description": "AI Suggested: intra-scope rule (low security)",
+            "description": "AI Suggested: Basic Ringfencing — all workloads in scope, clean services",
             "enabled": True,
             "scopes": [scope_labels],
             "rules": low_rules,
@@ -530,7 +530,7 @@ def build_auto_suggestions(pce, blocked_pairs):
 
         med_ruleset = {
             "name": f"plugger-auto | {app_val} | {env_val} | tiered",
-            "description": "AI Suggested: role-tiered rules (medium security)",
+            "description": "AI Suggested: Application Tiered — role-to-role per app tier",
             "enabled": True,
             "scopes": [scope_labels],
             "rules": med_rules,
@@ -1390,21 +1390,51 @@ function update(data) {
                     <span class="text-xs text-red-400 font-medium">Flagged:</span>
                     ${r.risky_services.map(s => `<span class="text-xs px-2 py-0.5 rounded bg-red-900/30 text-red-400" title="${s.risk_reason||''}">${s.name || s.port+'/'+s.proto} ⚠</span>`).join('')}
                 </div>` : ''}
-                <div class="grid grid-cols-3 gap-2 mb-3 text-xs">
-                    <div class="bg-green-900/10 border border-green-900/20 rounded-lg p-2.5">
-                        <div class="font-medium text-green-400 mb-1">Low Security</div>
-                        <div class="text-gray-400">All workloads ↔ All workloads</div>
-                        <div class="text-gray-500 mt-0.5">${(r.clean_services||r.services||[]).length} services, 1 rule</div>
+                <div class="grid grid-cols-3 gap-3 mb-3 text-xs">
+                    <div class="bg-green-900/10 border border-green-900/20 rounded-lg p-3">
+                        <div class="font-semibold text-green-400 mb-2 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            Basic Ringfencing
+                        </div>
+                        <div class="text-gray-300 mb-1">All ↔ All</div>
+                        <div class="text-gray-500">All workloads in scope can talk to each other</div>
+                        <div class="text-gray-600 mt-1">${(r.clean_services||r.services||[]).length} services · 1 rule</div>
                     </div>
-                    <div class="bg-blue-900/10 border border-blue-900/20 rounded-lg p-2.5">
-                        <div class="font-medium text-blue-400 mb-1">Medium Security</div>
-                        <div class="text-gray-400">${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown').length > 0 ? r.role_tiers.filter(t=>t.src_role!=='unknown').slice(0,3).map(t=>t.src_role+'→'+t.dst_role).join(', ')+(r.role_tiers.length>3?' +more':'') : 'Role → Role per tier'}</div>
-                        <div class="text-gray-500 mt-0.5">All services per pair, ${r.tiers?.medium?.rules?.length||'?'} rules</div>
+                    <div class="bg-blue-900/10 border border-blue-900/20 rounded-lg p-3">
+                        <div class="font-semibold text-blue-400 mb-2 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                            Application Tiered
+                        </div>
+                        <div class="space-y-0.5">
+                            ${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown'&&t.dst_role!=='unknown').slice(0,6).map(t => `
+                                <div class="flex items-center gap-1">
+                                    <span class="text-blue-300">${t.src_role}</span>
+                                    <span class="text-gray-600">→</span>
+                                    <span class="text-blue-300">${t.dst_role}</span>
+                                    <span class="text-gray-600 ml-auto">${formatNum(t.connections)}</span>
+                                </div>
+                            `).join('') || '<div class="text-gray-500">No role tiers detected</div>'}
+                        </div>
+                        <div class="text-gray-600 mt-1">${r.tiers?.medium?.rules?.length||'?'} rules</div>
                     </div>
-                    <div class="bg-purple-900/10 border border-purple-900/20 rounded-lg p-2.5">
-                        <div class="font-medium text-purple-400 mb-1">High Security</div>
-                        <div class="text-gray-400">${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown').length > 0 ? 'Role → Role, observed ports only' : 'Observed services only'}</div>
-                        <div class="text-gray-500 mt-0.5">Specific services per pair, ${r.tiers?.high?.rules?.length||'?'} rules</div>
+                    <div class="bg-purple-900/10 border border-purple-900/20 rounded-lg p-3">
+                        <div class="font-semibold text-purple-400 mb-2 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            High Security
+                        </div>
+                        <div class="space-y-0.5">
+                            ${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown'&&t.dst_role!=='unknown').slice(0,6).map(t => {
+                                const svcs = t.services.filter(s=>{try{const[p]=s[0].split('/');return !([20,21,23,69,135,137,138,139,3389,5900].includes(parseInt(p)))}catch(e){return true}}).slice(0,3);
+                                return `
+                                <div class="flex items-center gap-1">
+                                    <span class="text-purple-300">${t.src_role}</span>
+                                    <span class="text-gray-600">→</span>
+                                    <span class="text-purple-300">${t.dst_role}</span>
+                                    <span class="text-gray-600 ml-auto text-[10px]">${svcs.map(s=>s[0]).join(', ')}</span>
+                                </div>`;
+                            }).join('') || '<div class="text-gray-500">Observed services only</div>'}
+                        </div>
+                        <div class="text-gray-600 mt-1">${r.tiers?.high?.rules?.length||'?'} rules</div>
                     </div>
                 </div>
                 ${hasAI ? `
@@ -1418,8 +1448,8 @@ function update(data) {
                         AI Analyze</button>` : ''}
                     ${!provisioned || !provisioned.success ? `
                         <span class="text-xs text-gray-500 ml-1">Provision:</span>
-                        <button onclick="provisionTier(${i},'low')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200 transition-colors" title="All workloads ↔ All workloads, all clean services">Low</button>
-                        <button onclick="provisionTier(${i},'medium')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200 transition-colors" title="Role → Role, all services per tier">Medium</button>
+                        <button onclick="provisionTier(${i},'low')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200 transition-colors" title="All workloads ↔ All workloads, all clean services">Ringfencing</button>
+                        <button onclick="provisionTier(${i},'medium')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200 transition-colors" title="Role → Role, all services per tier">Tiered</button>
                         <button onclick="provisionTier(${i},'high')" class="px-2 py-1 text-xs rounded bg-purple-800 hover:bg-purple-700 text-purple-200 transition-colors" title="Role → Role, only observed services">High</button>
                     ` : `<span class="text-xs text-blue-400">✓ Provisioned</span>`}
                     ${(r.risky_services||[]).length && (!provisioned || !provisioned.success) ? `<button onclick="provisionTier(${i},'review')" class="px-2 py-1 text-xs rounded bg-red-900 hover:bg-red-800 text-red-200 transition-colors" title="Provision risky services as FOR REVIEW">+ Review</button>` : ''}
@@ -1427,8 +1457,8 @@ function update(data) {
                 </div>
                 <div id="json-${i}" style="display:none;" class="mt-3">
                     <div class="flex gap-2 mb-2">
-                        <button onclick="showTierJSON(${i},'low')" class="text-xs text-green-400 hover:text-green-300">Low</button>
-                        <button onclick="showTierJSON(${i},'medium')" class="text-xs text-blue-400 hover:text-blue-300">Medium</button>
+                        <button onclick="showTierJSON(${i},'low')" class="text-xs text-green-400 hover:text-green-300">Ringfencing</button>
+                        <button onclick="showTierJSON(${i},'medium')" class="text-xs text-blue-400 hover:text-blue-300">Tiered</button>
                         <button onclick="showTierJSON(${i},'high')" class="text-xs text-purple-400 hover:text-purple-300">High</button>
                         ${r.review_ruleset ? `<button onclick="showTierJSON(${i},'review')" class="text-xs text-red-400 hover:text-red-300">Review</button>` : ''}
                     </div>
@@ -1481,20 +1511,30 @@ function update(data) {
                 </div>
                 ${r.risk_reason ? `<div class="text-xs text-${envColor}-400 mb-2">${r.risk_reason}</div>` : ''}
                 <div class="grid grid-cols-3 gap-2 mb-2 text-xs">
-                    <div class="bg-green-900/10 border border-green-900/20 rounded-lg p-2">
-                        <div class="font-medium text-green-400 mb-0.5">L1: App → App</div>
-                        <div class="text-gray-400">${r.src_app} → ${r.dst_app}</div>
-                        <div class="text-gray-500">${(r.clean_services||[]).length} services, 1 rule</div>
+                    <div class="bg-green-900/10 border border-green-900/20 rounded-lg p-2.5">
+                        <div class="font-semibold text-green-400 mb-1">Basic Ringfencing</div>
+                        <div class="text-gray-300">${r.src_app} ↔ ${r.dst_app}</div>
+                        <div class="text-gray-500 mt-0.5">All clean services</div>
+                        <div class="text-gray-600">${(r.clean_services||[]).length} services · 1 rule</div>
                     </div>
-                    <div class="bg-blue-900/10 border border-blue-900/20 rounded-lg p-2">
-                        <div class="font-medium text-blue-400 mb-0.5">L2: Observed Svc</div>
-                        <div class="text-gray-400">${r.src_app} → ${r.dst_app}</div>
-                        <div class="text-gray-500">Only seen ports, ${r.tiers?.level2?.rules?.length||1} rules</div>
+                    <div class="bg-blue-900/10 border border-blue-900/20 rounded-lg p-2.5">
+                        <div class="font-semibold text-blue-400 mb-1">Application Tiered</div>
+                        <div class="text-gray-300">${r.src_app} → ${r.dst_app}</div>
+                        <div class="text-gray-500 mt-0.5">Observed services only</div>
+                        <div class="text-gray-600">${r.tiers?.level2?.rules?.length||1} rules</div>
                     </div>
-                    <div class="bg-purple-900/10 border border-purple-900/20 rounded-lg p-2">
-                        <div class="font-medium text-purple-400 mb-0.5">L3: Role → Role</div>
-                        <div class="text-gray-400">${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown').slice(0,2).map(t=>t.src_role+'→'+t.dst_role).join(', ')||'per role pair'}</div>
-                        <div class="text-gray-500">Strict, ${r.tiers?.level3?.rules?.length||'?'} rules</div>
+                    <div class="bg-purple-900/10 border border-purple-900/20 rounded-lg p-2.5">
+                        <div class="font-semibold text-purple-400 mb-1">High Security</div>
+                        <div class="space-y-0.5 mt-0.5">
+                            ${(r.role_tiers||[]).filter(t=>t.src_role!=='unknown'&&t.dst_role!=='unknown').slice(0,4).map(t => `
+                                <div class="flex items-center gap-1">
+                                    <span class="text-purple-300">${t.src_role}</span>
+                                    <span class="text-gray-600">→</span>
+                                    <span class="text-purple-300">${t.dst_role}</span>
+                                </div>
+                            `).join('') || '<div class="text-gray-500">Per role pair</div>'}
+                        </div>
+                        <div class="text-gray-600 mt-0.5">${r.tiers?.level3?.rules?.length||'?'} rules</div>
                     </div>
                 </div>
                 ${hasAI ? `<div class="bg-dark-700/30 rounded p-2 mb-2 border-l-2 border-${recColor}-500 text-sm text-gray-300">${a.reasoning}${a.suggested_modifications ? '<br><span class=text-xs>'+a.suggested_modifications+'</span>' : ''}</div>` : ''}
@@ -1502,9 +1542,9 @@ function update(data) {
                     ${aiEnabled && !hasAI ? `<button onclick="analyzeInter(${i})" class="px-2 py-1 text-xs rounded bg-emerald-700 hover:bg-emerald-600 text-white transition-colors">AI Analyze</button>` : ''}
                     ${!provisioned || !provisioned.success ? `
                         <span class="text-xs text-gray-500">Provision:</span>
-                        <button onclick="provisionInter(${i},'level1')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200" title="App A ↔ App B, all clean services">L1</button>
-                        <button onclick="provisionInter(${i},'level2')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200" title="App A ↔ App B, observed services">L2</button>
-                        <button onclick="provisionInter(${i},'level3')" class="px-2 py-1 text-xs rounded bg-purple-800 hover:bg-purple-700 text-purple-200" title="Role → Role, observed services">L3</button>
+                        <button onclick="provisionInter(${i},'level1')" class="px-2 py-1 text-xs rounded bg-green-800 hover:bg-green-700 text-green-200" title="App ↔ App, all clean services">Ringfencing</button>
+                        <button onclick="provisionInter(${i},'level2')" class="px-2 py-1 text-xs rounded bg-blue-800 hover:bg-blue-700 text-blue-200" title="App → App, observed services">Tiered</button>
+                        <button onclick="provisionInter(${i},'level3')" class="px-2 py-1 text-xs rounded bg-purple-800 hover:bg-purple-700 text-purple-200" title="Role → Role, observed services">High</button>
                     ` : ''}
                     ${r.review_ruleset && (!provisioned || !provisioned.success) ? `<button onclick="provisionInter(${i},'review')" class="px-2 py-1 text-xs rounded bg-red-900 hover:bg-red-800 text-red-200">+ Review</button>` : ''}
                 </div>
@@ -1624,7 +1664,7 @@ function showTierJSON(index, tier) {
 }
 
 async function provisionTier(index, tier) {
-    const tierNames = {low:'Low Security',medium:'Medium Security',high:'High Security',review:'FOR REVIEW'};
+    const tierNames = {low:'Basic Ringfencing',medium:'Application Tiered',high:'High Security',review:'FOR REVIEW'};
     if (!confirm(`Provision ${tierNames[tier]||tier} rule to PCE draft?`)) return;
     try {
         const resp = await fetch(BASE + '/api/provision/' + index + '/' + tier, {
@@ -1672,7 +1712,7 @@ async function analyzeInter(index) {
 }
 
 async function provisionInter(index, tier) {
-    const tierNames = {level1:'Level 1 (App→App)',level2:'Level 2 (Services)',level3:'Level 3 (Roles)',review:'FOR REVIEW'};
+    const tierNames = {level1:'Basic Ringfencing',level2:'Application Tiered',level3:'High Security',review:'FOR REVIEW'};
     if (!confirm(`Provision ${tierNames[tier]||tier} cross-scope rule to PCE draft?`)) return;
     try {
         const resp = await fetch(BASE + '/api/provision/inter/' + index + '/' + tier, {
