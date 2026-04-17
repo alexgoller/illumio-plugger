@@ -1655,7 +1655,7 @@ function update(data) {
 }
 
 async function fetchData() {
-    try { const d = await (await fetch(BASE + '/api/report')).json(); window._lastData = d; update(d); } catch(e) { console.error(e); }
+    try { const d = await (await fetch('/api/report')).json(); window._lastData = d; update(d); } catch(e) { console.error(e); }
 }
 
 function toggleJSON(i) {
@@ -1667,7 +1667,7 @@ async function analyzeRule(index) {
     const btn = document.getElementById('ai-btn-'+index);
     if (btn) { btn.textContent = 'Analyzing...'; btn.disabled = true; }
     try {
-        const resp = await fetch(BASE + '/api/ai/analyze', {
+        const resp = await fetch('/api/ai/analyze', {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({index: index})
         });
@@ -1700,7 +1700,7 @@ async function provisionTier(index, tier) {
     const tierNames = {low:'Basic Ringfencing',medium:'Application Tiered',high:'High Security',review:'FOR REVIEW'};
     if (!confirm(`Provision ${tierNames[tier]||tier} rule to PCE draft?`)) return;
     try {
-        const resp = await fetch(BASE + '/api/provision/' + index + '/' + tier, {
+        const resp = await fetch('/api/provision/' + index + '/' + tier, {
             method: 'POST', headers: {'Content-Type':'application/json'}
         });
         const result = await resp.json();
@@ -1718,7 +1718,7 @@ async function provisionRule(index) {
     if (!confirm('Provision this AI Suggested rule to PCE draft policy?')) return;
     if (btn) { btn.textContent = 'Provisioning...'; btn.disabled = true; }
     try {
-        const resp = await fetch(BASE + '/api/provision/' + index, {
+        const resp = await fetch('/api/provision/' + index, {
             method: 'POST', headers: {'Content-Type':'application/json'}
         });
         const result = await resp.json();
@@ -1734,7 +1734,7 @@ async function provisionRule(index) {
 
 async function analyzeInter(index) {
     try {
-        const resp = await fetch(BASE + '/api/ai/analyze', {
+        const resp = await fetch('/api/ai/analyze', {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({index: index, scope: 'inter'})
         });
@@ -1748,7 +1748,7 @@ async function provisionInter(index, tier) {
     const tierNames = {level1:'Basic Ringfencing',level2:'Application Tiered',level3:'High Security',review:'FOR REVIEW'};
     if (!confirm(`Provision ${tierNames[tier]||tier} cross-scope rule to PCE draft?`)) return;
     try {
-        const resp = await fetch(BASE + '/api/provision/inter/' + index + '/' + tier, {
+        const resp = await fetch('/api/provision/inter/' + index + '/' + tier, {
             method: 'POST', headers: {'Content-Type':'application/json'}
         });
         const result = await resp.json();
@@ -1766,7 +1766,7 @@ function toggleInfraJSON(i) {
 async function provisionInfra(index) {
     if (!confirm('Provision this infrastructure rule to PCE draft?')) return;
     try {
-        const resp = await fetch(BASE + '/api/provision/infra/' + index, {
+        const resp = await fetch('/api/provision/infra/' + index, {
             method: 'POST', headers: {'Content-Type':'application/json'}
         });
         const result = await resp.json();
@@ -1777,7 +1777,7 @@ async function provisionInfra(index) {
 }
 
 initCharts();
-document.getElementById('api-link').href = BASE + '/api/report';
+document.getElementById('api-link').href = '/api/report';
 fetchData();
 setInterval(fetchData, 30000);
 </script>
