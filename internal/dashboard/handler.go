@@ -61,6 +61,11 @@ func (h *Handler) Routes() *http.ServeMux {
 	// SSE log stream
 	mux.HandleFunc("GET /api/plugins/{name}/logs", h.handleLogs)
 
+	// Registry
+	mux.HandleFunc("GET /registry", h.handleRegistryPage)
+	mux.HandleFunc("GET /api/registry", h.handleAPIRegistry)
+	mux.HandleFunc("POST /api/registry/install", h.handleAPIRegistryInstall)
+
 	// Event webhook
 	mux.HandleFunc("POST /api/events/trigger", h.handleEventTrigger)
 	mux.HandleFunc("GET /api/events/stats", h.handleEventStats)

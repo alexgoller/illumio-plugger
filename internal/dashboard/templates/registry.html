@@ -1,0 +1,161 @@
+{{define "title"}}Plugin Registry — Plugger Dashboard{{end}}
+{{define "content"}}
+<div class="mb-6">
+    <a href="/" class="text-gray-400 hover:text-gray-300 text-sm">&larr; Back to dashboard</a>
+</div>
+
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Plugin Registry</h1>
+        <p class="text-gray-400 text-sm mt-1" id="registry-subtitle">Loading...</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <input type="text" id="search-input" placeholder="Search plugins..." oninput="filterPlugins()"
+            class="bg-dark-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none w-48">
+        <button onclick="refreshRegistry()" class="px-3 py-1.5 text-sm rounded-lg bg-dark-700 text-gray-300 hover:bg-dark-700/80 transition-colors">Refresh</button>
+    </div>
+</div>
+
+<!-- Filter tabs -->
+<div class="flex gap-2 mb-6" id="filter-tabs">
+    <button onclick="setFilter('all')" class="px-3 py-1 rounded-lg text-sm font-medium bg-blue-600 text-white" data-filter="all">All</button>
+    <button onclick="setFilter('daemon')" class="px-3 py-1 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white" data-filter="daemon">Daemon</button>
+    <button onclick="setFilter('cron')" class="px-3 py-1 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white" data-filter="cron">Cron</button>
+    <button onclick="setFilter('ui')" class="px-3 py-1 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white" data-filter="ui">Has UI</button>
+    <button onclick="setFilter('installed')" class="px-3 py-1 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white" data-filter="installed">Installed</button>
+    <button onclick="setFilter('available')" class="px-3 py-1 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white" data-filter="available">Not Installed</button>
+</div>
+
+<div id="plugin-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"></div>
+
+<!-- Repos section -->
+<details class="mb-6">
+    <summary class="text-gray-500 text-sm cursor-pointer hover:text-gray-400">Configured Registries</summary>
+    <div class="mt-2 bg-dark-800 rounded-lg border border-gray-700 p-4" id="repos-list"></div>
+</details>
+
+<script>
+let registryData = null;
+let currentFilter = 'all';
+
+async function fetchRegistry() {
+    try {
+        const resp = await fetch('/api/registry');
+        registryData = await resp.json();
+        renderPlugins();
+        renderRepos();
+    } catch(e) { console.error('Registry fetch failed:', e); }
+}
+
+function renderPlugins() {
+    if (!registryData) return;
+    const plugins = registryData.plugins || [];
+    const installed = registryData.installed || {};
+    const updates = registryData.updates || {};
+    const search = (document.getElementById('search-input').value || '').toLowerCase();
+
+    const filtered = plugins.filter(p => {
+        if (search && !p.name.toLowerCase().includes(search) && !p.description.toLowerCase().includes(search) && !(p.tags||[]).some(t => t.includes(search))) return false;
+        if (currentFilter === 'daemon' && p.mode !== 'daemon') return false;
+        if (currentFilter === 'cron' && p.mode !== 'cron') return false;
+        if (currentFilter === 'ui' && !p.has_ui) return false;
+        if (currentFilter === 'installed' && !installed[p.name]) return false;
+        if (currentFilter === 'available' && installed[p.name]) return false;
+        return true;
+    });
+
+    document.getElementById('registry-subtitle').textContent = `${plugins.length} plugins available, ${Object.keys(installed).length} installed`;
+
+    document.getElementById('plugin-grid').innerHTML = filtered.map(p => {
+        const isInstalled = installed[p.name];
+        const hasUpdate = updates[p.name];
+        return `
+        <div class="bg-dark-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-all hover:-translate-y-0.5 overflow-hidden">
+            <div class="p-5">
+                <div class="flex items-start justify-between mb-2">
+                    <div>
+                        <h3 class="text-white font-semibold">${p.name}</h3>
+                        <div class="flex items-center gap-2 mt-0.5">
+                            <span class="text-xs text-gray-500">v${p.version}</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded ${p.mode==='cron'?'bg-blue-900/30 text-blue-400':'bg-green-900/30 text-green-400'}">${p.mode}</span>
+                            ${p.has_ui ? '<span class="text-xs px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">UI</span>' : ''}
+                        </div>
+                    </div>
+                    ${isInstalled ? `
+                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400">Installed</span>
+                    ` : ''}
+                    ${hasUpdate ? `
+                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-yellow-900/50 text-yellow-400">Update: v${hasUpdate}</span>
+                    ` : ''}
+                </div>
+                <p class="text-sm text-gray-400 mt-2 line-clamp-2">${p.description}</p>
+                <div class="flex flex-wrap gap-1 mt-3">
+                    ${(p.tags||[]).map(t => '<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-700 text-gray-500">'+t+'</span>').join('')}
+                </div>
+            </div>
+            <div class="border-t border-gray-700/50 px-5 py-3 bg-dark-700/20 flex items-center justify-between">
+                <span class="text-xs text-gray-500">${p.author || ''}</span>
+                <div class="flex items-center gap-2">
+                    ${p.homepage ? '<a href="'+p.homepage+'" target="_blank" class="text-xs text-gray-500 hover:text-gray-400">GitHub</a>' : ''}
+                    ${!isInstalled ? `
+                        <button onclick="installFromRegistry('${p.name}')" class="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors">Install</button>
+                    ` : hasUpdate ? `
+                        <button onclick="upgradeFromRegistry('${p.name}')" class="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-500 text-white transition-colors">Upgrade</button>
+                    ` : `
+                        <span class="text-xs text-green-400">✓</span>
+                    `}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderRepos() {
+    if (!registryData) return;
+    const repos = registryData.repos || [];
+    document.getElementById('repos-list').innerHTML = repos.map(r =>
+        `<div class="flex items-center justify-between py-1">
+            <span class="text-sm text-white">${r.name}</span>
+            <code class="text-xs text-gray-500">${r.url}</code>
+        </div>`
+    ).join('');
+}
+
+function filterPlugins() { renderPlugins(); }
+
+function setFilter(f) {
+    currentFilter = f;
+    document.querySelectorAll('#filter-tabs button').forEach(b => {
+        b.className = b.dataset.filter === f
+            ? 'px-3 py-1 rounded-lg text-sm font-medium bg-blue-600 text-white'
+            : 'px-3 py-1 rounded-lg text-sm font-medium bg-dark-700 text-gray-400 hover:text-white';
+    });
+    renderPlugins();
+}
+
+async function installFromRegistry(name) {
+    if (!confirm('Install plugin "' + name + '" from registry?')) return;
+    try {
+        const resp = await fetch('/api/registry/install', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({name: name})
+        });
+        const result = await resp.json();
+        if (result.success) {
+            alert('Installed ' + name + ' v' + result.version);
+            await fetchRegistry();
+        } else {
+            alert('Install failed: ' + result.error);
+        }
+    } catch(e) { alert('Failed: ' + e); }
+}
+
+async function upgradeFromRegistry(name) {
+    alert('Use CLI: plugger upgrade ' + name);
+}
+
+function refreshRegistry() { fetchRegistry(); }
+
+fetchRegistry();
+</script>
+{{end}}
