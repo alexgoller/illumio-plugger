@@ -876,10 +876,16 @@ def detect_infrastructure(blocked_pairs):
 
 
 def build_inter_scope_suggestions(pce, blocked_pairs):
-    """Build policy suggestions for cross app|env blocked traffic.
+    """Build extra-scope policy suggestions for cross app|env blocked traffic.
+
+    Illumio extra-scope model:
+    - Ruleset is scoped to the DESTINATION app|env
+    - Providers (destination) resolve within scope (intra-scope)
+    - Consumers (source) resolve globally (extra-scope)
+    - resolve_labels_as.consumers = ["workloads"] makes consumer labels global
 
     Three levels:
-    - Level 1: App A ↔ App B (all clean services) — broadest
+    - Level 1 (Basic Ringfencing): source app|env (extra-scope) → All in dest scope
     - Level 2: App A ↔ App B (only observed services)
     - Level 3: Role@A → Role@B (only observed services) — strictest
 
@@ -983,48 +989,61 @@ def build_inter_scope_suggestions(pce, blocked_pairs):
         if not all_services:
             continue
 
-        # Consumer scope (source app|env)
-        consumer_scope = [
-            {"label": {"href": src_app_href}, "exclusion": False},
-            {"label": {"href": src_env_href}, "exclusion": False},
-        ]
-        # Provider scope (destination app|env)
-        provider_scope = [
+        # EXTRA-SCOPE MODEL:
+        # Ruleset scoped to DESTINATION app|env
+        # Consumers (source) use extra-scope label resolution (global)
+        # Providers (destination) use intra-scope resolution (within scope)
+        dst_scope = [
             {"label": {"href": dst_app_href}, "exclusion": False},
             {"label": {"href": dst_env_href}, "exclusion": False},
         ]
 
-        # ===== LEVEL 1: App A → App B, all clean services =====
+        # Extra-scope consumer labels (resolved globally, outside the scope)
+        consumer_labels = [
+            {"label": {"href": src_app_href}},
+            {"label": {"href": src_env_href}},
+        ]
+
+        # ===== LEVEL 1: Basic Ringfencing =====
+        # Source app|env (extra-scope) → All workloads in dest scope, clean services
         level1_ruleset = {
-            "name": f"plugger-auto | {src_app} ({src_env}) → {dst_app} ({dst_env})",
-            "description": f"AI Suggested: cross-scope rule (level 1 — app-to-app, all clean services)",
+            "name": f"plugger-auto | {dst_app} | {dst_env} | from {src_app}",
+            "description": f"AI Suggested: Basic Ringfencing — {src_app}|{src_env} → {dst_app}|{dst_env}",
             "enabled": True,
-            "scopes": [consumer_scope],  # scoped to consumer side
+            "scopes": [dst_scope],
             "rules": [{
                 "enabled": True,
-                "consumers": [{"actors": "ams"}],
-                "providers": [{"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                "consumers": consumer_labels,
+                "providers": [{"actors": "ams"}],  # all workloads in dest scope
                 "ingress_services": build_ingress(clean_services) if clean_services else build_ingress(all_services),
-                "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                "resolve_labels_as": {
+                    "providers": ["workloads"],  # intra-scope
+                    "consumers": ["workloads"],  # extra-scope (labels resolved globally)
+                },
+                "unscoped_consumers": True,
             }],
         }
 
-        # ===== LEVEL 2: App A → App B, observed services only =====
+        # ===== LEVEL 2: Application Tiered (observed services only) =====
         level2_ruleset = {
-            "name": f"plugger-auto | {src_app} ({src_env}) → {dst_app} ({dst_env}) | services",
-            "description": f"AI Suggested: cross-scope rule (level 2 — observed services only)",
+            "name": f"plugger-auto | {dst_app} | {dst_env} | from {src_app} | services",
+            "description": f"AI Suggested: Application Tiered — {src_app}|{src_env} → {dst_app}|{dst_env}, observed services",
             "enabled": True,
-            "scopes": [consumer_scope],
+            "scopes": [dst_scope],
             "rules": [{
                 "enabled": True,
-                "consumers": [{"actors": "ams"}],
-                "providers": [{"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                "consumers": consumer_labels,
+                "providers": [{"actors": "ams"}],
                 "ingress_services": build_ingress(clean_services),
-                "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                "resolve_labels_as": {
+                    "providers": ["workloads"],
+                    "consumers": ["workloads"],
+                },
+                "unscoped_consumers": True,
             }],
         }
 
-        # ===== LEVEL 3: Role@A → Role@B, observed services =====
+        # ===== LEVEL 3: High Security (role@src → role@dst, observed services) =====
         role_tiers = pair.get("role_tiers", [])
         level3_rules = []
         if role_tiers:
@@ -1061,46 +1080,60 @@ def build_inter_scope_suggestions(pce, blocked_pairs):
                 if not tier_svcs:
                     continue
 
+                # Consumer: role + app + env labels (extra-scope, resolved globally)
+                # Provider: role label (intra-scope, resolved within dest scope)
                 level3_rules.append({
                     "enabled": True,
-                    "consumers": [{"label": {"href": sr_href}}],
-                    "providers": [{"label": {"href": dr_href}}, {"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                    "consumers": [
+                        {"label": {"href": sr_href}},   # role from source
+                        {"label": {"href": src_app_href}},
+                        {"label": {"href": src_env_href}},
+                    ],
+                    "providers": [{"label": {"href": dr_href}}],  # role in dest scope
                     "ingress_services": build_ingress(tier_svcs),
-                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                    "resolve_labels_as": {
+                        "providers": ["workloads"],
+                        "consumers": ["workloads"],
+                    },
+                    "unscoped_consumers": True,
                 })
 
         level3_ruleset = {
-            "name": f"plugger-auto | {src_app} ({src_env}) → {dst_app} ({dst_env}) | strict",
-            "description": f"AI Suggested: cross-scope rule (level 3 — role-to-role, observed services)",
+            "name": f"plugger-auto | {dst_app} | {dst_env} | from {src_app} | strict",
+            "description": f"AI Suggested: High Security — role-to-role, {src_app}|{src_env} → {dst_app}|{dst_env}",
             "enabled": True,
-            "scopes": [consumer_scope],
+            "scopes": [dst_scope],
             "rules": level3_rules if level3_rules else level2_ruleset["rules"],
         }
 
-        # Review ruleset for risky services
+        # Review ruleset for risky services (also scoped to dest)
         review_ruleset = None
         if risky_services:
             review_ruleset = {
-                "name": f"plugger-review | {src_app} ({src_env}) → {dst_app} ({dst_env}) | FOR REVIEW",
-                "description": f"AI Suggested: FLAGGED cross-scope — contains insecure protocols. {risk_reason}.",
+                "name": f"plugger-review | {dst_app} | {dst_env} | from {src_app} | FOR REVIEW",
+                "description": f"AI Suggested: FLAGGED — insecure protocols from {src_app}|{src_env}. {risk_reason}.",
                 "enabled": True,
-                "scopes": [consumer_scope],
+                "scopes": [dst_scope],
                 "rules": [{
                     "enabled": True,
-                    "consumers": [{"actors": "ams"}],
-                    "providers": [{"label": {"href": dst_app_href}}, {"label": {"href": dst_env_href}}],
+                    "consumers": consumer_labels,
+                    "providers": [{"actors": "ams"}],
                     "ingress_services": build_ingress(risky_services),
-                    "resolve_labels_as": {"providers": ["workloads"], "consumers": ["workloads"]},
+                    "resolve_labels_as": {
+                        "providers": ["workloads"],
+                        "consumers": ["workloads"],
+                    },
+                    "unscoped_consumers": True,
                 }],
             }
 
-        # Cross-env always gets an extra review flag
+        # Cross-env always gets review
         if cross_env and not review_ruleset:
             review_ruleset = {
-                "name": f"plugger-review | {src_app} ({src_env}) → {dst_app} ({dst_env}) | CROSS-ENV REVIEW",
-                "description": f"AI Suggested: CROSS-ENVIRONMENT traffic. {risk_reason}. Requires explicit approval.",
+                "name": f"plugger-review | {dst_app} | {dst_env} | from {src_app}|{src_env} | CROSS-ENV",
+                "description": f"AI Suggested: CROSS-ENVIRONMENT. {risk_reason}. Requires approval.",
                 "enabled": True,
-                "scopes": [consumer_scope],
+                "scopes": [dst_scope],
                 "rules": level1_ruleset["rules"],
             }
 
