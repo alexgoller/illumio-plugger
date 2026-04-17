@@ -1519,12 +1519,24 @@ function update(data) {
                             <div class="text-gray-500">Role→Role+svc · ${app.intra.tiers?.high?.rules?.length||'?'} rules</div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-1">
-                        <span class="text-[10px] text-gray-600">Provision:</span>
-                        <button onclick="provisionTier(${autoRules.findIndex(r=>r.app_env===app.app_env)},'low')" class="px-1.5 py-0.5 text-[10px] rounded bg-green-800 hover:bg-green-700 text-green-200">Ringfence</button>
-                        <button onclick="provisionTier(${autoRules.findIndex(r=>r.app_env===app.app_env)},'medium')" class="px-1.5 py-0.5 text-[10px] rounded bg-blue-800 hover:bg-blue-700 text-blue-200">Tiered</button>
-                        <button onclick="provisionTier(${autoRules.findIndex(r=>r.app_env===app.app_env)},'high')" class="px-1.5 py-0.5 text-[10px] rounded bg-purple-800 hover:bg-purple-700 text-purple-200">High</button>
-                    </div>
+                    ${(() => {
+                        const idx = autoRules.findIndex(r=>r.app_env===app.app_env);
+                        const a = idx >= 0 ? (analyses[String(idx)] || {}) : {};
+                        const hasAI = a.recommendation;
+                        const recColor = a.recommendation === 'approve' ? 'emerald' : a.recommendation === 'reject' ? 'red' : 'yellow';
+                        return `
+                        ${hasAI ? `<div class="bg-dark-700/30 rounded p-2 mb-2 border-l-2 border-${recColor}-500 text-[11px] text-gray-300">${a.reasoning || ''}${a.suggested_modifications ? '<br><span class="text-'+recColor+'-400">'+a.suggested_modifications+'</span>' : ''}</div>` : ''}
+                        <div class="flex items-center gap-1 flex-wrap">
+                            ${aiEnabled && !hasAI && idx >= 0 ? `<button onclick="analyzeRule(${idx})" class="px-1.5 py-0.5 text-[10px] rounded bg-emerald-700 hover:bg-emerald-600 text-emerald-200 flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>AI Analyze</button>` : ''}
+                            ${hasAI ? `<span class="px-1.5 py-0.5 rounded text-[10px] bg-${recColor}-900/50 text-${recColor}-400">AI: ${a.recommendation}</span>` : ''}
+                            <span class="text-[10px] text-gray-600">Provision:</span>
+                            ${idx >= 0 ? `
+                            <button onclick="provisionTier(${idx},'low')" class="px-1.5 py-0.5 text-[10px] rounded bg-green-800 hover:bg-green-700 text-green-200">Ringfence</button>
+                            <button onclick="provisionTier(${idx},'medium')" class="px-1.5 py-0.5 text-[10px] rounded bg-blue-800 hover:bg-blue-700 text-blue-200">Tiered</button>
+                            <button onclick="provisionTier(${idx},'high')" class="px-1.5 py-0.5 text-[10px] rounded bg-purple-800 hover:bg-purple-700 text-purple-200">High</button>
+                            ` : ''}
+                        </div>`;
+                    })()}
                 </div>` : ''}
 
                 ${hasIncoming ? `
