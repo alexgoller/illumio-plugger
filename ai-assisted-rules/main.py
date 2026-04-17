@@ -44,6 +44,7 @@ report_state = {
     "auto_rules": [],          # PCE-ready rule JSON for intra-app|env
     "inter_rules": [],         # cross app|env suggestions (non-infra)
     "infra_rules": [],         # consolidated infrastructure rulesets
+    "app_policies": [],        # per-app policy view (intra + extra incoming/outgoing)
     "label_gaps": [],          # workloads missing labels
     "label_summary": {},       # label gap statistics
     "stale_summary": {},
@@ -1169,6 +1170,76 @@ def build_inter_scope_suggestions(pce, blocked_pairs):
     return inter_rules
 
 
+def build_app_policies(auto_rules, inter_rules, blocked_pairs, infra_apps):
+    """Build app-centric policy view merging intra + extra-scope + IP traffic per app|env."""
+    apps = {}  # app_env -> {intra, incoming, outgoing, ip_incoming}
+
+    # Add intra-scope rules
+    for rule in auto_rules:
+        ae = rule["app_env"]
+        if ae not in apps:
+            apps[ae] = {"app_env": ae, "intra": None, "incoming": [], "outgoing": [], "ip_incoming": [],
+                        "total_connections": 0}
+        apps[ae]["intra"] = rule
+        apps[ae]["total_connections"] += rule["total_connections"]
+
+    # Add inter-scope as incoming/outgoing to the respective apps
+    for rule in inter_rules:
+        src = rule["src_group"]
+        dst = rule["dst_group"]
+
+        # Incoming to destination app
+        if dst not in apps:
+            apps[dst] = {"app_env": dst, "intra": None, "incoming": [], "outgoing": [], "ip_incoming": [],
+                         "total_connections": 0}
+        apps[dst]["incoming"].append(rule)
+        apps[dst]["total_connections"] += rule["total_connections"]
+
+        # Outgoing from source app
+        if src not in apps:
+            apps[src] = {"app_env": src, "intra": None, "incoming": [], "outgoing": [], "ip_incoming": [],
+                         "total_connections": 0}
+        apps[src]["outgoing"].append(rule)
+
+    # Add IP traffic (unlabeled sources hitting labeled destinations)
+    for pair in blocked_pairs:
+        sg = pair["src_group"]
+        dg = pair["dst_group"]
+
+        # IP → labeled app (incoming IP traffic)
+        if "|" not in sg and "|" in dg and dg not in infra_apps:
+            if dg not in apps:
+                apps[dg] = {"app_env": dg, "intra": None, "incoming": [], "outgoing": [], "ip_incoming": [],
+                            "total_connections": 0}
+            # Group IPs hitting the same app together
+            apps[dg]["ip_incoming"].append({
+                "source_ip": sg,
+                "services": pair["services"],
+                "total_connections": pair["total_connections"],
+                "host_count": pair["host_count"],
+            })
+
+    # Build final list sorted by total connections
+    result = []
+    for ae, data in apps.items():
+        # Consolidate IP incoming by grouping
+        ip_summary = {}
+        for ip_entry in data["ip_incoming"]:
+            for svc_str, count in ip_entry["services"]:
+                ip_summary[svc_str] = ip_summary.get(svc_str, 0) + count
+        data["ip_services"] = sorted(ip_summary.items(), key=lambda x: -x[1])[:10]
+        data["ip_total_connections"] = sum(e["total_connections"] for e in data["ip_incoming"])
+        data["ip_unique_sources"] = len(set(e["source_ip"] for e in data["ip_incoming"]))
+
+        parts = ae.split("|")
+        data["app"] = parts[0] if len(parts) >= 1 else ae
+        data["env"] = parts[1] if len(parts) >= 2 else ""
+        result.append(data)
+
+    result.sort(key=lambda x: -x["total_connections"])
+    return result
+
+
 def run_check(pce):
     """Full analysis cycle."""
     if not label_cache:
@@ -1177,17 +1248,17 @@ def run_check(pce):
     try:
         blocked_pairs, blocked_summary = analyze_traffic(pce)
         stale_rules, suggested_rules, auto_rules, stale_summary = find_stale_rules(pce, blocked_pairs)
-        # Detect infrastructure and build consolidated rules
         infra_rules, infra_apps = detect_infrastructure(blocked_pairs)
 
-        # Build inter-scope but filter out infra pairs
         all_inter = build_inter_scope_suggestions(pce, blocked_pairs)
         inter_rules = [r for r in all_inter
                        if r["src_group"] not in infra_apps and r["dst_group"] not in infra_apps]
 
-        # Analyze label gaps
         from label_advisor import analyze_label_gaps
         label_gaps, label_summary = analyze_label_gaps(pce, label_cache)
+
+        # Build app-centric view: merge intra + inter + IP traffic per app
+        app_policies = build_app_policies(auto_rules, inter_rules, blocked_pairs, infra_apps)
 
         with state_lock:
             report_state["last_check"] = datetime.now(timezone.utc).isoformat()
@@ -1199,6 +1270,7 @@ def run_check(pce):
             report_state["auto_rules"] = auto_rules
             report_state["inter_rules"] = inter_rules
             report_state["infra_rules"] = infra_rules
+            report_state["app_policies"] = app_policies
             report_state["label_gaps"] = label_gaps
             report_state["label_summary"] = label_summary
             report_state["stale_summary"] = stale_summary
@@ -1207,11 +1279,10 @@ def run_check(pce):
 
         missing_role = label_summary.get("missing_role", 0)
         suggestions = label_summary.get("suggestions_made", 0)
-        log.info("Check #%d: %d blocked pairs (%d connections), %d intra, %d inter, %d infra, %d label gaps (%d suggestions)",
+        log.info("Check #%d: %d blocked pairs (%d connections), %d app policies, %d infra, %d label gaps",
                  report_state["check_count"], len(blocked_pairs),
                  blocked_summary["total_blocked_connections"],
-                 len(auto_rules), len(inter_rules), len(infra_rules),
-                 missing_role, suggestions)
+                 len(app_policies), len(infra_rules), missing_role)
 
     except Exception as e:
         log.exception("Analysis failed")
@@ -1272,18 +1343,15 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
     <!-- Tabs -->
     <div class="flex gap-6 border-b border-gray-700 mb-6">
-        <button onclick="showTab('auto')" id="tab-auto" class="pb-3 text-sm font-medium tab-active cursor-pointer">Intra-Scope</button>
-        <button onclick="showTab('inter')" id="tab-inter" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Cross-Scope</button>
+        <button onclick="showTab('apps')" id="tab-apps" class="pb-3 text-sm font-medium tab-active cursor-pointer">Application Policy</button>
         <button onclick="showTab('infra')" id="tab-infra" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Infrastructure</button>
         <button onclick="showTab('labels')" id="tab-labels" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Label Gaps</button>
         <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
-        <button onclick="showTab('suggested')" id="tab-suggested" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">All Suggestions</button>
         <button onclick="showTab('stale')" id="tab-stale" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Stale Rules</button>
     </div>
 
-    <div id="panel-auto"></div>
-    <div id="panel-inter" style="display:none;"></div>
+    <div id="panel-apps"></div>
     <div id="panel-infra" style="display:none;"></div>
     <div id="panel-labels" style="display:none;"></div>
     <div id="panel-blocked" style="display:none;"></div>
@@ -1303,7 +1371,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
 <script>
 const BASE = (() => { const m = window.location.pathname.match(/^(\/plugins\/[^/]+\/ui)/); return m ? m[1] : ''; })();
-const tabs = ['auto','inter','infra','labels','blocked','chart','suggested','stale'];
+const tabs = ['apps','infra','labels','blocked','chart','stale'];
 let chartBlocked, chartServices;
 
 function showTab(name) {
@@ -1394,11 +1462,135 @@ function update(data) {
         `).join('')}</div>
     ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Suggestions</div><div class="text-gray-500 mt-2">No high-volume blocked traffic patterns detected.</div></div>';
 
-    // AI Suggested rules (intra app|env)
-    const autoRules = data.auto_rules || [];
+    // Remove old panels
+    const el_suggested = document.getElementById('panel-suggested');
+    if (el_suggested) el_suggested.innerHTML = '';
+
+    // Application Policy (app-centric view)
+    const appPolicies = data.app_policies || [];
     const analyses = data.ai_analyses || {};
     const aiEnabled = data.ai_config && data.ai_config.enabled;
-    document.getElementById('panel-auto').innerHTML = autoRules.length ? `
+    const autoRules = data.auto_rules || [];
+    document.getElementById('panel-apps').innerHTML = appPolicies.length ? `
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-white">Application Policy (${appPolicies.length} applications)</h2>
+            ${aiEnabled ? `<span class="text-xs bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded">AI: ${data.ai_config.provider} / ${data.ai_config.model}</span>` : ''}
+        </div>
+        <div class="space-y-4">${appPolicies.map((app, ai) => {
+            const hasIntra = app.intra;
+            const hasIncoming = app.incoming && app.incoming.length > 0;
+            const hasOutgoing = app.outgoing && app.outgoing.length > 0;
+            const hasIP = app.ip_unique_sources > 0;
+            const sectionCount = (hasIntra?1:0) + (hasIncoming?1:0) + (hasOutgoing?1:0) + (hasIP?1:0);
+            return `
+            <div class="bg-dark-800 rounded-xl border border-gray-700 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-700/50 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="px-3 py-1 rounded-lg text-sm font-bold bg-blue-900/40 text-blue-400">${app.app_env}</span>
+                        <span class="text-xs text-gray-500">${app.app} | ${app.env}</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                        <span>${formatNum(app.total_connections)} blocked</span>
+                        <span>${sectionCount} section${sectionCount!==1?'s':''}</span>
+                    </div>
+                </div>
+
+                ${hasIntra ? `
+                <div class="px-5 py-3 border-b border-gray-700/30">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-900/40 text-green-400 uppercase tracking-wider">Intra-Scope</span>
+                        <span class="text-xs text-gray-500">${formatNum(app.intra.total_connections)} connections within ${app.app_env}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        ${(app.intra.clean_services||[]).map(s => '<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-700 text-gray-400">'+(s.name||s.port+'/'+s.proto)+'</span>').join('')}
+                        ${(app.intra.risky_services||[]).map(s => '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-900/30 text-red-400">'+(s.name||s.port+'/'+s.proto)+' ⚠</span>').join('')}
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-[10px] mb-2">
+                        <div class="bg-green-900/10 border border-green-900/20 rounded p-2">
+                            <div class="font-semibold text-green-400">Ringfencing</div>
+                            <div class="text-gray-500">All ↔ All · ${app.intra.tiers?.low?.rules?.length||1} rule</div>
+                        </div>
+                        <div class="bg-blue-900/10 border border-blue-900/20 rounded p-2">
+                            <div class="font-semibold text-blue-400">App Tiered</div>
+                            <div class="text-gray-500">${(app.intra.role_tiers||[]).filter(t=>t.src_role!=='unknown').slice(0,3).map(t=>t.src_role+'→'+t.dst_role).join(', ')||'roles'} · ${app.intra.tiers?.medium?.rules?.length||'?'} rules</div>
+                        </div>
+                        <div class="bg-purple-900/10 border border-purple-900/20 rounded p-2">
+                            <div class="font-semibold text-purple-400">High Security</div>
+                            <div class="text-gray-500">Role→Role+svc · ${app.intra.tiers?.high?.rules?.length||'?'} rules</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="text-[10px] text-gray-600">Provision:</span>
+                        <button onclick="provisionTier(${autoRules.indexOf(app.intra)},'low')" class="px-1.5 py-0.5 text-[10px] rounded bg-green-800 hover:bg-green-700 text-green-200">Ringfence</button>
+                        <button onclick="provisionTier(${autoRules.indexOf(app.intra)},'medium')" class="px-1.5 py-0.5 text-[10px] rounded bg-blue-800 hover:bg-blue-700 text-blue-200">Tiered</button>
+                        <button onclick="provisionTier(${autoRules.indexOf(app.intra)},'high')" class="px-1.5 py-0.5 text-[10px] rounded bg-purple-800 hover:bg-purple-700 text-purple-200">High</button>
+                    </div>
+                </div>` : ''}
+
+                ${hasIncoming ? `
+                <div class="px-5 py-3 border-b border-gray-700/30">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-900/40 text-yellow-400 uppercase tracking-wider">Extra-Scope Incoming</span>
+                        <span class="text-xs text-gray-500">${app.incoming.length} source${app.incoming.length!==1?'s':''}</span>
+                    </div>
+                    <div class="space-y-1.5">
+                        ${app.incoming.map(r => `
+                        <div class="flex items-center justify-between text-xs py-1 px-2 bg-dark-700/30 rounded">
+                            <div class="flex items-center gap-2">
+                                <code class="text-yellow-300">${r.src_group}</code>
+                                <span class="text-gray-600">→</span>
+                                <span class="text-gray-400">${app.app_env}</span>
+                                <span class="text-gray-600 ml-1">${(r.clean_services||[]).slice(0,3).map(s=>s.name||s.port+'/'+s.proto).join(', ')}</span>
+                            </div>
+                            <span class="text-gray-500">${formatNum(r.total_connections)}</span>
+                        </div>`).join('')}
+                    </div>
+                </div>` : ''}
+
+                ${hasOutgoing ? `
+                <div class="px-5 py-3 border-b border-gray-700/30">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-900/40 text-orange-400 uppercase tracking-wider">Extra-Scope Outgoing</span>
+                        <span class="text-xs text-gray-500">${app.outgoing.length} destination${app.outgoing.length!==1?'s':''}</span>
+                    </div>
+                    <div class="space-y-1.5">
+                        ${app.outgoing.map(r => `
+                        <div class="flex items-center justify-between text-xs py-1 px-2 bg-dark-700/30 rounded">
+                            <div class="flex items-center gap-2">
+                                <span class="text-gray-400">${app.app_env}</span>
+                                <span class="text-gray-600">→</span>
+                                <code class="text-orange-300">${r.dst_group}</code>
+                                <span class="text-gray-600 ml-1">${(r.clean_services||[]).slice(0,3).map(s=>s.name||s.port+'/'+s.proto).join(', ')}</span>
+                            </div>
+                            <span class="text-gray-500">${formatNum(r.total_connections)}</span>
+                        </div>`).join('')}
+                    </div>
+                </div>` : ''}
+
+                ${hasIP ? `
+                <div class="px-5 py-3">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-700 text-gray-400 uppercase tracking-wider">IP Traffic Incoming</span>
+                        <span class="text-xs text-gray-500">${app.ip_unique_sources} source IP${app.ip_unique_sources!==1?'s':''} · ${formatNum(app.ip_total_connections)} connections</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                        ${app.ip_services.slice(0,6).map(([svc, count]) => '<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-700 text-gray-400">'+svc+' ('+formatNum(count)+')</span>').join('')}
+                    </div>
+                </div>` : ''}
+            </div>`;
+        }).join('')}</div>
+    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Application Policies</div><div class="text-gray-500 mt-2">No blocked traffic detected.</div></div>';
+
+    // Legacy: keep old panels empty (removed from tabs)
+    const oldAuto = document.getElementById('panel-auto');
+    if (oldAuto) oldAuto.innerHTML = '';
+    const oldInter = document.getElementById('panel-inter');
+    if (oldInter) oldInter.innerHTML = '';
+    const oldSuggested = document.getElementById('panel-suggested');
+    if (oldSuggested) oldSuggested.innerHTML = '';
+
+    /* Old intra/inter panels removed — now in app-centric view */
+    void(`
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
                 <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
@@ -1596,7 +1788,8 @@ function update(data) {
                 </div>
             </div>`;
         }).join('')}</div>
-    ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">No Cross-Scope Traffic</div><div class="text-gray-500 mt-2">No blocked traffic between different applications detected.</div></div>';
+    `);
+    // end legacy void block
 
     // Infrastructure rules
     const infraRules = data.infra_rules || [];
@@ -1649,9 +1842,10 @@ function update(data) {
                 <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
                 <h2 class="text-lg font-semibold text-white">Label Gaps — Missing Roles (${labelGaps.length} workloads)</h2>
             </div>
-            <div class="flex gap-2 text-xs">
+            <div class="flex gap-2 text-xs items-center">
                 <span class="px-2 py-0.5 rounded bg-amber-900/30 text-amber-400">${labelSummary.suggestions_made||0} suggestions</span>
                 <span class="px-2 py-0.5 rounded bg-gray-700 text-gray-400">${labelSummary.fully_labeled||0}/${labelSummary.total_workloads||0} fully labeled</span>
+                ${aiEnabled ? `<button onclick="aiSuggestAllLabels()" class="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white transition-colors">AI Analyze All</button>` : ''}
             </div>
         </div>
         <p class="text-xs text-gray-500 mb-4">Workloads missing role labels cannot use Application Tiered or High Security policies. Add role labels to enable tiered micro-segmentation.</p>
@@ -1831,6 +2025,19 @@ async function provisionInter(index, tier) {
         else alert('Failed: ' + result.error);
         await fetchData();
     } catch(e) { alert('Failed: ' + e); }
+}
+
+async function aiSuggestAllLabels() {
+    const gaps = ((window._lastData || {}).label_gaps || []).filter(g => g.missing.includes('role'));
+    const analyses = (window._lastData || {}).ai_analyses || {};
+    let count = 0;
+    for (let i = 0; i < gaps.length && i < 20; i++) {
+        if (analyses['label_'+i]) continue;
+        await aiSuggestLabel(i);
+        count++;
+        await new Promise(r => setTimeout(r, 500));
+    }
+    if (count === 0) alert('All labels already analyzed');
 }
 
 async function aiSuggestLabel(index) {
