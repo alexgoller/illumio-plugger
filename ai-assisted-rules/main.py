@@ -1840,14 +1840,15 @@ async function aiSuggestAllLabels() {
     let count = 0;
     for (let i = 0; i < gaps.length && i < 20; i++) {
         if (analyses['label_'+i]) continue;
-        await aiSuggestLabel(i);
+        await aiSuggestLabel(i, true);
         count++;
         await new Promise(r => setTimeout(r, 500));
     }
     if (count === 0) alert('All labels already analyzed');
+    else await fetchData();
 }
 
-async function aiSuggestLabel(index) {
+async function aiSuggestLabel(index, skipRefresh) {
     try {
         const resp = await fetch('/api/ai/suggest-label', {
             method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1855,7 +1856,7 @@ async function aiSuggestLabel(index) {
         });
         const result = await resp.json();
         if (result.error) { alert('AI Error: ' + result.error); return; }
-        await fetchData();
+        if (!skipRefresh) await fetchData();
     } catch(e) { alert('AI failed: ' + e); }
 }
 

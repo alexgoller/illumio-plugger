@@ -39,7 +39,9 @@ const pluggerProxyScript = `<script data-plugger-proxy>
     var _fetch = window.fetch;
     window.fetch = function(input, init) {
         if (typeof input === 'string') input = rewrite(input);
-        else if (input instanceof Request) input = new Request(rewrite(input.url), input);
+        else if (input instanceof Request) {
+            try { input = new Request(rewrite(input.url), input); } catch(e) { /* keep original */ }
+        }
         return _fetch.call(this, input, init);
     };
 
