@@ -224,6 +224,61 @@ Use this when you want the dashboard UI without auto-restart and scheduling. For
 
 ---
 
+### `plugger search`
+
+Search available plugins across all configured registries.
+
+```bash
+plugger search [query]
+```
+
+**Examples:**
+```bash
+plugger search                # List all available plugins
+plugger search monitoring     # Search by keyword
+plugger search ai             # Find AI-related plugins
+```
+
+---
+
+### `plugger outdated`
+
+Check installed plugins against registry versions.
+
+```bash
+plugger outdated
+```
+
+Shows plugins that have newer versions available in the registry.
+
+---
+
+### `plugger upgrade`
+
+Upgrade a plugin to the latest version from the registry.
+
+```bash
+plugger upgrade <plugin>
+```
+
+Pulls the latest image, stops the running container, updates the manifest, and restarts.
+
+---
+
+### `plugger repo`
+
+Manage plugin registries.
+
+```bash
+plugger repo list                                    # Show configured registries
+plugger repo add <name> <url>                        # Add a custom registry
+plugger repo remove <name>                           # Remove a custom registry
+```
+
+The official registry (`alexgoller.github.io/illumio-plugger/registry.json`) is always present and cannot be removed.
+
+---
+
 ### `plugger version`
 
 Print the plugger version.

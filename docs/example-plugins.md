@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with four example plugins that demonstrate different capabilities and are useful out of the box.
+Plugger ships with six plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -133,3 +133,72 @@ The web UI provides:
 - Plugin status and verification
 - Configuration editor
 - Event statistics and diagrams
+
+---
+
+## PCE Posture Report
+
+**Type:** Cron | **Language:** Python (Illumio SDK) | **UI:** No (generates files)
+
+Generates security posture reports on a schedule. Queries all workloads, labels, rulesets, IP lists, and services, then produces a posture score and reports.
+
+**Install:**
+```bash
+plugger install pce-posture-report
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PCE_TLS_SKIP_VERIFY` | `true` | Skip TLS verification |
+
+**Schedule:** `0 */6 * * *` (every 6 hours)
+
+**Posture score** (0-100) based on:
+- Enforcement coverage (full + selective)
+- Label coverage (role, app, env, loc)
+- Active policy rules
+- Managed workload ratio
+
+Reports written to `/data` volume as timestamped HTML + JSON files.
+
+---
+
+## AI Assisted Rules
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK + Anthropic/OpenAI) | **UI:** Yes
+
+Policy advisor that analyzes blocked traffic and generates PCE-ready rule suggestions.
+
+**Install:**
+```bash
+# Without AI (rule generation still works)
+plugger install ai-assisted-rules
+
+# With AI analysis
+plugger install ai-assisted-rules \
+  -e AI_PROVIDER=anthropic \
+  -e AI_API_KEY=sk-ant-xxx
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POLL_INTERVAL` | `300` | Seconds between analysis runs |
+| `LOOKBACK_HOURS` | `24` | Hours of traffic to analyze |
+| `AI_PROVIDER` | | `anthropic`, `openai`, or `ollama` (optional) |
+| `AI_API_KEY` | | API key for the LLM provider (optional) |
+| `AI_MODEL` | | Model to use (optional, auto-detected) |
+| `AI_BASE_URL` | | Base URL for Ollama or custom endpoints |
+
+**Features:**
+- **Application Policy** — per-app cards showing intra-scope + extra-scope incoming/outgoing + IP traffic
+- **Three security tiers** — Basic Ringfencing, Application Tiered, High Security
+- **Infrastructure detection** — consolidates monitoring, syslog, NTP, jump hosts into broad rules
+- **Risky service flagging** — FTP, telnet, RDP, SMB auto-flagged into FOR REVIEW rulesets
+- **Cross-scope rules** — proper Illumio extra-scope format
+- **AI analysis** (optional) — LLM-powered risk assessment and modification suggestions
+- **Label gap detection** — finds workloads missing roles, suggests labels
+- **One-click provisioning** — creates draft rulesets directly on the PCE

@@ -61,16 +61,14 @@ logging:
 
 ## Install Your First Plugin
 
-The easiest way to start is with the PCE health monitor:
+The easiest way is to install from the plugin registry:
 
 ```bash
-# Build the plugin image
-cd pce-health-monitor
-docker build -t pce-health-monitor:latest .
-cd ..
+# Search available plugins
+plugger search
 
-# Install it
-plugger install pce-health-monitor/plugin.yaml
+# Install from registry (pulls image automatically)
+plugger install pce-health-monitor
 
 # Start it
 plugger start pce-health-monitor
@@ -125,5 +123,6 @@ See the [Plugin Development Guide](plugin-development.md) for details.
 - [CLI Reference](cli-reference.md) — all commands and flags
 - [Plugin Development](plugin-development.md) — building your own plugins
 - [Operations Guide](operations.md) — production deployment, monitoring, troubleshooting
-- [Example Plugins](example-plugins.md) — what ships with plugger
+- [Example Plugins](example-plugins.md) — six ready-to-use plugins
 - [Event-Driven Architecture](events.md) — webhook-triggered plugins
+- [Plugin Portal](https://alexgoller.github.io/illumio-plugger/) — browse and install plugins online
