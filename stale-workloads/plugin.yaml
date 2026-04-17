@@ -25,6 +25,9 @@ env:
   - name: PCE_TLS_SKIP_VERIFY
     required: false
     default: "true"
+  - name: ENABLE_CLEANUP
+    required: false
+    default: "false"
 
 health:
   endpoint: /healthz

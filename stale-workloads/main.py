@@ -316,7 +316,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <thead class="sticky top-0 bg-dark-800"><tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
                     <th class="px-4 py-3">Hostname</th><th class="px-4 py-3">App|Env</th><th class="px-4 py-3">IP</th>
                     <th class="px-4 py-3">Severity</th><th class="px-4 py-3">Reasons</th><th class="px-4 py-3">Heartbeat</th>
-                    <th class="px-4 py-3">Mode</th>
+                    <th class="px-4 py-3">Mode</th><th class="px-4 py-3 text-right">Actions</th>
                 </tr></thead>
                 <tbody id="table-body"></tbody>
             </table>
@@ -387,6 +387,7 @@ function renderTable() {
     const filtered = q ? stale.filter(w => w.hostname.toLowerCase().includes(q) || w.app_env.toLowerCase().includes(q) || w.ip.includes(q)) : stale;
 
     const sevColor = {high:'red',warning:'yellow',info:'gray'};
+    const canCleanup = (lastData||{}).cleanup_enabled;
     document.getElementById('table-body').innerHTML = filtered.map(w => `
         <tr class="border-b border-gray-700/30 hover:bg-dark-700/30">
             <td class="px-4 py-2"><code class="text-xs">${w.hostname}</code></td>
@@ -396,8 +397,34 @@ function renderTable() {
             <td class="px-4 py-2"><div class="flex flex-wrap gap-1">${w.reasons.map(r=>'<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-700 text-gray-400">'+r+'</span>').join('')}</div></td>
             <td class="px-4 py-2 text-xs text-gray-500">${w.last_heartbeat ? timeAgo(w.last_heartbeat) : '—'}</td>
             <td class="px-4 py-2 text-xs text-gray-500">${w.enforcement_mode||'—'}</td>
+            <td class="px-4 py-2 text-right">
+                ${canCleanup ? `<div class="flex gap-1 justify-end">
+                    ${w.managed ? `<button onclick="cleanupWorkload('${w.href}','unpair','${w.hostname}')" class="px-1.5 py-0.5 text-[10px] rounded bg-yellow-800 hover:bg-yellow-700 text-yellow-200">Unpair</button>` : ''}
+                    ${!w.managed ? `<button onclick="cleanupWorkload('${w.href}','delete','${w.hostname}')" class="px-1.5 py-0.5 text-[10px] rounded bg-red-800 hover:bg-red-700 text-red-200">Delete</button>` : ''}
+                </div>` : '<span class="text-[10px] text-gray-600">disabled</span>'}
+            </td>
         </tr>
     `).join('');
+}
+
+async function cleanupWorkload(href, action, hostname) {
+    const msg = action === 'unpair'
+        ? 'Unpair workload "' + hostname + '"? This will remove the VEN agent.'
+        : 'Delete workload "' + hostname + '" from PCE? This cannot be undone.';
+    if (!confirm(msg)) return;
+    try {
+        const resp = await fetch('/api/cleanup/' + action, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({href: href})
+        });
+        const result = await resp.json();
+        if (result.success) {
+            alert((action === 'unpair' ? 'Unpaired' : 'Deleted') + ': ' + hostname);
+            await fetchData();
+        } else {
+            alert('Failed: ' + result.error);
+        }
+    } catch(e) { alert('Failed: ' + e); }
 }
 
 async function fetchData() {
@@ -409,13 +436,43 @@ initCharts(); fetchData(); setInterval(fetchData, 30000);
 </body></html>"""
 
 
+cleanup_enabled = os.environ.get("ENABLE_CLEANUP", "false").lower() in ("true", "1")
+pce_client = None
+
+
+def unpair_workload(href):
+    """Unpair a managed workload (removes VEN agent)."""
+    try:
+        resp = pce_client.put(href, json={"agent": {"config": {"mode": "idle"}}})
+        if resp.status_code in (200, 204):
+            log.info("Unpaired workload: %s", href)
+            return {"success": True, "action": "unpaired"}
+        return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def delete_workload(href):
+    """Delete an unmanaged workload from PCE."""
+    try:
+        resp = pce_client.delete(href)
+        if resp.status_code in (200, 204):
+            log.info("Deleted workload: %s", href)
+            return {"success": True, "action": "deleted"}
+        return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 class StaleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/healthz":
             self.send_json(200, {"status": "healthy"})
         elif self.path == "/api/stale":
             with state_lock:
-                self.send_json(200, dict(report_state))
+                data = dict(report_state)
+            data["cleanup_enabled"] = cleanup_enabled
+            self.send_json(200, data)
         elif self.path == "/":
             body = DASHBOARD_HTML.encode()
             self.send_response(200)
@@ -424,6 +481,43 @@ class StaleHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         else:
             self.send_error(404)
+
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length > 0 else b""
+
+        if self.path == "/api/cleanup/unpair":
+            self.handle_cleanup(body, "unpair")
+        elif self.path == "/api/cleanup/delete":
+            self.handle_cleanup(body, "delete")
+        else:
+            self.send_error(404)
+
+    def handle_cleanup(self, body, action):
+        if not cleanup_enabled:
+            self.send_json(403, {"error": "Cleanup is disabled. Set ENABLE_CLEANUP=true to enable."})
+            return
+
+        try:
+            req = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            self.send_json(400, {"error": "Invalid JSON"})
+            return
+
+        href = req.get("href", "")
+        if not href:
+            self.send_json(400, {"error": "workload href is required"})
+            return
+
+        if action == "unpair":
+            result = unpair_workload(href)
+        elif action == "delete":
+            result = delete_workload(href)
+        else:
+            self.send_json(400, {"error": f"Unknown action: {action}"})
+            return
+
+        self.send_json(200, result)
 
     def send_json(self, code, data):
         body = json.dumps(data, indent=2, default=str).encode()
@@ -437,11 +531,18 @@ class StaleHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    global pce_client
+
     log.info("Starting stale-workloads...")
     port = int(os.environ.get("HTTP_PORT", "8080"))
 
-    pce = get_pce()
+    pce_client = get_pce()
+    pce = pce_client
     log.info("Connected to PCE: %s", pce.base_url)
+    if cleanup_enabled:
+        log.info("Cleanup ENABLED — unpair/delete actions available")
+    else:
+        log.info("Cleanup disabled (set ENABLE_CLEANUP=true to enable)")
 
     poller = threading.Thread(target=poller_loop, args=(pce,), daemon=True)
     poller.start()

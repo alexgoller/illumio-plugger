@@ -39,6 +39,11 @@ config:
     required: false
     type: bool
     default: "true"
+  - name: ENABLE_CLEANUP
+    description: Enable unpair/delete actions (default disabled for safety)
+    required: false
+    type: bool
+    default: "false"
 
 info:
   title: Stale Workloads
