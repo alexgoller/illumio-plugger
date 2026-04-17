@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with six plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
+Plugger ships with seven plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -202,3 +202,39 @@ plugger install ai-assisted-rules \
 - **AI analysis** (optional) — LLM-powered risk assessment and modification suggestions
 - **Label gap detection** — finds workloads missing roles, suggests labels
 - **One-click provisioning** — creates draft rulesets directly on the PCE
+
+---
+
+## Stale Workloads
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+Discovers workloads that are offline, haven't sent a heartbeat, have no traffic, or are unmanaged.
+
+**Install:**
+```bash
+plugger install stale-workloads
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POLL_INTERVAL` | `600` | Seconds between checks |
+| `STALE_DAYS` | `7` | Days without heartbeat to consider stale |
+| `OFFLINE_HOURS` | `24` | Hours offline to flag |
+| `CHECK_TRAFFIC` | `true` | Check for workloads with zero traffic |
+| `TRAFFIC_LOOKBACK_HOURS` | `168` | Hours of traffic to check (7 days) |
+| `ENABLE_CLEANUP` | `false` | Enable unpair/delete actions |
+
+**Detection criteria:**
+- **Offline** — workload not online
+- **No heartbeat** — managed workload hasn't checked in for N days
+- **No traffic** — zero flows in the lookback period
+- **Unmanaged** — no VEN agent installed
+
+**Cleanup actions** (disabled by default, set `ENABLE_CLEANUP=true`):
+- **Unpair** — removes VEN agent from managed workloads
+- **Delete** — removes unmanaged workloads from PCE
+
+Dashboard shows stale workloads grouped by app|env with severity levels, doughnut chart by reason, and searchable table.

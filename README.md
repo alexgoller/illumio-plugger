@@ -52,6 +52,7 @@ Plugin Portal: [alexgoller.github.io/illumio-plugger](https://alexgoller.github.
 | [pce-posture-report](pce-posture-report/) | Security posture scoring — enforcement, labels, policy coverage, HTML+JSON reports | Cron |
 | [pce-events](pce-events/) | Real-time PCE event monitoring — Slack, Teams, PagerDuty, 15+ output plugins | Daemon + UI |
 | [ai-assisted-rules](ai-assisted-rules/) | Policy advisor — tiered rule generation, AI analysis, infrastructure detection, label gaps, auto-provisioning | Daemon + UI |
+| [stale-workloads](stale-workloads/) | Discover offline, unresponsive, and trafficless workloads with optional cleanup | Daemon + UI |
 
 Install any plugin from the registry:
 ```bash
@@ -134,7 +135,7 @@ docs/portal/                     — GitHub Pages: plugin portal + registry.json
 - Docker runtime with port mapping, volume mounts, network isolation
 - Docker socket configurable in config
 - CI pipelines: Go build/test, multi-arch plugin images (GHCR), GitHub Pages deployment
-- 6 example plugins verified against live PCE
+- 7 example plugins verified against live PCE
 - AI-assisted policy with tiered generation, infrastructure detection, label gaps
 
 ### Planned

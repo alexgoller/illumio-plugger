@@ -74,6 +74,18 @@
       "tags": ["ai", "policy", "rules", "automation", "llm", "dashboard"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ai-assisted-rules"
+    },
+    {
+      "name": "stale-workloads",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-stale-workloads:latest",
+      "description": "Discover offline, unresponsive, and trafficless workloads — with optional cleanup (unpair/delete)",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["workloads", "stale", "cleanup", "offline", "hygiene", "dashboard"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/stale-workloads"
     }
   ]
 }
