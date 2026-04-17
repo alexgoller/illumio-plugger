@@ -1521,9 +1521,9 @@ function update(data) {
                     </div>
                     <div class="flex items-center gap-1">
                         <span class="text-[10px] text-gray-600">Provision:</span>
-                        <button onclick="provisionTier(${autoRules.indexOf(app.intra)},'low')" class="px-1.5 py-0.5 text-[10px] rounded bg-green-800 hover:bg-green-700 text-green-200">Ringfence</button>
-                        <button onclick="provisionTier(${autoRules.indexOf(app.intra)},'medium')" class="px-1.5 py-0.5 text-[10px] rounded bg-blue-800 hover:bg-blue-700 text-blue-200">Tiered</button>
-                        <button onclick="provisionTier(${autoRules.indexOf(app.intra)},'high')" class="px-1.5 py-0.5 text-[10px] rounded bg-purple-800 hover:bg-purple-700 text-purple-200">High</button>
+                        <button onclick="provisionTier(${autoRules.findIndex(r=>r.app_env===app.app_env)},'low')" class="px-1.5 py-0.5 text-[10px] rounded bg-green-800 hover:bg-green-700 text-green-200">Ringfence</button>
+                        <button onclick="provisionTier(${autoRules.findIndex(r=>r.app_env===app.app_env)},'medium')" class="px-1.5 py-0.5 text-[10px] rounded bg-blue-800 hover:bg-blue-700 text-blue-200">Tiered</button>
+                        <button onclick="provisionTier(${autoRules.findIndex(r=>r.app_env===app.app_env)},'high')" class="px-1.5 py-0.5 text-[10px] rounded bg-purple-800 hover:bg-purple-700 text-purple-200">High</button>
                     </div>
                 </div>` : ''}
 
