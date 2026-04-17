@@ -1330,7 +1330,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
                 </svg>
                 AI Assisted Rules
             </h1>
-            <p class="text-gray-500 mt-1">AI-powered policy advisor for Illumio PCE</p>
+            <p class="text-gray-500 mt-1">Policy advisor for Illumio PCE</p>
         </div>
         <div class="flex items-center gap-3">
             <div id="status-dot" class="w-3 h-3 rounded-full bg-gray-600"></div>
@@ -1411,7 +1411,7 @@ function update(data) {
     document.getElementById('stats').innerHTML = `
         <div class="bg-dark-800 rounded-xl border border-red-900/30 p-5 fade-in"><div class="text-3xl font-bold text-red-400">${formatNum(bs.total_blocked_connections||0)}</div><div class="text-xs text-gray-500 mt-1">Blocked Connections</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in"><div class="text-3xl font-bold text-orange-400">${bs.unique_pairs||0}</div><div class="text-xs text-gray-500 mt-1">Blocked App|Env Pairs</div></div>
-        <div class="bg-dark-800 rounded-xl border border-emerald-900/30 p-5 fade-in"><div class="text-3xl font-bold text-emerald-400">${(data.auto_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">AI Suggested Rules</div></div>
+        <div class="bg-dark-800 rounded-xl border border-emerald-900/30 p-5 fade-in"><div class="text-3xl font-bold text-emerald-400">${(data.auto_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">Suggested Rules</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in"><div class="text-3xl font-bold text-gray-400">${(data.stale_rules||[]).length}</div><div class="text-xs text-gray-500 mt-1">Stale/Disabled Rules</div></div>
     `;
 
