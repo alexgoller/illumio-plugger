@@ -176,6 +176,21 @@
     </div>
 </div>
 
+{{if .Readme}}
+<!-- Plugin Documentation -->
+<div class="bg-dark-800 rounded-lg border border-gray-700 p-6 mt-6">
+    <div class="flex items-center gap-2 mb-4">
+        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h2 class="text-lg font-semibold text-white">Documentation</h2>
+    </div>
+    <div class="prose prose-invert prose-sm max-w-none">
+        <pre class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 whitespace-pre-wrap font-mono overflow-x-auto leading-relaxed">{{.Readme}}</pre>
+    </div>
+</div>
+{{end}}
+
 {{end}}
 
 {{define "plugin_status_fragment"}}

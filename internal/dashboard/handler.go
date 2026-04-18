@@ -3,8 +3,11 @@ package dashboard
 import (
 	"encoding/json"
 	"html/template"
+	"io"
 	"log/slog"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/illumio/plugger/internal/config"
 	"github.com/illumio/plugger/internal/container"
@@ -110,8 +113,20 @@ func (h *Handler) handlePluginDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch README — try homepage first, fallback to well-known GitHub path
+	readmeContent := ""
+	homepage := ""
+	if p.Metadata != nil && p.Metadata.Info != nil {
+		homepage = p.Metadata.Info.Homepage
+	}
+	if homepage == "" {
+		homepage = "https://github.com/alexgoller/illumio-plugger/tree/main/" + name
+	}
+	readmeContent = fetchReadme(name, homepage)
+
 	data := map[string]any{
 		"Plugin": p,
+		"Readme": readmeContent,
 	}
 
 	h.render(w, "layout.html", "plugin_detail.html", data)
@@ -156,6 +171,34 @@ func (h *Handler) json(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+// fetchReadme tries to get the plugin README from GitHub.
+func fetchReadme(name, homepage string) string {
+	// Convert GitHub tree URL to raw URL
+	// https://github.com/alexgoller/illumio-plugger/tree/main/pce-health-monitor
+	// → https://raw.githubusercontent.com/alexgoller/illumio-plugger/main/pce-health-monitor/README.md
+	rawURL := ""
+	if strings.Contains(homepage, "github.com") && strings.Contains(homepage, "/tree/") {
+		rawURL = strings.Replace(homepage, "github.com", "raw.githubusercontent.com", 1)
+		rawURL = strings.Replace(rawURL, "/tree/", "/", 1)
+		rawURL += "/README.md"
+	}
+	if rawURL == "" {
+		return ""
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(rawURL)
+	if err != nil || resp.StatusCode != 200 {
+		return ""
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 func (h *Handler) serverError(w http.ResponseWriter, action string, err error) {
