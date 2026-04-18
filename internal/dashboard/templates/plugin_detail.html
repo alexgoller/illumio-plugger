@@ -185,9 +185,36 @@
         </svg>
         <h2 class="text-lg font-semibold text-white">Documentation</h2>
     </div>
-    <div class="prose prose-invert prose-sm max-w-none">
-        <pre class="bg-dark-700/50 rounded-lg p-4 text-sm text-gray-300 whitespace-pre-wrap font-mono overflow-x-auto leading-relaxed">{{.Readme}}</pre>
-    </div>
+    <div id="readme-content" class="readme-rendered text-sm"></div>
+    <script id="readme-raw" type="text/plain">{{.Readme}}</script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.4/marked.min.js"></script>
+    <style>
+        .readme-rendered h1 { font-size:1.5em; font-weight:700; color:#e2e8f0; margin:1.2em 0 0.5em; border-bottom:1px solid #313244; padding-bottom:0.3em; }
+        .readme-rendered h2 { font-size:1.25em; font-weight:600; color:#e2e8f0; margin:1em 0 0.4em; }
+        .readme-rendered h3 { font-size:1.1em; font-weight:600; color:#cbd5e1; margin:0.8em 0 0.3em; }
+        .readme-rendered p { color:#94a3b8; margin:0.5em 0; line-height:1.6; }
+        .readme-rendered code { background:#313244; color:#93c5fd; padding:0.15em 0.4em; border-radius:4px; font-size:0.85em; }
+        .readme-rendered pre { background:#11111b; border:1px solid #313244; border-radius:8px; padding:1em; overflow-x:auto; margin:0.8em 0; }
+        .readme-rendered pre code { background:transparent; color:#a6adc8; padding:0; font-size:0.85em; }
+        .readme-rendered table { width:100%; border-collapse:collapse; margin:0.8em 0; }
+        .readme-rendered th { text-align:left; padding:0.5em 0.75em; border-bottom:2px solid #313244; color:#9ca3af; font-size:0.8em; font-weight:500; }
+        .readme-rendered td { padding:0.4em 0.75em; border-bottom:1px solid #313244; color:#a6adc8; font-size:0.85em; }
+        .readme-rendered ul, .readme-rendered ol { color:#94a3b8; padding-left:1.5em; margin:0.5em 0; }
+        .readme-rendered li { margin:0.25em 0; line-height:1.5; }
+        .readme-rendered a { color:#60a5fa; text-decoration:none; }
+        .readme-rendered a:hover { text-decoration:underline; }
+        .readme-rendered strong { color:#e2e8f0; }
+        .readme-rendered blockquote { border-left:3px solid #313244; padding-left:1em; color:#6b7280; margin:0.5em 0; }
+        .readme-rendered hr { border:none; border-top:1px solid #313244; margin:1em 0; }
+    </style>
+    <script>
+    (function() {
+        var raw = document.getElementById('readme-raw').textContent;
+        if (typeof marked !== 'undefined' && raw) {
+            document.getElementById('readme-content').innerHTML = marked.parse(raw);
+        }
+    })();
+    </script>
 </div>
 {{end}}
 
