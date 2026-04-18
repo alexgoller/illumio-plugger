@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with seven plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
+Plugger ships with eight plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -238,3 +238,49 @@ plugger install stale-workloads
 - **Delete** — removes unmanaged workloads from PCE
 
 Dashboard shows stale workloads grouped by app|env with severity levels, doughnut chart by reason, and searchable table.
+
+---
+
+## Palo Alto DAG Sync
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+Syncs Illumio workload labels to Palo Alto Networks Dynamic Address Groups via the PAN-OS XML User-ID API. Enables label-based firewall policy automation.
+
+**Install:**
+```bash
+# With Palo Alto configured
+plugger install palo-alto-dag-sync \
+  -e PALO_HOST=panorama.example.com \
+  -e PALO_API_KEY=your-pan-api-key
+
+# Dry-run mode (no Palo — shows what would sync)
+plugger install palo-alto-dag-sync
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PALO_HOST` | | Panorama or firewall hostname |
+| `PALO_API_KEY` | | PAN-OS API key |
+| `PALO_TLS_SKIP_VERIFY` | `true` | Skip TLS verification for PAN-OS |
+| `SYNC_INTERVAL` | `300` | Seconds between syncs |
+| `TAG_PREFIX` | `illumio` | Prefix for PAN-OS tags |
+| `TAG_FORMAT` | `{prefix}-{key}-{value}` | Tag name format |
+| `SYNC_LABELS` | `role,app,env,loc` | Label keys to sync |
+
+**How it works:**
+1. Polls PCE for all online workloads with labels
+2. Builds PAN-OS tags from labels (e.g., `illumio-role-web`, `illumio-app-ordering`)
+3. Registers IP-to-tag mappings via PAN-OS XML User-ID API
+4. Palo Alto DAGs dynamically include workloads matching those tags
+5. Dashboard shows tag distribution, sync history, and full tag registry
+
+**Tag format examples:**
+- `illumio-role-web` (52 IPs)
+- `illumio-app-ordering` (32 IPs)
+- `illumio-env-prod` (134 IPs)
+- `illumio-loc-ca` (64 IPs)
+
+**Dry-run mode:** Without `PALO_HOST`, the plugin runs against the PCE and shows what tags would be created and how many IPs would be registered — useful for validating the mapping before connecting a firewall.
