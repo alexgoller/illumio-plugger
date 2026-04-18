@@ -1,0 +1,45 @@
+apiVersion: plugger/v1
+name: palo-alto-dag-sync
+version: 0.1.0
+image: palo-alto-dag-sync:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: PALO_HOST
+    required: false
+    default: ""
+  - name: PALO_API_KEY
+    required: false
+    default: ""
+    secret: true
+  - name: PALO_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+  - name: SYNC_INTERVAL
+    required: false
+    default: "300"
+  - name: TAG_PREFIX
+    required: false
+    default: "illumio"
+  - name: TAG_FORMAT
+    required: false
+    default: "{prefix}-{key}-{value}"
+  - name: SYNC_LABELS
+    required: false
+    default: "role,app,env,loc"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

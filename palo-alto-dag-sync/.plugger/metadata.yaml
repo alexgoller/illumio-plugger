@@ -1,0 +1,55 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: DAG sync dashboard — status, tags, history
+    type: ui
+    path: /
+
+config:
+  - name: PALO_HOST
+    description: Palo Alto Panorama or firewall hostname
+    required: false
+    type: string
+  - name: PALO_API_KEY
+    description: PAN-OS API key
+    required: false
+    type: secret
+  - name: PALO_TLS_SKIP_VERIFY
+    description: Skip TLS verification for PAN-OS
+    required: false
+    type: bool
+    default: "true"
+  - name: SYNC_INTERVAL
+    description: Seconds between syncs
+    required: false
+    type: int
+    default: "300"
+  - name: TAG_PREFIX
+    description: Prefix for PAN-OS tags (default illumio)
+    required: false
+    type: string
+    default: "illumio"
+  - name: TAG_FORMAT
+    description: Tag name format using {prefix}, {key}, {value}
+    required: false
+    type: string
+    default: "{prefix}-{key}-{value}"
+  - name: SYNC_LABELS
+    description: Comma-separated Illumio label keys to sync
+    required: false
+    type: string
+    default: "role,app,env,loc"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+info:
+  title: Palo Alto DAG Sync
+  description: Sync Illumio workload labels to Palo Alto Dynamic Address Groups via PAN-OS XML API
+  author: Illumio
+  license: Apache-2.0
