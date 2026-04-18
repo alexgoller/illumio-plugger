@@ -1,0 +1,51 @@
+apiVersion: plugger/v1
+name: ad-label-sync
+version: 0.1.0
+image: ad-label-sync:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: LDAP_HOST
+    required: false
+    default: ""
+  - name: LDAP_PORT
+    required: false
+    default: "389"
+  - name: LDAP_BIND_DN
+    required: false
+    default: ""
+  - name: LDAP_BIND_PASSWORD
+    required: false
+    default: ""
+    secret: true
+  - name: LDAP_BASE_DN
+    required: false
+    default: ""
+  - name: LDAP_FILTER
+    required: false
+    default: "(objectClass=computer)"
+  - name: LDAP_SSL
+    required: false
+    default: "false"
+  - name: MODE
+    required: false
+    default: "analytics"
+  - name: SCAN_INTERVAL
+    required: false
+    default: "3600"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

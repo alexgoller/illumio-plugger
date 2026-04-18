@@ -1,0 +1,58 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: AD label sync analytics and feasibility dashboard
+    type: ui
+    path: /
+
+config:
+  - name: LDAP_HOST
+    description: Active Directory domain controller hostname
+    required: false
+    type: string
+  - name: LDAP_PORT
+    description: LDAP port (389 or 636 for LDAPS)
+    required: false
+    type: int
+    default: "389"
+  - name: LDAP_BIND_DN
+    description: Bind DN (e.g. CN=svc-illumio,OU=Service,DC=corp,DC=local)
+    required: false
+    type: string
+  - name: LDAP_BIND_PASSWORD
+    description: Bind password
+    required: false
+    type: secret
+  - name: LDAP_BASE_DN
+    description: Search base DN (e.g. DC=corp,DC=local)
+    required: false
+    type: string
+  - name: LDAP_FILTER
+    description: LDAP search filter
+    required: false
+    type: string
+    default: "(objectClass=computer)"
+  - name: LDAP_SSL
+    description: Use LDAPS (port 636)
+    required: false
+    type: bool
+    default: "false"
+  - name: MODE
+    description: "analytics (read-only) or sync (apply labels to PCE)"
+    required: false
+    type: string
+    default: "analytics"
+  - name: SCAN_INTERVAL
+    description: Seconds between AD scans
+    required: false
+    type: int
+    default: "3600"
+
+info:
+  title: AD Label Sync
+  description: Discover Active Directory computers and map OU, group, location attributes to Illumio labels — analytics mode for feasibility testing
+  author: Illumio
+  license: Apache-2.0
