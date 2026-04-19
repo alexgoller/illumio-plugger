@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with eight plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
+Plugger ships with ten plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -284,3 +284,44 @@ plugger install palo-alto-dag-sync
 - `illumio-loc-ca` (64 IPs)
 
 **Dry-run mode:** Without `PALO_HOST`, the plugin runs against the PCE and shows what tags would be created and how many IPs would be registered — useful for validating the mapping before connecting a firewall.
+
+---
+
+## AD Label Sync
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+Discovers Active Directory computers via LDAP and maps OU, group, and location attributes to Illumio labels. Includes an analytics mode for feasibility testing before enabling live sync.
+
+**Install:**
+```bash
+plugger install ad-label-sync
+```
+
+---
+
+## Rule Scheduler
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+Time-based rule and ruleset scheduling for Illumio PCE. Enable or disable rules and rulesets on a schedule — business hours policies, maintenance windows, weekend lockdowns.
+
+**Install:**
+```bash
+plugger install rule-scheduler
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CHECK_INTERVAL` | `60` | Seconds between schedule checks |
+| `TZ` | `UTC` | Timezone for schedule evaluation |
+
+**Features:**
+- YAML-based schedule configuration
+- Multiple independent schedulers per instance
+- Day-of-week and time-of-day windows
+- Immediate reconciliation on startup
+- Enable/disable rules and rulesets on the PCE
+- Dashboard showing active schedules, next transitions, and history

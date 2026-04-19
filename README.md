@@ -55,6 +55,7 @@ Plugin Portal: [alexgoller.github.io/illumio-plugger](https://alexgoller.github.
 | [stale-workloads](stale-workloads/) | Discover offline, unresponsive, and trafficless workloads with optional cleanup | Daemon + UI |
 | [palo-alto-dag-sync](palo-alto-dag-sync/) | Sync Illumio labels to Palo Alto Dynamic Address Groups via PAN-OS XML API | Daemon + UI |
 | [ad-label-sync](ad-label-sync/) | Discover AD computers via LDAP, map attributes to Illumio labels — analytics mode | Daemon + UI |
+| [rule-scheduler](rule-scheduler/) | Time-based rule/ruleset scheduling — business hours, maintenance windows, weekend lockdowns | Daemon + UI |
 
 Install any plugin from the registry:
 ```bash
@@ -137,7 +138,7 @@ docs/portal/                     — GitHub Pages: plugin portal + registry.json
 - Docker runtime with port mapping, volume mounts, network isolation
 - Docker socket configurable in config
 - CI pipelines: Go build/test, multi-arch plugin images (GHCR), GitHub Pages deployment
-- 9 plugins (8 verified against live PCE, 1 AD integration)
+- 10 plugins (8 verified against live PCE, 1 AD integration, 1 rule scheduler)
 - AI-assisted policy with tiered generation, infrastructure detection, label gaps
 
 ### Planned

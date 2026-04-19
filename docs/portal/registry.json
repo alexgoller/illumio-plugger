@@ -110,6 +110,18 @@
       "tags": ["active-directory", "ldap", "labels", "sync", "integration", "analytics"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ad-label-sync"
+    },
+    {
+      "name": "rule-scheduler",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-rule-scheduler:latest",
+      "description": "Time-based rule and ruleset scheduling — business hours, maintenance windows, weekend lockdowns",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["scheduling", "rules", "time-based", "maintenance", "automation"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/rule-scheduler"
     }
   ]
 }
