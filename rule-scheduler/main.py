@@ -180,6 +180,37 @@ def is_in_window(schedule, now=None):
         return current_time >= start or current_time <= end
 
 
+def provision_change(pce, target_href):
+    """Provision only the specific changed ruleset/rule to active policy."""
+    try:
+        # The PCE provision API takes a list of hrefs to provision
+        # POST /api/v2/orgs/{orgId}/sec_policy with {"update_description": "...", "change_subset": {"rule_sets": [{"href": "..."}]}}
+        # We need to extract the ruleset href (rules are provisioned via their parent ruleset)
+        ruleset_href = target_href
+        if "/sec_rules/" in target_href:
+            # It's a rule — provision the parent ruleset
+            ruleset_href = target_href.split("/sec_rules/")[0]
+
+        provision_data = {
+            "update_description": "Provisioned by rule-scheduler",
+            "change_subset": {
+                "rule_sets": [{"href": ruleset_href}]
+            }
+        }
+
+        resp = pce.post("/sec_policy", json=provision_data)
+        if resp.status_code in (200, 201, 204):
+            log.info("Provisioned: %s", ruleset_href)
+            return {"success": True, "href": ruleset_href}
+        else:
+            error = resp.text[:200] if hasattr(resp, 'text') else str(resp.status_code)
+            log.error("Provision failed: HTTP %d: %s", resp.status_code, error)
+            return {"success": False, "error": f"HTTP {resp.status_code}"}
+    except Exception as e:
+        log.error("Provision error: %s", e)
+        return {"success": False, "error": str(e)}
+
+
 def apply_schedule(pce, schedule, in_window):
     """Apply a schedule action to its targets."""
     action = schedule.get("action_in_window" if in_window else "action_outside", "")
@@ -219,11 +250,16 @@ def apply_schedule(pce, schedule, in_window):
                 action_word = "enabled" if should_enable else "disabled"
                 name = current.get("name", target_href)
                 log.info("Schedule '%s': %s %s '%s'", schedule["name"], action_word, target_type, name)
+
+                # Provision only this specific change
+                prov_result = provision_change(pce, target_href)
+
                 changes.append({
                     "target": target_href,
                     "name": name,
                     "action": action_word,
                     "schedule": schedule["name"],
+                    "provisioned": prov_result,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
             else:
