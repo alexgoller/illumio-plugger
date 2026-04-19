@@ -308,7 +308,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
     <!-- Add/Edit Form -->
     <div id="add-form" style="display:none" class="bg-dark-800 rounded-xl border border-blue-900/30 p-6 mb-8">
-        <h3 class="text-white font-semibold mb-4">New Schedule</h3>
+        <h3 id="form-title" class="text-white font-semibold mb-4">New Schedule</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
                 <label class="text-gray-400 text-xs block mb-1">Name</label>
@@ -321,9 +321,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <option value="rule">Individual Rule</option>
                 </select>
             </div>
-            <div>
-                <label class="text-gray-400 text-xs block mb-1">Target HREFs (comma-separated)</label>
-                <input id="f-targets" class="w-full bg-dark-700 border border-gray-600 rounded px-3 py-1.5 text-white text-sm" placeholder="/orgs/1/sec_policy/draft/rule_sets/123">
+            <div class="md:col-span-2">
+                <label class="text-gray-400 text-xs block mb-1">Target Rulesets</label>
+                <div id="f-targets-container" class="bg-dark-700 border border-gray-600 rounded p-2 max-h-40 overflow-y-auto">
+                    <div class="text-xs text-gray-500">Loading rulesets...</div>
+                </div>
             </div>
             <div>
                 <label class="text-gray-400 text-xs block mb-1">Comment (added to ruleset)</label>
@@ -395,8 +397,78 @@ function toggleDay(btn, day) {
     }
 }
 
-function showAddForm() { document.getElementById('add-form').style.display = 'block'; }
-function hideAddForm() { document.getElementById('add-form').style.display = 'none'; }
+let rulesetCache = [];
+let editingIndex = -1;
+
+async function loadRulesets() {
+    try {
+        const resp = await fetch('/api/rulesets');
+        rulesetCache = await resp.json();
+    } catch(e) { rulesetCache = []; }
+}
+
+function renderRulesetSelector(selectedHrefs) {
+    const sel = new Set(selectedHrefs || []);
+    document.getElementById('f-targets-container').innerHTML = rulesetCache.length ? rulesetCache.map(rs => `
+        <label class="flex items-center gap-2 py-1 px-1 hover:bg-dark-700/50 rounded cursor-pointer">
+            <input type="checkbox" value="${rs.href}" ${sel.has(rs.href)?'checked':''} class="rs-checkbox accent-blue-500">
+            <span class="text-sm text-gray-300">${rs.name}</span>
+            <span class="text-[10px] text-gray-600 ml-auto">${rs.enabled?'enabled':'disabled'}</span>
+        </label>
+    `).join('') : '<div class="text-xs text-gray-500">No rulesets found</div>';
+}
+
+function getSelectedTargets() {
+    return Array.from(document.querySelectorAll('.rs-checkbox:checked')).map(cb => cb.value);
+}
+
+async function showAddForm() {
+    editingIndex = -1;
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-comment').value = '[rule-scheduler] ';
+    document.getElementById('f-start').value = '09:00';
+    document.getElementById('f-end').value = '17:00';
+    document.getElementById('f-action-in').value = 'enable';
+    document.getElementById('f-action-out').value = 'disable';
+    document.getElementById('f-type').value = 'ruleset';
+    selectedDays.clear();
+    document.querySelectorAll('#f-days button').forEach(b => b.className = 'px-2 py-1 rounded text-xs bg-dark-700 text-gray-400 border border-gray-600');
+    await loadRulesets();
+    renderRulesetSelector([]);
+    document.getElementById('add-form').style.display = 'block';
+    document.getElementById('form-title').textContent = 'New Schedule';
+}
+
+async function editSchedule(index) {
+    const data = await (await fetch('/api/status')).json();
+    const sched = (data.schedules || [])[index];
+    if (!sched) return;
+
+    editingIndex = index;
+    document.getElementById('f-name').value = sched.name || '';
+    document.getElementById('f-comment').value = sched.comment || '';
+    document.getElementById('f-start').value = sched.start_time || '09:00';
+    document.getElementById('f-end').value = sched.end_time || '17:00';
+    document.getElementById('f-action-in').value = sched.action_in_window || 'enable';
+    document.getElementById('f-action-out').value = sched.action_outside || 'disable';
+    document.getElementById('f-type').value = sched.target_type || 'ruleset';
+
+    selectedDays.clear();
+    (sched.days || []).forEach(d => selectedDays.add(d));
+    document.querySelectorAll('#f-days button').forEach(b => {
+        const day = b.dataset.day;
+        b.className = selectedDays.has(day)
+            ? 'px-2 py-1 rounded text-xs bg-blue-600 text-white border border-blue-500'
+            : 'px-2 py-1 rounded text-xs bg-dark-700 text-gray-400 border border-gray-600';
+    });
+
+    await loadRulesets();
+    renderRulesetSelector(sched.targets || []);
+    document.getElementById('add-form').style.display = 'block';
+    document.getElementById('form-title').textContent = 'Edit Schedule';
+}
+
+function hideAddForm() { document.getElementById('add-form').style.display = 'none'; editingIndex = -1; }
 
 function update(data) {
     const scheds = data.schedules || [];
@@ -426,6 +498,7 @@ function update(data) {
                     <span class="text-xs text-gray-600">${s.target_type}</span>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button onclick="editSchedule(${i})" class="px-2 py-0.5 text-[10px] rounded bg-blue-800 text-blue-200">Edit</button>
                     <button onclick="toggleSchedule(${i})" class="px-2 py-0.5 text-[10px] rounded ${s.enabled ? 'bg-red-800 text-red-200' : 'bg-green-800 text-green-200'}">${s.enabled ? 'Disable' : 'Enable'}</button>
                     <button onclick="deleteSchedule(${i})" class="px-2 py-0.5 text-[10px] rounded bg-dark-700 text-gray-400">Delete</button>
                 </div>
@@ -461,10 +534,11 @@ function update(data) {
 async function fetchData() { try { update(await (await fetch('/api/status')).json()); } catch(e) { console.error(e); } }
 
 async function saveSchedule() {
+    const targets = getSelectedTargets();
     const sched = {
         name: document.getElementById('f-name').value,
         description: '',
-        targets: document.getElementById('f-targets').value.split(',').map(s=>s.trim()).filter(Boolean),
+        targets: targets,
         target_type: document.getElementById('f-type').value,
         days: Array.from(selectedDays),
         start_time: document.getElementById('f-start').value,
@@ -474,9 +548,13 @@ async function saveSchedule() {
         comment: document.getElementById('f-comment').value,
         enabled: true,
     };
-    if (!sched.name || !sched.days.length || !sched.targets.length) { alert('Fill in name, days, and targets'); return; }
+    if (!sched.name || !sched.days.length || !targets.length) { alert('Fill in name, select days, and pick at least one ruleset'); return; }
     try {
-        await fetch('/api/schedules', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(sched)});
+        if (editingIndex >= 0) {
+            await fetch('/api/schedules/'+editingIndex, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(sched)});
+        } else {
+            await fetch('/api/schedules', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(sched)});
+        }
         hideAddForm(); selectedDays.clear(); await fetchData();
     } catch(e) { alert('Failed: '+e); }
 }
@@ -533,6 +611,15 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def do_PUT(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length > 0 else b""
+
+        if self.path.startswith("/api/schedules/"):
+            self.handle_update_schedule(body)
+        else:
+            self.send_error(404)
+
     def do_DELETE(self):
         if self.path.startswith("/api/schedules/"):
             self.handle_delete_schedule()
@@ -561,6 +648,24 @@ class SchedulerHandler(BaseHTTPRequestHandler):
             schedules[index]["enabled"] = not schedules[index].get("enabled", False)
             save_schedules(schedules)
             self.send_json(200, {"success": True, "enabled": schedules[index]["enabled"]})
+        else:
+            self.send_json(400, {"error": "Invalid index"})
+
+    def handle_update_schedule(self, body):
+        try:
+            index = int(self.path.split("/")[3])
+            sched = json.loads(body)
+        except (ValueError, IndexError, json.JSONDecodeError):
+            self.send_json(400, {"error": "Invalid request"})
+            return
+        schedules = load_schedules()
+        if 0 <= index < len(schedules):
+            # Preserve enabled state from existing if not in update
+            if "enabled" not in sched:
+                sched["enabled"] = schedules[index].get("enabled", False)
+            schedules[index] = sched
+            save_schedules(schedules)
+            self.send_json(200, {"success": True})
         else:
             self.send_json(400, {"error": "Invalid index"})
 
