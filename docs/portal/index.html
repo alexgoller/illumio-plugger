@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 11 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700: '#313244', 800: '#1e1e2e', 900: '#11111b' } } } } }
 ;(function(){if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.classList.add('dark')})();
@@ -24,6 +25,39 @@ html:not(.dark) .bg-dark-700 { background:#f3f4f6; } html:not(.dark) .text-gray-
 html:not(.dark) .text-gray-400 { color:#6b7280; } html:not(.dark) .text-gray-500 { color:#9ca3af; }
 html:not(.dark) .text-white { color:#111827; } html:not(.dark) .border-gray-700 { border-color:#e5e7eb; }
 html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code { background:#e5e7eb; color:#374151; }
+/* Docs modal */
+.docs-overlay { position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:none;align-items:start;justify-content:center;overflow-y:auto;padding:2rem 1rem; }
+.docs-overlay.active { display:flex; }
+.docs-panel { max-width:860px;width:100%;background:#1e1e2e;border:1px solid #313244;border-radius:1rem;position:relative;margin:auto; }
+html:not(.dark) .docs-panel { background:#fff; border-color:#e5e7eb; }
+/* Rendered markdown */
+.docs-content h1 { font-size:1.75rem;font-weight:700;color:#cdd6f4;margin:0 0 1rem;padding-bottom:0.5rem;border-bottom:1px solid #313244; }
+.docs-content h2 { font-size:1.25rem;font-weight:600;color:#a6adc8;margin:1.5rem 0 0.75rem; }
+.docs-content h3 { font-size:1.1rem;font-weight:600;color:#a6adc8;margin:1.25rem 0 0.5rem; }
+.docs-content p { color:#bac2de;line-height:1.7;margin:0.5rem 0; }
+.docs-content ul,.docs-content ol { color:#bac2de;margin:0.5rem 0;padding-left:1.5rem; }
+.docs-content li { margin:0.25rem 0;line-height:1.6; }
+.docs-content code { background:#313244;padding:0.15rem 0.4rem;border-radius:0.25rem;font-size:0.85em;color:#89b4fa; }
+.docs-content pre { background:#11111b;border:1px solid #313244;border-radius:0.5rem;padding:1rem;overflow-x:auto;margin:0.75rem 0; }
+.docs-content pre code { background:none;padding:0;color:#a6e3a1;font-size:0.85rem; }
+.docs-content table { width:100%;border-collapse:collapse;margin:0.75rem 0;font-size:0.875rem; }
+.docs-content th { text-align:left;padding:0.5rem 0.75rem;border-bottom:2px solid #313244;color:#a6adc8;font-weight:600; }
+.docs-content td { padding:0.5rem 0.75rem;border-bottom:1px solid #313244;color:#bac2de; }
+.docs-content strong { color:#cdd6f4; }
+.docs-content a { color:#89b4fa;text-decoration:underline; }
+.docs-content blockquote { border-left:3px solid #89b4fa;padding-left:1rem;color:#a6adc8;margin:0.75rem 0; }
+html:not(.dark) .docs-content h1 { color:#111827;border-color:#e5e7eb; }
+html:not(.dark) .docs-content h2,html:not(.dark) .docs-content h3 { color:#374151; }
+html:not(.dark) .docs-content p,html:not(.dark) .docs-content li,html:not(.dark) .docs-content td { color:#4b5563; }
+html:not(.dark) .docs-content th { color:#374151;border-color:#e5e7eb; }
+html:not(.dark) .docs-content td { border-color:#e5e7eb; }
+html:not(.dark) .docs-content code { background:#f3f4f6;color:#2563eb; }
+html:not(.dark) .docs-content pre { background:#f9fafb;border-color:#e5e7eb; }
+html:not(.dark) .docs-content pre code { color:#166534; }
+/* Category pill nav */
+.cat-pill { cursor:pointer;transition:all 0.15s; }
+.cat-pill:hover { background:rgba(137,180,250,0.15); }
+.cat-pill.active { background:rgba(137,180,250,0.2);color:#89b4fa;border-color:rgba(137,180,250,0.4); }
 </style>
 </head>
 <body class="bg-dark-900 text-gray-200 min-h-screen">
@@ -38,8 +72,8 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
     <div class="flex items-center gap-6 text-sm text-gray-400">
         <a href="#features" class="hover:text-white transition-colors">Features</a>
         <a href="#plugins" class="hover:text-white transition-colors">Plugins</a>
+        <a href="#docs" class="hover:text-white transition-colors">Docs</a>
         <a href="#quickstart" class="hover:text-white transition-colors">Quick Start</a>
-        <a href="https://github.com/alexgoller/illumio-plugger/tree/main/docs" class="hover:text-white transition-colors">Docs</a>
         <a href="https://github.com/alexgoller/illumio-plugger" class="flex items-center gap-1 hover:text-white transition-colors">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
             GitHub
@@ -72,7 +106,7 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">10</div><div class="text-xs text-gray-500 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">11</div><div class="text-xs text-gray-500 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">3</div><div class="text-xs text-gray-500 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-500 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-500 mt-1">Arch (amd64/arm64)</div></div>
@@ -105,8 +139,8 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
             <div class="w-10 h-10 rounded-lg bg-purple-900/50 flex items-center justify-center mb-4">
                 <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
             </div>
-            <h3 class="text-white font-semibold mb-2">AI-Assisted Policy</h3>
-            <p class="text-gray-400 text-sm">Analyzes blocked traffic, generates tiered rules (ringfencing → application tiered → high security), detects infrastructure patterns, suggests labels. Optional LLM integration.</p>
+            <h3 class="text-white font-semibold mb-2">AI-Powered Analysis</h3>
+            <p class="text-gray-400 text-sm">Security posture scoring, policy suggestions, compliance mapping. Optional LLM integration with Anthropic, OpenAI, or Ollama for AI narratives and recommendations.</p>
         </div>
         <div class="card bg-dark-800 rounded-xl border border-gray-700 p-6 fade-in fade-d3">
             <div class="w-10 h-10 rounded-lg bg-yellow-900/50 flex items-center justify-center mb-4">
@@ -119,8 +153,8 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
             <div class="w-10 h-10 rounded-lg bg-cyan-900/50 flex items-center justify-center mb-4">
                 <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
-            <h3 class="text-white font-semibold mb-2">Event-Driven</h3>
-            <p class="text-gray-400 text-sm">Webhook endpoint triggers ephemeral containers on PCE events or traffic alerts. Works with pce-events, GitLab, AWS SNS, or any webhook source.</p>
+            <h3 class="text-white font-semibold mb-2">Integrations</h3>
+            <p class="text-gray-400 text-sm">Palo Alto DAG sync, Active Directory label mapping, 15+ notification outputs (Slack, Teams, PagerDuty), webhook-driven automation, time-based scheduling.</p>
         </div>
         <div class="card bg-dark-800 rounded-xl border border-gray-700 p-6 fade-in fade-d5">
             <div class="w-10 h-10 rounded-lg bg-pink-900/50 flex items-center justify-center mb-4">
@@ -151,7 +185,7 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
             <div>
                 <h3 class="text-white font-semibold mb-1">Install plugins</h3>
                 <p class="text-gray-400 text-sm">From the registry by name, a URL, a local manifest file, or a container image reference.</p>
-                <code class="text-xs text-blue-300 bg-dark-800 px-2 py-1 rounded mt-2 inline-block">plugger install pce-health-monitor</code>
+                <code class="text-xs text-blue-300 bg-dark-800 px-2 py-1 rounded mt-2 inline-block">plugger install ai-security-report</code>
             </div>
         </div>
         <div class="flex gap-6 items-start fade-in fade-d2">
@@ -170,93 +204,179 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
 <section id="plugins" class="py-20 px-6 border-t border-gray-800">
 <div class="max-w-6xl mx-auto">
     <h2 class="text-3xl font-bold text-white text-center mb-4">Plugins</h2>
-    <p class="text-gray-400 text-center mb-12">Install with <code class="bg-dark-800 px-2 py-0.5 rounded text-blue-300 text-sm">plugger install &lt;name&gt;</code></p>
+    <p class="text-gray-400 text-center mb-6">Install with <code class="bg-dark-800 px-2 py-0.5 rounded text-blue-300 text-sm">plugger install &lt;name&gt;</code> &middot; Click any plugin for full documentation</p>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in">
+    <!-- Category filters -->
+    <div class="flex flex-wrap gap-2 justify-center mb-8">
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (11)</button>
+        <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
+        <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
+        <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
+        <button onclick="filterPlugins('integration')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="integration">Integrations</button>
+        <button onclick="filterPlugins('operations')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="operations">Operations</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="plugin-grid">
+
+        <!-- AI Security Report (flagship) -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in cursor-pointer" data-plugin="ai-security-report" data-categories="ai,policy" onclick="showDocs('ai-security-report')">
             <div class="flex items-center justify-between mb-2">
-                <h3 class="text-white font-semibold">PCE Health Monitor</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
+                <h3 class="text-white font-semibold">AI Security Report</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-400">AI</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-purple-900/40 text-purple-400">new</span>
+                </div>
             </div>
-            <p class="text-sm text-gray-400 mb-3">Real-time PCE health dashboard. Checks health, node availability, CPU/memory/disk, and service status.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install pce-health-monitor</code>
-        </div>
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d1">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-white font-semibold">Traffic Reporter</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
+            <p class="text-sm text-gray-400 mb-3">Comprehensive security posture analysis. 10 categories, scoring, compliance mapping (NIST/CIS/PCI-DSS), environment heatmap, AI narratives, PDF export.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install ai-security-report</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
-            <p class="text-sm text-gray-400 mb-3">Interactive traffic flow analysis with Chart.js. Top talkers, blocked flows, policy decisions, Sankey diagram.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install traffic-reporter</code>
         </div>
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d2">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-white font-semibold">Policy Diff</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
-            </div>
-            <p class="text-sm text-gray-400 mb-3">Git-like policy change tracker. Field-level diffs, history snapshots, user attribution from audit events.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install policy-diff</code>
-        </div>
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-white font-semibold">PCE Posture Report</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-blue-900/40 text-blue-400">cron</span>
-            </div>
-            <p class="text-sm text-gray-400 mb-3">Security posture scoring. Enforcement coverage, label coverage, policy rules. Generates HTML + JSON reports.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install pce-posture-report</code>
-        </div>
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-white font-semibold">PCE Events</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
-            </div>
-            <p class="text-sm text-gray-400 mb-3">Real-time event monitoring. 15+ output plugins: Slack, Teams, PagerDuty, Email, webhooks, Jira, ServiceNow.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install pce-events</code>
-        </div>
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d5">
+
+        <!-- AI Assisted Rules -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d1 cursor-pointer" data-plugin="ai-assisted-rules" data-categories="ai,policy" onclick="showDocs('ai-assisted-rules')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">AI Assisted Rules</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-400">AI</span>
             </div>
-            <p class="text-sm text-gray-400 mb-3">Policy advisor. Tiered rule generation, infrastructure detection, label gaps, AI analysis (optional). One-click provisioning to PCE draft.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install ai-assisted-rules</code>
+            <p class="text-sm text-gray-400 mb-3">Policy advisor. Tiered rule generation (ringfencing/app-tiered/high-security), infrastructure detection, label gaps. One-click provisioning to PCE draft.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install ai-assisted-rules</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
         </div>
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d6">
+
+        <!-- PCE Health Monitor -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d2 cursor-pointer" data-plugin="pce-health-monitor" data-categories="monitoring" onclick="showDocs('pce-health-monitor')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">PCE Health Monitor</h3>
+                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-3">Real-time PCE health dashboard. Checks health, node availability, CPU/memory/disk, and service status with color-coded indicators.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install pce-health-monitor</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Traffic Reporter -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3 cursor-pointer" data-plugin="traffic-reporter" data-categories="monitoring" onclick="showDocs('traffic-reporter')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Traffic Reporter</h3>
+                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-3">Interactive traffic flow analysis with Chart.js. Top talkers, blocked flows, policy decisions, Sankey diagram for source-service-destination.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install traffic-reporter</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Policy Diff -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4 cursor-pointer" data-plugin="policy-diff" data-categories="policy" onclick="showDocs('policy-diff')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Policy Diff</h3>
+                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-3">Git-like policy change tracker. Field-level diffs between draft and active, history snapshots, user attribution from audit events.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install policy-diff</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- PCE Events -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="pce-events" data-categories="monitoring,integration" onclick="showDocs('pce-events')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">PCE Events</h3>
+                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-3">Real-time event monitoring. 15+ output plugins: Slack, Teams, PagerDuty, Email, webhooks, Jira, ServiceNow, Syslog.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install pce-events</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- PCE Posture Report -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="pce-posture-report" data-categories="policy" onclick="showDocs('pce-posture-report')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">PCE Posture Report</h3>
+                <span class="text-xs px-2 py-0.5 rounded bg-blue-900/40 text-blue-400">cron</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-3">Scheduled security posture scoring. Enforcement coverage, label coverage, policy rules. Generates HTML + JSON reports.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install pce-posture-report</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Stale Workloads -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d1 cursor-pointer" data-plugin="stale-workloads" data-categories="operations" onclick="showDocs('stale-workloads')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Stale Workloads</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
             </div>
-            <p class="text-sm text-gray-400 mb-3">Discover offline, unresponsive, and trafficless workloads. Optional cleanup (unpair/delete).</p>
-            <code class="text-xs text-gray-500 select-all">plugger install stale-workloads</code>
+            <p class="text-sm text-gray-400 mb-3">Discover offline, unresponsive, and trafficless workloads. Groups by app|env labels. Optional cleanup (unpair/delete).</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install stale-workloads</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
         </div>
-    </div>
 
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d6">
+        <!-- Rule Scheduler -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d2 cursor-pointer" data-plugin="rule-scheduler" data-categories="operations" onclick="showDocs('rule-scheduler')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Rule Scheduler</h3>
+                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
+            </div>
+            <p class="text-sm text-gray-400 mb-3">Time-based rule and ruleset scheduling. Business hours, maintenance windows, weekend lockdowns. YAML config, immediate reconciliation.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install rule-scheduler</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Palo Alto DAG Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3 cursor-pointer" data-plugin="palo-alto-dag-sync" data-categories="integration" onclick="showDocs('palo-alto-dag-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Palo Alto DAG Sync</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
             </div>
             <p class="text-sm text-gray-400 mb-3">Sync Illumio workload labels to Palo Alto Dynamic Address Groups via PAN-OS XML API. Configurable tag format, dry-run mode.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install palo-alto-dag-sync</code>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install palo-alto-dag-sync</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
         </div>
 
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d6">
+        <!-- AD Label Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4 cursor-pointer" data-plugin="ad-label-sync" data-categories="integration" onclick="showDocs('ad-label-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">AD Label Sync</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
             </div>
-            <p class="text-sm text-gray-400 mb-3">Discover AD computers via LDAP and map OU, group, location attributes to Illumio labels. Analytics mode for feasibility testing.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install ad-label-sync</code>
+            <p class="text-sm text-gray-400 mb-3">Discover AD computers via LDAP and map OU, group, location attributes to Illumio labels. Analytics mode for safe feasibility testing.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-500 select-all">plugger install ad-label-sync</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
         </div>
 
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d6">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-white font-semibold">Rule Scheduler</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-green-900/40 text-green-400">daemon</span>
-            </div>
-            <p class="text-sm text-gray-400 mb-3">Time-based rule and ruleset scheduling. Business hours, maintenance windows, weekend lockdowns with YAML config and immediate reconciliation.</p>
-            <code class="text-xs text-gray-500 select-all">plugger install rule-scheduler</code>
-        </div>
+    </div>
+</div>
+</section>
+
+<!-- Plugin Documentation -->
+<section id="docs" class="py-20 px-6 border-t border-gray-800">
+<div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl font-bold text-white text-center mb-4">Plugin Documentation</h2>
+    <p class="text-gray-400 text-center mb-8">Full docs for every plugin. Click to expand or use the plugin cards above.</p>
+
+    <div class="space-y-3" id="docs-accordion">
+        <!-- Rendered by JS from PLUGIN_DOCS data -->
+    </div>
 </div>
 </section>
 
@@ -277,18 +397,20 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
 
 <span class="text-gray-500"># Setup (auto-detects Docker, reads .env)</span>
 <span class="text-blue-400">$</span> plugger init
-<span class="text-green-400">✓</span> Docker socket: ~/.docker/run/docker.sock
-<span class="text-green-400">✓</span> PCE is reachable
+<span class="text-green-400">&#10003;</span> Docker socket: ~/.docker/run/docker.sock
+<span class="text-green-400">&#10003;</span> PCE is reachable
 
 <span class="text-gray-500"># Browse and install plugins</span>
 <span class="text-blue-400">$</span> plugger search
-NAME                VERSION  MODE    DESCRIPTION
-pce-health-monitor  0.1.0    daemon  Real-time PCE health dashboard...
-traffic-reporter    0.1.0    daemon  Interactive traffic flow analysis...
-ai-assisted-rules   0.2.0    daemon  Policy advisor — tiered rules...
+NAME                  VERSION  MODE    DESCRIPTION
+ai-security-report    0.1.0    daemon  AI-powered security posture analysis...
+ai-assisted-rules     0.2.0    daemon  Policy advisor — tiered rules...
+pce-health-monitor    0.1.0    daemon  Real-time PCE health dashboard...
+traffic-reporter      0.1.0    daemon  Interactive traffic flow analysis...
+rule-scheduler        0.1.0    daemon  Time-based rule scheduling...
 
+<span class="text-blue-400">$</span> plugger install ai-security-report
 <span class="text-blue-400">$</span> plugger install pce-health-monitor
-<span class="text-blue-400">$</span> plugger install traffic-reporter
 
 <span class="text-gray-500"># Start everything</span>
 <span class="text-blue-400">$</span> plugger run
@@ -325,6 +447,575 @@ Dashboard: http://localhost:8800</pre>
     <div>Built with Plugger · Illumio</div>
 </div>
 </footer>
+
+<!-- Docs Modal Overlay -->
+<div class="docs-overlay" id="docs-overlay" onclick="if(event.target===this)closeDocs()">
+    <div class="docs-panel">
+        <div class="sticky top-0 bg-dark-800 border-b border-gray-700 rounded-t-xl px-6 py-4 flex items-center justify-between z-10">
+            <h3 id="docs-modal-title" class="text-white font-semibold text-lg"></h3>
+            <div class="flex items-center gap-3">
+                <a id="docs-github-link" href="#" target="_blank" class="text-xs text-blue-400 hover:text-blue-300">View on GitHub →</a>
+                <button onclick="closeDocs()" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+            </div>
+        </div>
+        <div id="docs-modal-content" class="docs-content p-6"></div>
+    </div>
+</div>
+
+<script>
+// Plugin documentation data (README content)
+const PLUGIN_DOCS = {
+"ai-security-report": {
+    title: "AI Security Report",
+    mode: "daemon",
+    tags: ["ai","security","compliance"],
+    readme: `# AI Security Report
+
+Comprehensive AI-powered security posture analysis for Illumio PCE. Collects workloads, traffic, policy, and process data, runs 10 security analysis categories, scores each 0-100, and presents an interactive dashboard with charts, heatmaps, compliance mapping, and PDF export.
+
+## Install
+
+\`\`\`bash
+plugger install ai-security-report
+\`\`\`
+
+## Security Analysis Categories
+
+| Category | Weight | What It Checks |
+|----------|--------|----------------|
+| Enforcement Coverage | 15% | idle/visibility/selective/full distribution |
+| OS Lifecycle Risk | 8% | End-of-life operating systems (20+ patterns) |
+| Label Hygiene | 12% | Missing app/env/role/loc labels |
+| Environmental Separation | 15% | Prod↔Dev/Test/Staging traffic violations |
+| Risky Services | 10% | FTP, Telnet, RDP sprawl, SMB, unencrypted protocols |
+| Policy Analysis | 12% | Any↔any rules, broad port ranges, disabled rules |
+| Traffic Anomalies | 8% | High-volume blocked traffic, IP-only flows |
+| Lateral Movement Surface | 10% | SSH/RDP sprawl, hub workloads |
+| Agent Health | 5% | Offline agents, stale heartbeats |
+| Compliance Mapping | 5% | NIST CSF, CIS Controls, PCI-DSS alignment |
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`SCAN_INTERVAL\` | \`86400\` | Seconds between scans (minimum 3600) |
+| \`LOOKBACK_DAYS\` | \`7\` | Days of traffic history to analyze |
+| \`MAX_TRAFFIC_RESULTS\` | \`100000\` | Maximum traffic flows to query |
+| \`PROCESS_SAMPLE_SIZE\` | \`50\` | Workloads to sample for process data |
+| \`REPORT_RETENTION\` | \`30\` | Historical reports to keep |
+| \`AI_PROVIDER\` | _(empty)_ | \`anthropic\`, \`openai\`, or \`ollama\` |
+| \`AI_API_KEY\` | _(empty)_ | API key for the LLM provider |
+| \`AI_MODEL\` | _(auto)_ | Model override |
+| \`AI_BASE_URL\` | _(empty)_ | Custom endpoint for Ollama |
+
+## Features
+
+- Overall security score (0-100) with letter grade (A-F)
+- 10 independent analysis categories with weighted scoring
+- AI-generated executive summary and per-section narratives (optional)
+- AI-prioritized remediation roadmap
+- Environment separation heatmap
+- Compliance mapping to NIST CSF, CIS Controls, PCI-DSS
+- Historical report storage with trend comparison
+- Interactive dashboard with Chart.js visualizations
+- PDF export via browser print
+- Severity filtering and search across all findings
+- Works without AI — all data analysis and scoring is built-in
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | \`/\` | Dashboard |
+| GET | \`/healthz\` | Health check |
+| GET | \`/api/report\` | Latest report data |
+| GET | \`/api/report/history\` | Historical report list |
+| GET | \`/api/report/{ts}\` | Specific historical report |
+| POST | \`/api/scan\` | Trigger immediate scan |
+| GET | \`/api/config\` | Configuration (no secrets) |`
+},
+"ai-assisted-rules": {
+    title: "AI Assisted Rules",
+    mode: "daemon",
+    tags: ["ai","policy"],
+    readme: `# AI-Assisted Rules
+
+Policy advisor that analyzes blocked traffic patterns and recommends firewall rules. Works standalone with heuristic analysis, and optionally uses an LLM (Anthropic Claude, OpenAI GPT, or Ollama) for deeper reasoning about whether blocked traffic should be allowed.
+
+## Install
+
+\`\`\`bash
+plugger install ai-assisted-rules
+\`\`\`
+
+## Prerequisites
+
+AI features are optional. Without an AI provider configured, the plugin still identifies blocked traffic, stale rules, and generates rule suggestions using built-in heuristics.
+
+To enable AI-powered analysis, configure one of:
+
+**Anthropic (Claude):** \`AI_PROVIDER=anthropic\`, \`AI_API_KEY=sk-ant-...\`
+
+**OpenAI (GPT):** \`AI_PROVIDER=openai\`, \`AI_API_KEY=sk-...\`
+
+**Ollama (local):** \`AI_PROVIDER=ollama\`, \`AI_BASE_URL=http://localhost:11434\`
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`POLL_INTERVAL\` | \`300\` | Seconds between analysis runs |
+| \`LOOKBACK_HOURS\` | \`24\` | Hours of traffic history to analyze |
+| \`MAX_RESULTS\` | \`10000\` | Maximum flows per query |
+| \`AI_PROVIDER\` | _(empty)_ | AI provider: \`anthropic\`, \`openai\`, or \`ollama\` |
+| \`AI_API_KEY\` | _(empty)_ | API key for the AI provider |
+| \`AI_MODEL\` | _(empty)_ | Model name override |
+| \`AI_BASE_URL\` | _(empty)_ | Custom API endpoint (required for Ollama) |
+
+## Features
+
+- Identifies blocked and potentially blocked traffic patterns
+- Groups traffic by app|env label pairs for segmentation analysis
+- Detects stale active rules with no matching traffic
+- Generates PCE-ready rule JSON for intra-app and inter-app flows
+- Three policy tiers: Basic Ringfencing, Application Tiered, High Security
+- Consolidated infrastructure ruleset suggestions (DNS, NTP, LDAP, monitoring)
+- Per-app policy view with incoming/outgoing flow breakdown
+- Label gap detection for workloads missing role labels
+- Optional LLM analysis with Illumio best-practice context
+- One-click provisioning to PCE draft policy`
+},
+"pce-health-monitor": {
+    title: "PCE Health Monitor",
+    mode: "daemon",
+    tags: ["monitoring"],
+    readme: `# PCE Health Monitor
+
+Live health dashboard for Illumio PCE. Polls multiple PCE API endpoints (health, node availability, workload connectivity) and displays overall status with per-endpoint detail on an auto-refreshing web page.
+
+## Install
+
+\`\`\`bash
+plugger install pce-health-monitor
+\`\`\`
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`POLL_INTERVAL\` | \`30\` | Seconds between health checks |
+| \`PCE_TLS_SKIP_VERIFY\` | \`false\` | Skip TLS certificate verification |
+
+## Features
+
+- Polls \`/api/v2/health\`, \`/api/v2/node_available\`, and workload endpoints
+- Color-coded status: healthy, degraded, unreachable, error
+- Per-endpoint HTTP status and response detail
+- Auto-refreshing dashboard (every 15 seconds)
+- JSON API at \`/api/health\` for programmatic access
+- Lightweight — 128 MB memory, 0.25 CPU`
+},
+"traffic-reporter": {
+    title: "Traffic Reporter",
+    mode: "daemon",
+    tags: ["monitoring"],
+    readme: `# Traffic Reporter
+
+Interactive traffic flow analysis dashboard for Illumio PCE. Queries traffic flows via the Illumio SDK and visualizes policy decisions, top talkers, services, and blocked flows using Chart.js with Sankey diagrams.
+
+## Install
+
+\`\`\`bash
+plugger install traffic-reporter
+\`\`\`
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`POLL_INTERVAL\` | \`300\` | Seconds between traffic polls |
+| \`LOOKBACK_HOURS\` | \`24\` | Hours of traffic history to query |
+| \`MAX_RESULTS\` | \`10000\` | Maximum flows per query |
+
+## Features
+
+- Policy decision breakdown (allowed, blocked, potentially blocked, unknown)
+- Sankey diagram showing source → service → destination flow paths
+- Top sources, destinations, and services bar charts
+- Blocked flow detail table with connection counts
+- Label-aware grouping by app|env for Sankey nodes
+- Auto-refreshing dashboard (every 30 seconds)
+- JSON API at \`/api/traffic\` for programmatic access`
+},
+"policy-diff": {
+    title: "Policy Diff",
+    mode: "daemon",
+    tags: ["policy"],
+    readme: `# Policy Diff
+
+Git-like policy change tracker for Illumio PCE. Compares draft vs active policy across rulesets, IP lists, services, label groups, virtual services, and firewall settings, showing field-level diffs with user attribution.
+
+## Install
+
+\`\`\`bash
+plugger install policy-diff
+\`\`\`
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`POLL_INTERVAL\` | \`300\` | Seconds between policy checks |
+
+## Features
+
+- Tracks rulesets, IP lists, services, label groups, virtual services, and firewall settings
+- Field-level diffs between draft and active policy
+- Snapshot history with content hashing for change detection
+- User attribution via PCE audit events
+- Added/modified/deleted/unchanged summary counts
+- Interactive timeline UI with diff detail
+- Persistent snapshot storage in \`/data\``
+},
+"pce-events": {
+    title: "PCE Events",
+    mode: "daemon",
+    tags: ["monitoring","integration"],
+    readme: `# PCE Events Plugin
+
+Real-time PCE event monitoring with 15+ output plugins: Slack, Teams, PagerDuty, Email, SNS, ServiceNow, Jira, Syslog, Webhooks, and more.
+
+Wraps [illumio-pretty-cool-events](https://github.com/alexgoller/illumio-pretty-cool-events) as a plugger plugin.
+
+## Install
+
+\`\`\`bash
+plugger install pce-events
+\`\`\`
+
+## Setup
+
+1. Install the plugin
+2. Copy and edit the config: \`cp config.yaml.example ~/.plugger/volumes/pce-events/config/config.yaml\`
+3. Edit with your PCE credentials and output plugin settings
+4. Start: \`plugger start pce-events\`
+
+## Configuration
+
+The plugin reads its configuration from \`/config/config.yaml\` inside the container, which is mounted from \`~/.plugger/volumes/pce-events/config/\` on the host.
+
+## Features
+
+- Real-time PCE event streaming
+- 15+ output plugins: Slack, Teams, PagerDuty, Email, SNS, ServiceNow, Jira, Syslog, Webhooks
+- Configurable event filters and routing
+- Web UI for monitoring event flow
+- See config.yaml.example for all available options`
+},
+"pce-posture-report": {
+    title: "PCE Posture Report",
+    mode: "cron",
+    tags: ["policy"],
+    readme: `# PCE Posture Report
+
+Scheduled security posture scoring for Illumio PCE. Runs on a cron schedule (every 6 hours by default), collects workloads, labels, rulesets, and policy data, computes a 0-100 posture score, and generates HTML and JSON reports.
+
+## Install
+
+\`\`\`bash
+plugger install pce-posture-report
+\`\`\`
+
+## Configuration
+
+Default cron schedule is \`0 */6 * * *\` (every 6 hours).
+
+| Variable | Default | Description |
+|---|---|---|
+| \`DATA_DIR\` | \`/data\` | Directory for report output |
+
+## Features
+
+- Posture score (0-100) based on enforcement coverage, label coverage, active policy, and managed workloads
+- Enforcement mode breakdown (full, selective, visibility only, idle)
+- Label coverage analysis (role, app, env, loc, fully labeled, unlabeled)
+- OS type distribution across workloads
+- Policy summary: active/draft rulesets, rules, IP lists, services
+- Generates timestamped HTML and JSON reports with \`latest\` symlinks
+- Runs as a cron plugin — no persistent daemon required`
+},
+"stale-workloads": {
+    title: "Stale Workloads",
+    mode: "daemon",
+    tags: ["operations"],
+    readme: `# Stale Workloads
+
+Discovers workloads that are offline, have not sent a heartbeat, or show no traffic activity. Groups results by app|env labels and provides optional cleanup actions (unpair managed workloads, delete unmanaged ones).
+
+## Install
+
+\`\`\`bash
+plugger install stale-workloads
+\`\`\`
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`POLL_INTERVAL\` | \`600\` | Seconds between staleness checks |
+| \`STALE_DAYS\` | \`7\` | Days without heartbeat to consider stale |
+| \`OFFLINE_HOURS\` | \`24\` | Hours offline to flag as stale |
+| \`CHECK_TRAFFIC\` | \`true\` | Also check for zero-traffic workloads |
+| \`TRAFFIC_LOOKBACK_HOURS\` | \`168\` | Traffic lookback window (default 7 days) |
+| \`ENABLE_CLEANUP\` | \`false\` | Enable unpair/delete actions via the dashboard |
+
+## Features
+
+- Detects stale workloads by heartbeat age, offline duration, and traffic absence
+- Groups stale workloads by app|env labels
+- Breakdown by staleness reason (no heartbeat, offline, no traffic)
+- Dashboard with per-workload detail and cleanup buttons
+- Cleanup actions: unpair managed workloads, delete unmanaged workloads
+- Cleanup is disabled by default; set \`ENABLE_CLEANUP=true\` to enable`
+},
+"rule-scheduler": {
+    title: "Rule Scheduler",
+    mode: "daemon",
+    tags: ["operations"],
+    readme: `# Rule Scheduler
+
+Time-based rule and ruleset scheduling for Illumio PCE. Enable/disable rulesets or individual rules based on day-of-week and time-of-day windows.
+
+## Install
+
+\`\`\`bash
+plugger install rule-scheduler
+\`\`\`
+
+## Use Cases
+
+- **Business hours only** — enable access rules Mon-Fri 09:00-17:00, disable after hours
+- **Maintenance windows** — enable maintenance rules Saturday 02:00-06:00
+- **Weekend lockdown** — disable broad access rules on weekends
+- **After-hours RDP** — allow RDP only outside business hours for maintenance
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`CHECK_INTERVAL\` | \`60\` | Seconds between schedule evaluations |
+| \`TZ\` | \`UTC\` | Timezone (e.g. \`America/New_York\`, \`Europe/Berlin\`) |
+
+## Schedule Properties
+
+| Field | Description |
+|-------|-------------|
+| \`name\` | Schedule name |
+| \`targets\` | List of ruleset/rule HREFs to control |
+| \`target_type\` | \`ruleset\` or \`rule\` |
+| \`days\` | Days of week: \`mon\`, \`tue\`, \`wed\`, \`thu\`, \`fri\`, \`sat\`, \`sun\` |
+| \`start_time\` | Window start (HH:MM, 24h format) |
+| \`end_time\` | Window end (HH:MM, 24h format) |
+| \`action_in_window\` | \`enable\` or \`disable\` |
+| \`action_outside\` | \`enable\`, \`disable\`, or empty (no action) |
+
+## Features
+
+- Multiple independent schedules running simultaneously
+- Day-of-week selection (weekdays, weekends, specific days)
+- Time window with overnight support (e.g. 22:00-06:00)
+- Dashboard with live clock, schedule status, and change history
+- Create/enable/disable/delete schedules from the web UI
+- YAML config file support for pre-configured schedules
+- Immediate reconciliation when schedules are activated
+- Auto-provision changes to PCE
+- Configurable timezone`
+},
+"palo-alto-dag-sync": {
+    title: "Palo Alto DAG Sync",
+    mode: "daemon",
+    tags: ["integration"],
+    readme: `# Palo Alto DAG Sync
+
+Syncs Illumio PCE workload labels to Palo Alto Networks Dynamic Address Groups (DAGs). Polls PCE workloads, maps labels to PAN-OS tags using a configurable format, and registers IP-to-tag mappings via the PAN-OS XML API.
+
+## Install
+
+\`\`\`bash
+plugger install palo-alto-dag-sync
+\`\`\`
+
+## Prerequisites
+
+This plugin requires API access to a Palo Alto Networks firewall or Panorama instance.
+
+1. Generate a PAN-OS API key
+2. Set \`PALO_HOST\` to your firewall/Panorama hostname
+3. Set \`PALO_API_KEY\` to the generated API key
+
+Without \`PALO_HOST\` configured, the plugin runs in **dry-run mode** — it polls the PCE, builds tags, and shows what would be synced, but does not push anything to PAN-OS.
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`PALO_HOST\` | _(empty)_ | PAN-OS firewall/Panorama host (empty = dry-run) |
+| \`PALO_API_KEY\` | _(empty)_ | PAN-OS API key (secret) |
+| \`SYNC_INTERVAL\` | \`300\` | Seconds between sync cycles |
+| \`TAG_PREFIX\` | \`illumio\` | Prefix for generated PAN-OS tags |
+| \`TAG_FORMAT\` | \`{prefix}-{key}-{value}\` | Tag naming template |
+| \`SYNC_LABELS\` | \`role,app,env,loc\` | Illumio label keys to sync |
+
+## Features
+
+- Maps Illumio labels to PAN-OS tags with configurable format and prefix
+- Registers IP-to-tag mappings via PAN-OS User-ID XML API
+- Batched API calls (500 entries per request) for large environments
+- Dry-run mode when \`PALO_HOST\` is not set
+- Sync history tracking (last 20 syncs)
+- Dashboard showing workloads synced, tags registered, and PAN-OS status`
+},
+"ad-label-sync": {
+    title: "AD Label Sync",
+    mode: "daemon",
+    tags: ["integration"],
+    readme: `# AD Label Sync
+
+Connects to Active Directory via LDAP, discovers computer objects, and maps AD attributes (OU path, group membership, location, extension attributes) to Illumio labels. Supports analytics-only feasibility analysis and active label sync modes.
+
+## Install
+
+\`\`\`bash
+plugger install ad-label-sync
+\`\`\`
+
+## Prerequisites
+
+Requires LDAP access to an Active Directory domain controller with a service account that has read access to computer objects.
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`LDAP_HOST\` | _(empty)_ | AD domain controller hostname |
+| \`LDAP_PORT\` | \`389\` | LDAP port (389 for LDAP, 636 for LDAPS) |
+| \`LDAP_BIND_DN\` | _(empty)_ | Bind DN for authentication |
+| \`LDAP_BIND_PASSWORD\` | _(empty)_ | Bind password (secret) |
+| \`LDAP_BASE_DN\` | _(empty)_ | Search base DN |
+| \`MODE\` | \`analytics\` | \`analytics\` = read-only, \`sync\` = apply labels |
+| \`SCAN_INTERVAL\` | \`3600\` | Seconds between AD scans |
+
+### Analytics vs Sync Mode
+
+- **Analytics** (default): Connects to AD, pulls the computer tree, and shows what labels would be derived. Nothing is written to the PCE.
+- **Sync**: Applies discovered labels to matching PCE workloads (matched by hostname). Only use after verifying analytics results.
+
+## Features
+
+- Discovers AD computers via LDAP with configurable search filter
+- Configurable attribute-to-label mapping with regex and priority
+- OU path, group membership, location, and extension attribute support
+- Analytics mode for safe, read-only feasibility analysis
+- Sync mode to apply labels to PCE workloads matched by hostname
+- OU tree visualization and label coverage statistics
+- Dashboard with per-computer match detail and suggested labels`
+}
+};
+
+// Render docs accordion
+function renderDocsAccordion() {
+    const container = document.getElementById('docs-accordion');
+    const order = ['ai-security-report','ai-assisted-rules','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync'];
+    let html = '';
+    for (const id of order) {
+        const plugin = PLUGIN_DOCS[id];
+        if (!plugin) continue;
+        const modeColor = plugin.mode === 'cron' ? 'bg-blue-900/40 text-blue-400' :
+                         plugin.tags.includes('ai') ? 'bg-emerald-900/40 text-emerald-400' : 'bg-green-900/40 text-green-400';
+        const modeLabel = plugin.tags.includes('ai') ? 'AI' : plugin.mode;
+        html += `<div class="bg-dark-800 rounded-xl border border-gray-700 overflow-hidden">
+            <button class="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-dark-700/30 transition-colors" onclick="toggleAccordion('acc-${id}')">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs px-2 py-0.5 rounded ${modeColor}">${modeLabel}</span>
+                    <h3 class="text-white font-semibold">${plugin.title}</h3>
+                </div>
+                <svg class="w-4 h-4 text-gray-500 transition-transform" id="acc-chevron-${id}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="hidden border-t border-gray-700" id="acc-${id}">
+                <div class="docs-content p-6" id="acc-content-${id}"></div>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
+function toggleAccordion(id) {
+    const el = document.getElementById(id);
+    const chevron = document.getElementById('acc-chevron-' + id.replace('acc-', ''));
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        chevron.style.transform = 'rotate(180deg)';
+        // Render markdown if not yet rendered
+        const contentEl = document.getElementById(id.replace('acc-', 'acc-content-'));
+        if (!contentEl.innerHTML) {
+            const pluginId = id.replace('acc-', '');
+            const plugin = PLUGIN_DOCS[pluginId];
+            if (plugin) contentEl.innerHTML = marked.parse(plugin.readme);
+        }
+    } else {
+        el.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Docs modal
+function showDocs(pluginId) {
+    const plugin = PLUGIN_DOCS[pluginId];
+    if (!plugin) return;
+    document.getElementById('docs-modal-title').textContent = plugin.title;
+    document.getElementById('docs-modal-content').innerHTML = marked.parse(plugin.readme);
+    document.getElementById('docs-github-link').href = 'https://github.com/alexgoller/illumio-plugger/tree/main/' + pluginId;
+    document.getElementById('docs-overlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDocs() {
+    document.getElementById('docs-overlay').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDocs(); });
+
+// Plugin category filter
+function filterPlugins(cat) {
+    document.querySelectorAll('.cat-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.cat === cat);
+    });
+    document.querySelectorAll('#plugin-grid > .card').forEach(card => {
+        if (cat === 'all') {
+            card.style.display = '';
+            return;
+        }
+        const cats = (card.dataset.categories || '').split(',');
+        card.style.display = cats.includes(cat) ? '' : 'none';
+    });
+}
+
+// Handle hash navigation
+function handleHash() {
+    const hash = window.location.hash;
+    if (hash.startsWith('#plugin-')) {
+        const pluginId = hash.replace('#plugin-', '');
+        showDocs(pluginId);
+    }
+}
+
+window.addEventListener('hashchange', handleHash);
+
+// Init
+renderDocsAccordion();
+handleHash();
+</script>
 
 </body>
 </html>
