@@ -833,15 +833,15 @@ class SchedulerHandler(BaseHTTPRequestHandler):
             self.send_json(400, {"error": "Invalid index"})
 
     def handle_delete_schedule(self):
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.path)
         try:
-            index = int(self.path.split("/")[3])
+            index = int(parsed.path.split("/")[3])
         except (ValueError, IndexError):
             self.send_json(400, {"error": "Invalid index"})
             return
 
-        # Parse restore action from query param
-        from urllib.parse import urlparse, parse_qs
-        query = parse_qs(urlparse(self.path).query)
+        query = parse_qs(parsed.query)
         restore_action = query.get("restore", ["leave"])[0]
 
         schedules = load_schedules()
