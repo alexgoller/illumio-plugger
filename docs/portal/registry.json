@@ -134,6 +134,18 @@
       "tags": ["security", "ai", "compliance", "posture", "reporting", "nist", "pci-dss", "dashboard"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ai-security-report"
+    },
+    {
+      "name": "remedy-cmdb-sync",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-remedy-cmdb-sync:latest",
+      "description": "Sync BMC Helix/Remedy CMDB CIs to Illumio labels — analytics mode for feasibility testing, sync mode for label application (untested)",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["cmdb", "remedy", "bmc", "helix", "labels", "sync", "integration"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/remedy-cmdb-sync"
     }
   ]
 }

@@ -1,0 +1,86 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Remedy CMDB sync dashboard
+    type: ui
+    path: /
+
+config:
+  - name: REMEDY_HOST
+    description: BMC Helix/Remedy server hostname (e.g. remedy.example.com)
+    required: true
+    type: string
+    default: ""
+  - name: REMEDY_PORT
+    description: Remedy API port
+    required: false
+    type: int
+    default: "8443"
+  - name: REMEDY_USER
+    description: Remedy API username
+    required: true
+    type: string
+    default: ""
+  - name: REMEDY_PASSWORD
+    description: Remedy API password
+    required: true
+    type: secret
+  - name: REMEDY_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for Remedy
+    required: false
+    type: bool
+    default: "true"
+  - name: REMEDY_CI_CLASS
+    description: CMDB CI class to query (e.g. BMC_ComputerSystem)
+    required: false
+    type: string
+    default: "BMC_ComputerSystem"
+  - name: REMEDY_NAMESPACE
+    description: CMDB namespace
+    required: false
+    type: string
+    default: "BMC.CORE"
+  - name: REMEDY_DATASET
+    description: CMDB dataset ID
+    required: false
+    type: string
+    default: "BMC.ASSET"
+  - name: REMEDY_QUALIFICATION
+    description: "Optional CMDB query filter (e.g. 'Status'=\"Active\")"
+    required: false
+    type: string
+    default: ""
+  - name: MODE
+    description: "analytics = read-only analysis, sync = apply labels to PCE workloads"
+    required: false
+    type: string
+    default: "analytics"
+  - name: SCAN_INTERVAL
+    description: Seconds between CMDB scans
+    required: false
+    type: int
+    default: "3600"
+  - name: MAPPING_RULES
+    description: "Custom mapping rules as JSON array (overrides defaults)"
+    required: false
+    type: string
+    default: ""
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent data
+    required: false
+
+info:
+  title: Remedy CMDB Sync
+  description: "Sync BMC Helix/Remedy CMDB configuration items to Illumio labels — analytics mode for feasibility testing, sync mode for label application"
+  author: Illumio
+  license: Apache-2.0
