@@ -635,6 +635,8 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         schedules = load_schedules()
         schedules.append(sched)
         save_schedules(schedules)
+        # Immediate reconciliation
+        threading.Thread(target=run_check, args=(pce_client,), daemon=True).start()
         self.send_json(200, {"success": True})
 
     def handle_toggle_schedule(self):
@@ -647,6 +649,9 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         if 0 <= index < len(schedules):
             schedules[index]["enabled"] = not schedules[index].get("enabled", False)
             save_schedules(schedules)
+            # Immediate reconciliation — apply now if enabling and in window
+            if schedules[index]["enabled"]:
+                threading.Thread(target=run_check, args=(pce_client,), daemon=True).start()
             self.send_json(200, {"success": True, "enabled": schedules[index]["enabled"]})
         else:
             self.send_json(400, {"error": "Invalid index"})
@@ -665,6 +670,8 @@ class SchedulerHandler(BaseHTTPRequestHandler):
                 sched["enabled"] = schedules[index].get("enabled", False)
             schedules[index] = sched
             save_schedules(schedules)
+            # Immediate reconciliation
+            threading.Thread(target=run_check, args=(pce_client,), daemon=True).start()
             self.send_json(200, {"success": True})
         else:
             self.send_json(400, {"error": "Invalid index"})
