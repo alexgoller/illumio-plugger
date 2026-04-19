@@ -211,6 +211,40 @@ def provision_change(pce, target_href):
         return {"success": False, "error": str(e)}
 
 
+def restore_targets(pce, schedule, enable):
+    """Re-enable or disable all targets of a schedule (used on disable/delete)."""
+    target_type = schedule.get("target_type", "ruleset")
+    for target_href in schedule.get("targets", []):
+        if not target_href:
+            continue
+        try:
+            resp = pce.get(target_href)
+            if resp.status_code != 200:
+                continue
+            current = resp.json()
+            if current.get("enabled") == enable:
+                continue
+
+            put_resp = pce.put(target_href, json={"enabled": enable})
+            if put_resp.status_code in (200, 204):
+                action = "enabled" if enable else "disabled"
+                name = current.get("name", target_href)
+                log.info("Restored %s '%s' to %s", target_type, name, action)
+                provision_change(pce, target_href)
+
+                with state_lock:
+                    app_state["history"] = (app_state["history"] + [{
+                        "target": target_href,
+                        "name": name,
+                        "action": f"restored-{action}",
+                        "schedule": schedule.get("name", ""),
+                        "provisioned": {"success": True},
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }])[-100:]
+        except Exception as e:
+            log.error("Restore failed for %s: %s", target_href, e)
+
+
 def apply_schedule(pce, schedule, in_window):
     """Apply a schedule action to its targets."""
     action = schedule.get("action_in_window" if in_window else "action_outside", "")
@@ -591,7 +625,7 @@ function update(data) {
     document.getElementById('footer').textContent = `Check #${data.check_count} · ${data.last_check ? new Date(data.last_check).toLocaleString() : 'never'} · checking every ${CHECK_INTERVAL}s`;
 }
 
-async function fetchData() { try { update(await (await fetch('/api/status')).json()); } catch(e) { console.error(e); } }
+async function fetchData() { try { const d = await (await fetch('/api/status')).json(); window._lastData = d; update(d); } catch(e) { console.error(e); } }
 
 async function saveSchedule() {
     const targets = getSelectedTargets();
@@ -620,12 +654,56 @@ async function saveSchedule() {
 }
 
 async function toggleSchedule(index) {
-    try { await fetch('/api/schedules/'+index+'/toggle', {method:'POST'}); await fetchData(); } catch(e) { alert('Failed: '+e); }
+    const data = window._lastData || {};
+    const sched = (data.schedules || [])[index];
+    if (!sched) return;
+
+    if (sched.enabled) {
+        // Disabling — ask what to do with targets
+        const choice = prompt(
+            'Disabling schedule "' + sched.name + '".\n\n' +
+            'What should happen to the target rulesets?\n\n' +
+            'Type:\n' +
+            '  "enable" — re-enable all targets before disabling schedule\n' +
+            '  "disable" — leave targets disabled\n' +
+            '  "leave" — leave targets in current state\n' +
+            '  (cancel to abort)',
+            'leave'
+        );
+        if (!choice) return;
+        try {
+            await fetch('/api/schedules/'+index+'/toggle', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({restore_action: choice})
+            });
+            await fetchData();
+        } catch(e) { alert('Failed: '+e); }
+    } else {
+        // Enabling — immediate reconciliation happens server-side
+        try { await fetch('/api/schedules/'+index+'/toggle', {method:'POST'}); await fetchData(); } catch(e) { alert('Failed: '+e); }
+    }
 }
 
 async function deleteSchedule(index) {
-    if (!confirm('Delete this schedule?')) return;
-    try { await fetch('/api/schedules/'+index, {method:'DELETE'}); await fetchData(); } catch(e) { alert('Failed: '+e); }
+    const data = window._lastData || {};
+    const sched = (data.schedules || [])[index];
+    if (!sched) return;
+
+    const choice = prompt(
+        'Delete schedule "' + (sched.name||'') + '".\n\n' +
+        'What should happen to the target rulesets?\n\n' +
+        'Type:\n' +
+        '  "enable" — re-enable all targets before deleting\n' +
+        '  "leave" — leave targets in current state\n' +
+        '  (cancel to abort)',
+        'enable'
+    );
+    if (!choice) return;
+    try {
+        await fetch('/api/schedules/'+index+'?restore='+choice, {method:'DELETE'});
+        await fetchData();
+    } catch(e) { alert('Failed: '+e); }
 }
 
 const CHECK_INTERVAL = 60;
@@ -705,13 +783,31 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         except (ValueError, IndexError):
             self.send_json(400, {"error": "Invalid index"})
             return
+
+        # Parse restore action from body (when disabling)
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length) if content_length > 0 else b""
+        restore_action = ""
+        if body:
+            try:
+                req = json.loads(body)
+                restore_action = req.get("restore_action", "")
+            except json.JSONDecodeError:
+                pass
+
         schedules = load_schedules()
         if 0 <= index < len(schedules):
-            schedules[index]["enabled"] = not schedules[index].get("enabled", False)
+            was_enabled = schedules[index].get("enabled", False)
+            schedules[index]["enabled"] = not was_enabled
             save_schedules(schedules)
-            # Immediate reconciliation — apply now if enabling and in window
+
             if schedules[index]["enabled"]:
+                # Enabling — immediate reconciliation
                 threading.Thread(target=run_check, args=(pce_client,), daemon=True).start()
+            elif restore_action in ("enable", "disable"):
+                # Disabling — restore targets to requested state
+                threading.Thread(target=restore_targets, args=(pce_client, schedules[index], restore_action == "enable"), daemon=True).start()
+
             self.send_json(200, {"success": True, "enabled": schedules[index]["enabled"]})
         else:
             self.send_json(400, {"error": "Invalid index"})
@@ -742,8 +838,20 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         except (ValueError, IndexError):
             self.send_json(400, {"error": "Invalid index"})
             return
+
+        # Parse restore action from query param
+        from urllib.parse import urlparse, parse_qs
+        query = parse_qs(urlparse(self.path).query)
+        restore_action = query.get("restore", ["leave"])[0]
+
         schedules = load_schedules()
         if 0 <= index < len(schedules):
+            sched = schedules[index]
+
+            # Restore targets before deleting if requested
+            if restore_action == "enable":
+                threading.Thread(target=restore_targets, args=(pce_client, sched, True), daemon=True).start()
+
             schedules.pop(index)
             save_schedules(schedules)
             self.send_json(200, {"success": True})
