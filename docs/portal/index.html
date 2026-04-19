@@ -368,11 +368,73 @@ html:not(.dark) .docs-content pre code { color:#166534; }
 </div>
 </section>
 
-<!-- Plugin Documentation -->
+<!-- Product Documentation -->
 <section id="docs" class="py-20 px-6 border-t border-gray-800">
 <div class="max-w-6xl mx-auto">
-    <h2 class="text-3xl font-bold text-white text-center mb-4">Plugin Documentation</h2>
-    <p class="text-gray-400 text-center mb-8">Full docs for every plugin. Click to expand or use the plugin cards above.</p>
+    <h2 class="text-3xl font-bold text-white text-center mb-4">Documentation</h2>
+    <p class="text-gray-400 text-center mb-10">Everything you need to install, configure, operate, and extend Plugger.</p>
+
+    <!-- Product docs cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('getting-started')">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-green-900/50 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold">Getting Started</h3>
+            </div>
+            <p class="text-sm text-gray-400">Install, initialize, connect to your PCE, and run your first plugin in minutes.</p>
+        </div>
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('installation')">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-blue-900/50 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold">Installation & Config</h3>
+            </div>
+            <p class="text-sm text-gray-400">Prerequisites, building from source, global config, Docker socket, .env files, data layout.</p>
+        </div>
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('cli-reference')">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-purple-900/50 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold">CLI Reference</h3>
+            </div>
+            <p class="text-sm text-gray-400">All commands: init, run, install, create, start, stop, search, upgrade, repo, and more.</p>
+        </div>
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('plugin-development')">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-pink-900/50 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                </div>
+                <h3 class="text-white font-semibold">Plugin Development</h3>
+            </div>
+            <p class="text-sm text-gray-400">Build your own plugins: manifests, metadata, templates (Go/Shell/Python), health checks, web UI proxying.</p>
+        </div>
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('operations')">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-yellow-900/50 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold">Operations Guide</h3>
+            </div>
+            <p class="text-sm text-gray-400">Production deployment, systemd, auto-restart, health checks, monitoring, troubleshooting, backup.</p>
+        </div>
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('events')">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-9 h-9 rounded-lg bg-cyan-900/50 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <h3 class="text-white font-semibold">Event-Driven Architecture</h3>
+            </div>
+            <p class="text-sm text-gray-400">Webhook endpoint, event plugins, pce-events integration, traffic watchers, ephemeral containers.</p>
+        </div>
+    </div>
+
+    <!-- Plugin docs heading -->
+    <h3 class="text-xl font-bold text-white mb-2">Plugin Documentation</h3>
+    <p class="text-gray-400 mb-6 text-sm">Full docs for every plugin. Click to expand or use the plugin cards above.</p>
 
     <div class="space-y-3" id="docs-accordion">
         <!-- Rendered by JS from PLUGIN_DOCS data -->
@@ -463,6 +525,476 @@ Dashboard: http://localhost:8800</pre>
 </div>
 
 <script>
+// Product documentation data
+const PRODUCT_DOCS = {
+"getting-started": {
+    title: "Getting Started",
+    github: "https://github.com/alexgoller/illumio-plugger/blob/main/docs/getting-started.md",
+    readme: `# Getting Started with Plugger
+
+This guide walks you through installing plugger, connecting to your PCE, and running your first plugin.
+
+## Prerequisites
+
+- **Go 1.21+** — to build plugger from source
+- **Docker** — Docker Desktop, Colima, Rancher Desktop, or Docker Engine
+- **Illumio PCE** — a running PCE instance with API key access
+
+## Install Plugger
+
+\`\`\`bash
+git clone https://github.com/illumio/plugger.git
+cd plugger
+make build
+\`\`\`
+
+The binary is built to \`./bin/plugger\`. Optionally add it to your PATH:
+
+\`\`\`bash
+export PATH=$PATH:$(pwd)/bin
+\`\`\`
+
+## Initialize
+
+\`\`\`bash
+plugger init
+\`\`\`
+
+This runs the interactive setup wizard that:
+
+1. **Creates \`~/.plugger/\`** with directories for plugins, cache, and volumes
+2. **Auto-detects your Docker socket** — checks Docker Desktop, Colima, Rancher, Podman, \`DOCKER_HOST\`
+3. **Reads PCE credentials** from environment variables or \`.env\` file
+4. **Tests PCE connectivity** — verifies the PCE is reachable
+5. **Writes \`~/.plugger/config.yaml\`** with all detected settings
+
+### Using a .env File
+
+\`\`\`bash
+PCE_HOST=pce.example.com
+PCE_PORT=8443
+PCE_ORG_ID=1
+API_KEY=api_xxxxxxxxxxxx
+API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+\`\`\`
+
+### Common Docker Socket Paths
+
+| Platform | Path |
+|----------|------|
+| Linux (default) | \`/var/run/docker.sock\` |
+| Docker Desktop (macOS) | \`~/.docker/run/docker.sock\` |
+| Colima | \`~/.colima/default/docker.sock\` |
+| Rancher Desktop | \`~/.rd/docker.sock\` |
+| Podman | \`/run/user/{uid}/podman/podman.sock\` |
+
+## Install Your First Plugin
+
+\`\`\`bash
+plugger search                      # Browse available plugins
+plugger install pce-health-monitor  # Install from registry
+plugger start pce-health-monitor    # Start it
+plugger status pce-health-monitor   # Check status
+\`\`\`
+
+## Run Everything
+
+\`\`\`bash
+plugger run
+\`\`\`
+
+Starts all plugins with auto-restart, health checks, cron scheduling, event webhooks, and the web dashboard at \`http://localhost:8800\`.
+
+## Quick Reference
+
+\`\`\`bash
+plugger init                        # Setup wizard
+plugger search                      # Browse plugins
+plugger install <name>              # Install from registry
+plugger run                         # Start everything
+plugger list                        # Show all plugins
+plugger status <name>               # Plugin detail
+plugger logs <name> -f              # Follow logs
+plugger outdated                    # Check for updates
+plugger upgrade <name>              # Upgrade a plugin
+\`\`\``
+},
+"installation": {
+    title: "Installation & Configuration",
+    github: "https://github.com/alexgoller/illumio-plugger/blob/main/docs/installation.md",
+    readme: `# Installation & Configuration
+
+## Prerequisites
+
+| Requirement | Minimum | Notes |
+|-------------|---------|-------|
+| Go | 1.21+ | Only needed to build from source |
+| Docker | 20.10+ | Docker Desktop or Docker Engine |
+| Illumio PCE | 21.2+ | With API key access |
+
+## Building from Source
+
+\`\`\`bash
+git clone https://github.com/illumio/plugger.git
+cd plugger
+make build     # Build binary to bin/plugger
+make test      # Run tests
+make install   # Install to $GOPATH/bin
+\`\`\`
+
+## Global Config (\`~/.plugger/config.yaml\`)
+
+\`\`\`yaml
+pce:
+  host: pce.example.com
+  port: 8443
+  orgId: 1
+  apiKey: api_xxx
+  apiSecret: secret_xxx
+  tlsSkipVerify: false
+
+plugger:
+  dataDir: ~/.plugger
+  network: plugger-net
+  eventPollInterval: 30
+  webhookToken: ""
+
+logging:
+  level: info        # debug | info | warn | error
+  format: text       # text | json
+\`\`\`
+
+All config values can be overridden via environment variables with the \`PLUGGER_\` prefix.
+
+## Installing Plugins
+
+Four install sources:
+
+| Source | Command |
+|--------|---------|
+| Registry name | \`plugger install pce-health-monitor\` |
+| Local file | \`plugger install ./plugin.yaml\` |
+| Remote URL | \`plugger install https://example.com/plugin.yaml\` |
+| Image ref | \`plugger install ghcr.io/org/plugin:v1.0\` |
+
+## Data Directory Layout
+
+\`\`\`
+~/.plugger/
+├── config.yaml           # Global configuration
+├── plugins.json          # Plugin state store
+└── volumes/              # Plugin persistent volumes
+    ├── plugin-a/data/
+    └── plugin-b/data/
+\`\`\``
+},
+"cli-reference": {
+    title: "CLI Reference",
+    github: "https://github.com/alexgoller/illumio-plugger/blob/main/docs/cli-reference.md",
+    readme: `# CLI Reference
+
+## Commands
+
+### \`plugger init\`
+Interactive setup wizard — auto-detects Docker, configures PCE connection. Safe to run multiple times.
+
+### \`plugger run\`
+Start all enabled plugins with scheduling, health checks, and dashboard.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| \`--addr\` | \`localhost:8800\` | Dashboard listen address |
+| \`--no-dashboard\` | \`false\` | Run without the web dashboard |
+
+### \`plugger create <name>\`
+Scaffold a new plugin. Templates: \`go\`, \`shell\`, \`python\`.
+
+\`\`\`bash
+plugger create my-plugin -t python
+\`\`\`
+
+### \`plugger install <source>\`
+Install a plugin from manifest, URL, image, or registry name.
+
+| Flag | Description |
+|------|-------------|
+| \`-e, --env KEY=VALUE\` | Environment variable overrides (repeatable) |
+
+### \`plugger uninstall <name>\`
+Remove a plugin and its container.
+
+### \`plugger start <name>\`
+Start a single plugin container.
+
+### \`plugger stop <name>\`
+Stop a running plugin container.
+
+### \`plugger restart <name>\`
+Restart a plugin (stop + start with fresh container).
+
+### \`plugger list\`
+List all installed plugins and state. Alias: \`plugger ls\`.
+
+### \`plugger status <name>\`
+Detailed status: container state, ports, volumes, config, errors.
+
+### \`plugger logs <name>\`
+View container logs. Flags: \`-f\` (follow), \`-n\` (tail lines), \`--since\` (duration).
+
+### \`plugger dashboard\`
+Start only the web dashboard (without orchestrator).
+
+### \`plugger search [query]\`
+Search plugins across registries. \`plugger search ai\` finds AI plugins.
+
+### \`plugger outdated\`
+Check installed plugins against registry for updates.
+
+### \`plugger upgrade <plugin>\`
+Upgrade to the latest version from registry.
+
+### \`plugger repo\`
+Manage registries: \`repo list\`, \`repo add <name> <url>\`, \`repo remove <name>\`.
+
+### \`plugger version\`
+Print the plugger version.
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| \`--config <path>\` | Config file path (default: \`~/.plugger/config.yaml\`) |
+| \`-h, --help\` | Help for any command |`
+},
+"plugin-development": {
+    title: "Plugin Development Guide",
+    github: "https://github.com/alexgoller/illumio-plugger/blob/main/docs/plugin-development.md",
+    readme: `# Plugin Development Guide
+
+Plugins are Docker containers that interact with the Illumio PCE. Plugger handles the container lifecycle, credential injection, scheduling, health checks, and web UI proxying.
+
+## Quick Start
+
+\`\`\`bash
+plugger create my-plugin -t python
+cd my-plugin && vim main.py
+docker build -t my-plugin:latest .
+plugger install plugin.yaml
+plugger start my-plugin
+\`\`\`
+
+## Plugin Structure
+
+### 1. \`plugin.yaml\` — Install Manifest
+
+\`\`\`yaml
+apiVersion: plugger/v1
+name: my-plugin
+version: 1.0.0
+image: my-plugin:latest
+schedule:
+  mode: daemon       # daemon | cron | event
+env:
+  - name: MY_SETTING
+    required: false
+    default: "value"
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+\`\`\`
+
+### 2. \`/.plugger/metadata.yaml\` — Container Metadata
+
+Baked into the Docker image. Auto-discovered at install time.
+
+\`\`\`yaml
+plugger: v1
+ports:
+  - port: 8080
+    type: ui
+    name: dashboard
+    path: /
+config:
+  - name: MY_SETTING
+    description: What this does
+    type: string
+    default: "value"
+volumes:
+  - path: /data
+    description: Persistent storage
+info:
+  title: My Plugin
+  description: What it does
+\`\`\`
+
+## Plugin Types
+
+| Type | Use For | Lifecycle |
+|------|---------|-----------|
+| **daemon** | Monitoring, web UIs, continuous polling | Runs 24/7, auto-restart on crash |
+| **cron** | Periodic reports, data syncs, cleanup | Runs on schedule, exits when done |
+| **event** | Reacting to PCE events, webhooks | Ephemeral container per event |
+
+## Environment Variables
+
+Every plugin container receives: \`PCE_HOST\`, \`PCE_PORT\`, \`PCE_ORG_ID\`, \`PCE_API_KEY\`, \`PCE_API_SECRET\`, plus custom vars from manifest and metadata.
+
+## Templates
+
+- **Go** — compiled binary, HTTP server, health endpoint, signal handling
+- **Shell** — lightweight curl + jq scripts for PCE API calls
+- **Python** — Illumio SDK pre-installed for rapid development
+
+## Illumio SDK Quick Reference
+
+\`\`\`python
+from illumio import PolicyComputeEngine
+pce = PolicyComputeEngine(url=os.environ["PCE_HOST"], port=os.environ["PCE_PORT"])
+pce.set_credentials(username=os.environ["PCE_API_KEY"], password=os.environ["PCE_API_SECRET"])
+pce.set_tls_settings(verify=False)
+\`\`\`
+
+## Web UI via Reverse Proxy
+
+Declare \`type: ui\` in metadata ports. UI is accessible at \`http://plugger:8800/plugins/{name}/ui/\` through the dashboard reverse proxy.`
+},
+"operations": {
+    title: "Operations Guide",
+    github: "https://github.com/alexgoller/illumio-plugger/blob/main/docs/operations.md",
+    readme: `# Operations Guide
+
+Running plugger in production: deployment, monitoring, troubleshooting, and maintenance.
+
+## Running as a Service (systemd)
+
+\`\`\`ini
+[Unit]
+Description=Plugger - Illumio Plugin Framework
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=plugger
+ExecStart=/usr/local/bin/plugger run --addr 0.0.0.0:8800
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+\`\`\`
+
+## Auto-Restart Behavior
+
+| Attempt | Backoff | After 5 fails |
+|---------|---------|----------------|
+| 1 | 1s | State → errored |
+| 2 | 2s | Manual restart resets counter |
+| 3 | 4s | |
+| 4 | 8s | |
+| 5 | 16s | |
+
+If container stays running 30+ seconds, failure counter resets.
+
+## Monitoring
+
+- **Dashboard** at \`http://localhost:8800\` — plugin tiles, logs, controls
+- **JSON API** — \`/api/plugins\`, \`/api/plugins/<name>\`, \`/api/events/stats\`
+- **CLI** — \`plugger list\`, \`plugger status <name>\`, \`plugger logs <name> -f\`
+- **Docker** — \`docker ps --filter label=io.plugger.managed=true\`
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Container name conflict | \`plugger restart <name>\` |
+| Image not found | Rebuild image, reinstall plugin |
+| Plugin keeps crashing | Check \`plugger logs <name> -n 200\` |
+| Dashboard unreachable | Verify container running, port exposed |
+| Docker socket error | Set \`DOCKER_HOST\` or configure in config.yaml |
+| Volume permission error | Use path under home dir or \`/tmp\` |
+
+## Backup
+
+- Config: \`~/.plugger/config.yaml\`
+- Plugin state: \`~/.plugger/plugins.json\`
+- Volume data: \`~/.plugger/volumes/<plugin>/\``
+},
+"events": {
+    title: "Event-Driven Architecture",
+    github: "https://github.com/alexgoller/illumio-plugger/blob/main/docs/events.md",
+    readme: `# Event-Driven Architecture
+
+Plugger supports event-driven plugins that spawn ephemeral containers in response to webhooks.
+
+## Webhook Endpoint
+
+### \`POST /api/events/trigger\`
+
+\`\`\`bash
+curl -X POST http://localhost:8800/api/events/trigger \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"event_type": "workload.create", "resource": {"href": "/orgs/1/workloads/abc"}}'
+\`\`\`
+
+### Authentication
+
+Set \`webhookToken\` in config or let plugger auto-generate one at startup.
+
+## Connecting pce-events
+
+In pce-events \`config.yaml\`, add a webhook watcher:
+
+\`\`\`yaml
+watchers:
+  ".*":
+    - plugin: PCEWebhook
+      extra_data:
+        url: http://plugger-dashboard:8800/api/events/trigger
+        bearer_token: YOUR_PLUGGER_TOKEN
+\`\`\`
+
+## Writing Event Plugins
+
+\`\`\`yaml
+schedule:
+  mode: event
+events:
+  types:
+    - workload.create
+    - workload.update
+\`\`\`
+
+\`\`\`python
+import json, os
+event = json.loads(os.environ["PLUGGER_EVENT_PAYLOAD"])
+# React to event...
+# Exit — container is cleaned up automatically
+\`\`\`
+
+## Container Lifecycle
+
+1. New container created with unique name
+2. Started with PCE env vars + \`PLUGGER_EVENT_PAYLOAD\`
+3. Runs to completion, exit code captured
+4. Container removed
+
+Max 5 concurrent containers per event plugin. Works with any webhook source — not just Illumio.`
+}
+};
+
+function showProductDoc(docId) {
+    const doc = PRODUCT_DOCS[docId];
+    if (!doc) return;
+    document.getElementById('docs-modal-title').textContent = doc.title;
+    document.getElementById('docs-modal-content').innerHTML = marked.parse(doc.readme);
+    document.getElementById('docs-github-link').href = doc.github;
+    document.getElementById('docs-overlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
 // Plugin documentation data (README content)
 const PLUGIN_DOCS = {
 "ai-security-report": {

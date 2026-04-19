@@ -1,7 +1,7 @@
 {
   "name": "Illumio Official Plugin Registry",
   "url": "https://alexgoller.github.io/illumio-plugger/registry.json",
-  "updated": "2026-04-17T00:00:00Z",
+  "updated": "2026-04-19T00:00:00Z",
   "plugins": [
     {
       "name": "pce-health-monitor",
