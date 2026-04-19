@@ -1,0 +1,61 @@
+# Rule Scheduler configuration
+# Mount this file to /data/schedules.yaml in the container
+#
+# plugger install rule-scheduler
+# cp schedules.yaml.example ~/.plugger/volumes/rule-scheduler/data/schedules.yaml
+# Edit with your rulesets and schedules
+
+schedules:
+  - name: Business Hours Access
+    description: Enable access rules Mon-Fri 9:00-17:00, disable after hours
+    targets:
+      - /orgs/1/sec_policy/draft/rule_sets/123
+      - /orgs/1/sec_policy/draft/rule_sets/456
+    target_type: ruleset
+    days: [mon, tue, wed, thu, fri]
+    start_time: "09:00"
+    end_time: "17:00"
+    action_in_window: enable
+    action_outside: disable
+    enabled: true
+    comment: "[rule-scheduler] Business hours only"
+
+  - name: Maintenance Window
+    description: Enable maintenance rules Saturday 02:00-06:00
+    targets:
+      - /orgs/1/sec_policy/draft/rule_sets/789
+    target_type: ruleset
+    days: [sat]
+    start_time: "02:00"
+    end_time: "06:00"
+    action_in_window: enable
+    action_outside: disable
+    enabled: true
+    comment: "[rule-scheduler] Maintenance window"
+
+  - name: Weekend Lockdown
+    description: Disable broad access on weekends
+    targets:
+      - /orgs/1/sec_policy/draft/rule_sets/101
+    target_type: ruleset
+    days: [sat, sun]
+    start_time: "00:00"
+    end_time: "23:59"
+    action_in_window: disable
+    action_outside: enable
+    enabled: false
+    comment: "[rule-scheduler] Weekend lockdown"
+
+  # After-hours RDP example
+  # - name: After Hours RDP
+  #   description: Allow RDP only after business hours for maintenance
+  #   targets:
+  #     - /orgs/1/sec_policy/draft/rule_sets/202
+  #   target_type: ruleset
+  #   days: [mon, tue, wed, thu, fri]
+  #   start_time: "18:00"
+  #   end_time: "07:00"  # overnight window
+  #   action_in_window: enable
+  #   action_outside: disable
+  #   enabled: false
+  #   comment: "[rule-scheduler] After hours RDP"

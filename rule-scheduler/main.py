@@ -102,7 +102,30 @@ def get_pce():
 
 
 def load_schedules():
-    """Load schedules from config file or env var."""
+    """Load schedules from YAML config, JSON file, or env var.
+
+    Priority:
+    1. YAML config file (/data/schedules.yaml or SCHEDULES_YAML env)
+    2. JSON file (/data/schedules.json or SCHEDULES_FILE env)
+    3. SCHEDULES env var (JSON string)
+    4. Default templates
+    """
+    # Try YAML config first
+    yaml_path = os.environ.get("SCHEDULES_YAML", "/data/schedules.yaml")
+    try:
+        import yaml
+        with open(yaml_path) as f:
+            data = yaml.safe_load(f)
+            if isinstance(data, dict) and "schedules" in data:
+                return data["schedules"]
+            if isinstance(data, list):
+                return data
+    except ImportError:
+        pass
+    except (FileNotFoundError, Exception):
+        pass
+
+    # Try JSON file
     config_path = os.environ.get("SCHEDULES_FILE", "/data/schedules.json")
     try:
         with open(config_path) as f:
@@ -110,6 +133,7 @@ def load_schedules():
     except (FileNotFoundError, json.JSONDecodeError):
         pass
 
+    # Try env var
     env_schedules = os.environ.get("SCHEDULES", "")
     if env_schedules:
         try:
