@@ -1,0 +1,37 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Rule scheduler dashboard — manage time-based schedules
+    type: ui
+    path: /
+
+config:
+  - name: CHECK_INTERVAL
+    description: Seconds between schedule checks
+    required: false
+    type: int
+    default: "60"
+  - name: TZ
+    description: Timezone for schedule evaluation (e.g. America/New_York, Europe/Berlin)
+    required: false
+    type: string
+    default: "UTC"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent storage for schedule configuration
+    required: true
+
+info:
+  title: Rule Scheduler
+  description: Time-based rule and ruleset scheduling — business hours, maintenance windows, weekend lockdowns
+  author: Illumio
+  license: Apache-2.0
