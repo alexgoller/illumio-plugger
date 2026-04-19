@@ -1,0 +1,50 @@
+apiVersion: plugger/v1
+name: ai-security-report
+version: 0.1.0
+image: plugger-ai-security-report:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: SCAN_INTERVAL
+    required: false
+    default: "86400"
+  - name: LOOKBACK_DAYS
+    required: false
+    default: "7"
+  - name: MAX_TRAFFIC_RESULTS
+    required: false
+    default: "100000"
+  - name: PROCESS_SAMPLE_SIZE
+    required: false
+    default: "50"
+  - name: REPORT_RETENTION
+    required: false
+    default: "30"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+  - name: AI_PROVIDER
+    required: false
+    default: ""
+  - name: AI_API_KEY
+    required: false
+    default: ""
+  - name: AI_MODEL
+    required: false
+    default: ""
+  - name: AI_BASE_URL
+    required: false
+    default: ""
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 512m
+  cpuLimit: "0.5"

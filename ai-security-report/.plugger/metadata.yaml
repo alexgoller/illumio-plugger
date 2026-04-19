@@ -1,0 +1,71 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: AI-powered security posture report dashboard
+    type: ui
+    path: /
+
+config:
+  - name: SCAN_INTERVAL
+    description: Seconds between report scans (minimum 3600)
+    required: false
+    type: int
+    default: "86400"
+  - name: LOOKBACK_DAYS
+    description: Days of traffic history to analyze
+    required: false
+    type: int
+    default: "7"
+  - name: MAX_TRAFFIC_RESULTS
+    description: Maximum traffic flows to query
+    required: false
+    type: int
+    default: "100000"
+  - name: PROCESS_SAMPLE_SIZE
+    description: Number of workloads to sample for process data
+    required: false
+    type: int
+    default: "50"
+  - name: REPORT_RETENTION
+    description: Number of historical reports to keep
+    required: false
+    type: int
+    default: "30"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+  - name: AI_PROVIDER
+    description: LLM provider for AI narratives (anthropic, openai, ollama)
+    required: false
+    type: string
+    default: ""
+  - name: AI_API_KEY
+    description: API key for the LLM provider
+    required: false
+    type: secret
+  - name: AI_MODEL
+    description: Model to use (e.g. claude-sonnet-4-20250514, gpt-4o, llama3)
+    required: false
+    type: string
+    default: ""
+  - name: AI_BASE_URL
+    description: Base URL for Ollama or custom API endpoints
+    required: false
+    type: string
+    default: ""
+
+volumes:
+  - path: /data
+    description: Report storage directory (JSON reports)
+    required: true
+
+info:
+  title: AI Security Report
+  description: Comprehensive AI-powered security posture analysis — enforcement coverage, OS risk, label hygiene, environment separation, risky services, policy analysis, traffic anomalies, compliance mapping, and remediation roadmap
+  author: Illumio
+  license: Apache-2.0
