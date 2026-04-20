@@ -633,25 +633,6 @@ def resolve_policy(rulesets):
         rs_href = rs.get("href", "")
         scopes = rs.get("scopes", [[]])
 
-        # Resolve all scope entries (multiple scopes = OR between them)
-        # For simplicity, merge all scope entries into one combined include/exclude set
-        all_scope_includes = []
-        all_scope_excludes = []
-        scope_desc_parts = []
-
-        for scope_entry in scopes:
-            if not scope_entry:
-                continue
-            includes, excludes = resolve_scope_labels(scope_entry)
-            all_scope_includes.extend(includes)
-            all_scope_excludes.extend(excludes)
-            for c in includes:
-                desc = f"{c['key']}={c['value']}"
-                if desc not in scope_desc_parts:
-                    scope_desc_parts.append(desc)
-
-        scope_desc = " AND ".join(scope_desc_parts) if scope_desc_parts else "(global)"
-
         allow_rules = rs.get("rules", [])
         deny_rules = rs.get("deny_rules", [])
 
@@ -660,23 +641,29 @@ def resolve_policy(rulesets):
 
         total_rulesets += 1
 
-        # Process allow rules
-        for rule in allow_rules:
-            if not rule.get("enabled", True):
-                continue
-            total_rules += 1
-            resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc,
-                                     all_scope_includes, all_scope_excludes, "allow")
-            resolved_rules.append(resolved)
+        # Each scope is an independent evaluation — resolve rules once per scope
+        scope_list = scopes if scopes else [[]]
+        for scope_entry in scope_list:
+            scope_includes, scope_excludes = resolve_scope_labels(scope_entry) if scope_entry else ([], [])
+            scope_desc = " AND ".join(f"{c['key']}={c['value']}" for c in scope_includes) if scope_includes else "(global)"
 
-        # Process deny rules (override and regular)
-        for rule in deny_rules:
-            if not rule.get("enabled", True):
-                continue
-            total_deny_rules += 1
-            resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc,
-                                     all_scope_includes, all_scope_excludes, "deny")
-            resolved_rules.append(resolved)
+            # Process allow rules for this scope
+            for rule in allow_rules:
+                if not rule.get("enabled", True):
+                    continue
+                total_rules += 1
+                resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc,
+                                         scope_includes, scope_excludes, "allow")
+                resolved_rules.append(resolved)
+
+            # Process deny rules for this scope
+            for rule in deny_rules:
+                if not rule.get("enabled", True):
+                    continue
+                total_deny_rules += 1
+                resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc,
+                                         scope_includes, scope_excludes, "deny")
+                resolved_rules.append(resolved)
 
     # Sort: override-deny first, then allow, then deny
     resolved_rules.sort(key=lambda r: r["sort_order"])
