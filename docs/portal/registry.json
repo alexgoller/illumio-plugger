@@ -146,6 +146,18 @@
       "tags": ["cmdb", "remedy", "bmc", "helix", "labels", "sync", "integration"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/remedy-cmdb-sync"
+    },
+    {
+      "name": "policy-resolver",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-policy-resolver:latest",
+      "description": "Resolve Illumio label-based policy into IP-level firewall rules — JSON export, searchable dashboard, allow/deny/override-deny ordering",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["policy", "firewall", "resolver", "export", "ip-rules", "migration"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-resolver"
     }
   ]
 }

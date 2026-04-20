@@ -1,0 +1,37 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Policy Resolver — IP-level firewall rule view
+    type: ui
+    path: /
+
+config:
+  - name: POLL_INTERVAL
+    description: Seconds between policy resolution runs
+    required: false
+    type: int
+    default: "600"
+  - name: RESOLVE_DRAFT
+    description: "Also resolve draft policy (true/false)"
+    required: false
+    type: bool
+    default: "false"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Export output directory
+    required: false
+
+info:
+  title: Policy Resolver
+  description: "Resolve Illumio label-based policy into concrete IP-level firewall rules — JSON export for firewall teams, searchable dashboard for cut-and-paste"
+  author: Illumio
+  license: Apache-2.0
