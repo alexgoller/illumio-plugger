@@ -1,5 +1,7 @@
 # AD Label Sync
 
+> **Status: Untested** — This plugin has not been validated against a live Active Directory environment. Please report issues.
+
 Connects to Active Directory via LDAP, discovers computer objects, and
 maps AD attributes (OU path, group membership, location, extension
 attributes) to Illumio labels. Supports two modes: analytics-only

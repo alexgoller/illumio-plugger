@@ -103,7 +103,7 @@
       "name": "ad-label-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-ad-label-sync:latest",
-      "description": "Discover AD computers and map OU, group, location attributes to Illumio labels — analytics mode for feasibility testing",
+      "description": "Discover AD computers and map OU, group, location attributes to Illumio labels — analytics mode for feasibility testing (untested)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",

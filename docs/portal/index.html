@@ -375,7 +375,10 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4 cursor-pointer" data-plugin="ad-label-sync" data-categories="integration" onclick="showDocs('ad-label-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">AD Label Sync</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">untested</span>
+                </div>
             </div>
             <p class="text-sm text-gray-300 mb-3">Discover AD computers via LDAP and map OU, group, location attributes to Illumio labels. Analytics mode for safe feasibility testing.</p>
             <div class="flex items-center justify-between">
@@ -1552,6 +1555,8 @@ plugger install remedy-cmdb-sync
     mode: "daemon",
     tags: ["integration"],
     readme: `# AD Label Sync
+
+> **Status: Untested** — This plugin has not been validated against a live Active Directory environment.
 
 Connects to Active Directory via LDAP, discovers computer objects, and maps AD attributes (OU path, group membership, location, extension attributes) to Illumio labels. Supports analytics-only feasibility analysis and active label sync modes.
 
