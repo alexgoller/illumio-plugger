@@ -79,6 +79,11 @@
                     class="px-3 py-1 text-xs font-medium rounded bg-green-600 hover:bg-green-500 text-white transition-colors">
                     Start
                 </button>
+                <button hx-post="/api/plugins/{{.Name}}/uninstall" hx-target="body" hx-swap="outerHTML"
+                    hx-confirm="Uninstall plugin {{.Name}}? This will remove the plugin and its container."
+                    class="px-3 py-1 text-xs font-medium rounded bg-gray-700 hover:bg-red-600 text-gray-400 hover:text-white transition-colors">
+                    Uninstall
+                </button>
                 {{else}}
                 <button hx-post="/api/plugins/{{.Name}}/stop" hx-target="body" hx-swap="outerHTML"
                     hx-confirm="Stop plugin {{.Name}}?"

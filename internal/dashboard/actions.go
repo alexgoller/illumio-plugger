@@ -86,6 +86,40 @@ func (h *Handler) handleRestartPlugin(w http.ResponseWriter, r *http.Request) {
 	h.renderRow(w, p)
 }
 
+func (h *Handler) handleUninstallPlugin(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	p, err := h.deps.Store.Get(name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	// Stop and remove container
+	_ = h.deps.Runtime.Stop(ctx, p.ContainerName(), 10*time.Second)
+	_ = h.deps.Runtime.Remove(ctx, p.ContainerName())
+	if p.ContainerID != "" {
+		_ = h.deps.Runtime.Stop(ctx, p.ContainerID, 10*time.Second)
+		_ = h.deps.Runtime.Remove(ctx, p.ContainerID)
+	}
+
+	// Remove from store
+	if err := h.deps.Store.Delete(name); err != nil {
+		h.logger.Error("uninstalling plugin", "name", name, "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info("plugin uninstalled via dashboard", "name", name)
+
+	// Return empty row (htmx will remove the element) or redirect
+	w.Header().Set("HX-Redirect", "/")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *Handler) renderRow(w http.ResponseWriter, p *plugin.Plugin) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.tmpl.ExecuteTemplate(w, "plugin_row", p); err != nil {

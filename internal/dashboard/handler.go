@@ -57,6 +57,7 @@ func (h *Handler) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/plugins/{name}/start", h.handleStartPlugin)
 	mux.HandleFunc("POST /api/plugins/{name}/stop", h.handleStopPlugin)
 	mux.HandleFunc("POST /api/plugins/{name}/restart", h.handleRestartPlugin)
+	mux.HandleFunc("POST /api/plugins/{name}/uninstall", h.handleUninstallPlugin)
 
 	// Config editing
 	mux.HandleFunc("POST /api/plugins/{name}/config", h.handleSaveConfig)
