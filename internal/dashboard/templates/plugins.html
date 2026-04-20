@@ -94,6 +94,11 @@
                     class="px-3 py-1 text-xs font-medium rounded bg-gray-600 hover:bg-gray-500 text-white transition-colors">
                     Restart
                 </button>
+                <button hx-post="/api/plugins/{{.Name}}/uninstall" hx-target="body" hx-swap="outerHTML"
+                    hx-confirm="Uninstall plugin {{.Name}}? This will stop and remove the plugin."
+                    class="px-3 py-1 text-xs font-medium rounded bg-gray-700 hover:bg-red-600 text-gray-400 hover:text-white transition-colors">
+                    Uninstall
+                </button>
                 {{end}}
             </div>
             {{if and (eq (printf "%s" .State) "running") .Metadata}}
