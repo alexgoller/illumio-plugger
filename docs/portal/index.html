@@ -1159,9 +1159,9 @@ Resolve Illumio label-based policy into concrete IP-level firewall rules. Takes 
 
 ## Install
 
-\\\`\\\`\\\`bash
+\`\`\`bash
 plugger install policy-resolver
-\\\`\\\`\\\`
+\`\`\`
 
 ## Why
 
@@ -1171,8 +1171,8 @@ Illumio policy is written using labels (app, env, role). But when firewall teams
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| \\\`POLL_INTERVAL\\\` | \\\`600\\\` | Seconds between resolution runs |
-| \\\`RESOLVE_DRAFT\\\` | \\\`false\\\` | Resolve draft policy instead of active |
+| \`POLL_INTERVAL\` | \`600\` | Seconds between resolution runs |
+| \`RESOLVE_DRAFT\` | \`false\` | Resolve draft policy instead of active |
 
 ## What It Resolves
 
@@ -1502,9 +1502,9 @@ Sync BMC Helix/Remedy CMDB configuration items to Illumio labels. Queries CIs vi
 
 ## Install
 
-\\\`\\\`\\\`bash
+\`\`\`bash
 plugger install remedy-cmdb-sync
-\\\`\\\`\\\`
+\`\`\`
 
 ## Modes
 
@@ -1515,24 +1515,24 @@ plugger install remedy-cmdb-sync
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| \\\`REMEDY_HOST\\\` | _(required)_ | BMC Helix/Remedy server hostname |
-| \\\`REMEDY_PORT\\\` | \\\`8443\\\` | Remedy API port |
-| \\\`REMEDY_USER\\\` | _(required)_ | Remedy API username |
-| \\\`REMEDY_PASSWORD\\\` | _(required)_ | Remedy API password |
-| \\\`REMEDY_CI_CLASS\\\` | \\\`BMC_ComputerSystem\\\` | CMDB CI class to query |
-| \\\`MODE\\\` | \\\`analytics\\\` | \\\`analytics\\\` or \\\`sync\\\` |
-| \\\`SCAN_INTERVAL\\\` | \\\`3600\\\` | Seconds between scans |
-| \\\`MAPPING_RULES\\\` | _(built-in)_ | Custom mapping rules as JSON array |
+| \`REMEDY_HOST\` | _(required)_ | BMC Helix/Remedy server hostname |
+| \`REMEDY_PORT\` | \`8443\` | Remedy API port |
+| \`REMEDY_USER\` | _(required)_ | Remedy API username |
+| \`REMEDY_PASSWORD\` | _(required)_ | Remedy API password |
+| \`REMEDY_CI_CLASS\` | \`BMC_ComputerSystem\` | CMDB CI class to query |
+| \`MODE\` | \`analytics\` | \`analytics\` or \`sync\` |
+| \`SCAN_INTERVAL\` | \`3600\` | Seconds between scans |
+| \`MAPPING_RULES\` | _(built-in)_ | Custom mapping rules as JSON array |
 
 ## Default Mapping Rules
 
 | Source Field | Maps To | Logic |
 |-------------|---------|-------|
-| \\\`Environment\\\` | \\\`env\\\` | Pattern match: prod, dev, test, staging, qa, uat |
-| \\\`BusinessService\\\` | \\\`app\\\` | Direct value mapping |
-| \\\`Site\\\` / \\\`Location\\\` | \\\`loc\\\` | Direct value mapping |
-| \\\`ShortDescription\\\` | \\\`role\\\` | Pattern match: web, db, app, dns, mail, etc. |
-| \\\`HostName\\\` | \\\`role\\\` | Hostname prefix patterns (lower priority fallback) |
+| \`Environment\` | \`env\` | Pattern match: prod, dev, test, staging, qa, uat |
+| \`BusinessService\` | \`app\` | Direct value mapping |
+| \`Site\` / \`Location\` | \`loc\` | Direct value mapping |
+| \`ShortDescription\` | \`role\` | Pattern match: web, db, app, dns, mail, etc. |
+| \`HostName\` | \`role\` | Hostname prefix patterns (lower priority fallback) |
 
 ## Features
 
