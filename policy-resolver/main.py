@@ -959,36 +959,76 @@ function renderRulesets(){
   if(!currentData||!currentData.resolved_rules)return;
   const container=document.getElementById('ruleset-list');
   const byRuleset={};
+  const rulesetOrder=[];
   for(const r of currentData.resolved_rules){
-    if(!byRuleset[r.ruleset])byRuleset[r.ruleset]={scope:r.ruleset_scope,rules:[]};
+    if(!byRuleset[r.ruleset]){byRuleset[r.ruleset]={scope:r.ruleset_scope,rules:[],fwRules:[]};rulesetOrder.push(r.ruleset);}
     byRuleset[r.ruleset].rules.push(r);
+  }
+  // Map firewall_rules to rulesets too
+  if(currentData.firewall_rules){
+    for(const fw of currentData.firewall_rules){
+      if(byRuleset[fw.ruleset])byRuleset[fw.ruleset].fwRules.push(fw);
+    }
   }
 
   let html='';
-  for(const[name,data]of Object.entries(byRuleset)){
+  for(const name of rulesetOrder){
+    const data=byRuleset[name];
+    const safeName=name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
     html+=`<div class="bg-dark-800 rounded-xl border border-gray-700">
-      <div class="px-5 py-4 border-b border-gray-700">
-        <h3 class="text-white font-semibold">${name}</h3>
-        <div class="text-xs text-gray-400 mt-1">Scope: ${data.scope} | ${data.rules.length} rule(s)</div>
+      <div class="px-5 py-4 border-b border-gray-700 flex items-center justify-between">
+        <div>
+          <h3 class="text-white font-semibold">${name}</h3>
+          <div class="text-xs text-gray-400 mt-1">Scope: ${data.scope} | ${data.rules.length} rule(s) | ${data.fwRules.length} firewall entries</div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="copyRulesetJSON('${safeName}')" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Copy JSON</button>
+          <button onclick="copyRulesetTSV('${safeName}')" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Copy TSV</button>
+        </div>
       </div>
       <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="text-left text-xs text-gray-400 uppercase">
-        <th class="px-4 py-2">Consumer</th><th class="px-4 py-2">IPs</th>
-        <th class="px-4 py-2">Provider</th><th class="px-4 py-2">IPs</th>
+        <th class="px-4 py-2">Action</th><th class="px-4 py-2">Consumer</th><th class="px-4 py-2">Consumer IPs</th>
+        <th class="px-4 py-2">Provider</th><th class="px-4 py-2">Provider IPs</th>
         <th class="px-4 py-2">Services</th>
       </tr></thead><tbody>`;
     for(const r of data.rules){
       html+=`<tr class="border-b border-gray-700/50">
+        <td class="px-4 py-2">${actionBadge(r.action)}</td>
         <td class="px-4 py-2 text-gray-300 text-xs">${r.consumers.description}${r.consumers.unscoped?' <span class="text-amber-400">(unscoped)</span>':''}</td>
-        <td class="px-4 py-2 text-xs">${r.consumers.ip_count} IPs</td>
+        <td class="px-4 py-2 text-xs"><span class="text-gray-400">${r.consumers.ip_count} IPs</span><div class="mt-1 max-h-20 overflow-y-auto">${r.consumers.ips.slice(0,10).map(ip=>'<span class="ip-tag">'+ip+'</span>').join('')}${r.consumers.ip_count>10?'<span class="text-xs text-gray-600 ml-1">+'+( r.consumers.ip_count-10)+' more</span>':''}</div></td>
         <td class="px-4 py-2 text-gray-300 text-xs">${r.providers.description}</td>
-        <td class="px-4 py-2 text-xs">${r.providers.ip_count} IPs</td>
-        <td class="px-4 py-2">${r.services_display.map(s=>`<span class="svc-tag">${s}</span>`).join('')}</td>
+        <td class="px-4 py-2 text-xs"><span class="text-gray-400">${r.providers.ip_count} IPs</span><div class="mt-1 max-h-20 overflow-y-auto">${r.providers.ips.slice(0,10).map(ip=>'<span class="ip-tag">'+ip+'</span>').join('')}${r.providers.ip_count>10?'<span class="text-xs text-gray-600 ml-1">+'+(r.providers.ip_count-10)+' more</span>':''}</div></td>
+        <td class="px-4 py-2">${r.services_display.map(s=>'<span class="svc-tag">'+s+'</span>').join('')}</td>
       </tr>`;
     }
     html+=`</tbody></table></div></div>`;
   }
   container.innerHTML=html||'<p class="text-gray-500 text-center py-8">No rulesets resolved yet</p>';
+}
+
+function copyRulesetJSON(rsName){
+  if(!currentData||!currentData.firewall_rules)return;
+  const rules=currentData.firewall_rules.filter(r=>r.ruleset===rsName);
+  const exportData={
+    ruleset:rsName,
+    policy_scope:currentData.policy_scope||'active',
+    generated:currentData.summary?.timestamp||'',
+    rule_count:rules.length,
+    firewall_rules:rules,
+  };
+  navigator.clipboard.writeText(JSON.stringify(exportData,null,2)).then(()=>alert('JSON for "'+rsName+'" copied ('+rules.length+' rules)'));
+}
+
+function copyRulesetTSV(rsName){
+  if(!currentData||!currentData.firewall_rules)return;
+  const rules=currentData.firewall_rules.filter(r=>r.ruleset===rsName);
+  const lines=['#\tAction\tSource Label\tSource IPs\tDest Label\tDest IPs\tPort\tProtocol\tService'];
+  for(const r of rules){
+    const portStr=r.to_port?r.port+'-'+r.to_port:r.port;
+    lines.push([r.id,r.action,r.source_label,r.source_ips.join(';'),r.destination_label,r.destination_ips.join(';'),portStr,r.protocol,r.service_name||''].join('\t'));
+  }
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>alert('TSV for "'+rsName+'" copied ('+rules.length+' rules) — paste into Excel or Sheets'));
 }
 
 function renderJSON(){
