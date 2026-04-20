@@ -30,22 +30,22 @@ html:not(.dark) .border-gray-800 { border-color:#e5e7eb; } html:not(.dark) code 
 .docs-overlay.active { display:flex; }
 .docs-panel { max-width:860px;width:100%;background:#1e1e2e;border:1px solid #313244;border-radius:1rem;position:relative;margin:auto; }
 html:not(.dark) .docs-panel { background:#fff; border-color:#e5e7eb; }
-/* Rendered markdown */
-.docs-content h1 { font-size:1.75rem;font-weight:700;color:#eff1f5;margin:0 0 1rem;padding-bottom:0.5rem;border-bottom:1px solid #45475a; }
-.docs-content h2 { font-size:1.25rem;font-weight:600;color:#cdd6f4;margin:1.5rem 0 0.75rem; }
-.docs-content h3 { font-size:1.1rem;font-weight:600;color:#cdd6f4;margin:1.25rem 0 0.5rem; }
-.docs-content p { color:#d4dae6;line-height:1.7;margin:0.5rem 0; }
-.docs-content ul,.docs-content ol { color:#d4dae6;margin:0.5rem 0;padding-left:1.5rem; }
-.docs-content li { margin:0.25rem 0;line-height:1.6; }
-.docs-content code { background:#313244;padding:0.15rem 0.4rem;border-radius:0.25rem;font-size:0.85em;color:#93c5fd; }
-.docs-content pre { background:#11111b;border:1px solid #45475a;border-radius:0.5rem;padding:1rem;overflow-x:auto;margin:0.75rem 0; }
+/* Rendered markdown — high contrast */
+.docs-content h1 { font-size:1.75rem;font-weight:700;color:#fff;margin:0 0 1rem;padding-bottom:0.5rem;border-bottom:1px solid #585b70; }
+.docs-content h2 { font-size:1.25rem;font-weight:600;color:#eff1f5;margin:1.5rem 0 0.75rem; }
+.docs-content h3 { font-size:1.1rem;font-weight:600;color:#eff1f5;margin:1.25rem 0 0.5rem; }
+.docs-content p { color:#e8eaf0;line-height:1.7;margin:0.5rem 0; }
+.docs-content ul,.docs-content ol { color:#e8eaf0;margin:0.5rem 0;padding-left:1.5rem; }
+.docs-content li { margin:0.25rem 0;line-height:1.6;color:#e8eaf0; }
+.docs-content code { background:#393b50;padding:0.15rem 0.4rem;border-radius:0.25rem;font-size:0.85em;color:#b4d4ff; }
+.docs-content pre { background:#11111b;border:1px solid #585b70;border-radius:0.5rem;padding:1rem;overflow-x:auto;margin:0.75rem 0; }
 .docs-content pre code { background:none;padding:0;color:#86efac;font-size:0.85rem; }
 .docs-content table { width:100%;border-collapse:collapse;margin:0.75rem 0;font-size:0.875rem; }
-.docs-content th { text-align:left;padding:0.5rem 0.75rem;border-bottom:2px solid #45475a;color:#e2e8f0;font-weight:600; }
-.docs-content td { padding:0.5rem 0.75rem;border-bottom:1px solid #313244;color:#d4dae6; }
-.docs-content strong { color:#f1f5f9; }
-.docs-content a { color:#89b4fa;text-decoration:underline; }
-.docs-content blockquote { border-left:3px solid #89b4fa;padding-left:1rem;color:#a6adc8;margin:0.75rem 0; }
+.docs-content th { text-align:left;padding:0.5rem 0.75rem;border-bottom:2px solid #585b70;color:#fff;font-weight:600; }
+.docs-content td { padding:0.5rem 0.75rem;border-bottom:1px solid #45475a;color:#e8eaf0; }
+.docs-content strong { color:#fff; }
+.docs-content a { color:#93c5fd;text-decoration:underline; }
+.docs-content blockquote { border-left:3px solid #93c5fd;padding-left:1rem;color:#e8eaf0;margin:0.75rem 0; }
 html:not(.dark) .docs-content h1 { color:#111827;border-color:#e5e7eb; }
 html:not(.dark) .docs-content h2,html:not(.dark) .docs-content h3 { color:#374151; }
 html:not(.dark) .docs-content p,html:not(.dark) .docs-content li,html:not(.dark) .docs-content td { color:#4b5563; }
@@ -483,18 +483,18 @@ html:not(.dark) .docs-content pre code { color:#166534; }
             <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
             <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
             <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
-            <span class="text-xs text-gray-500 ml-2">terminal</span>
+            <span class="text-xs text-gray-400 ml-2">terminal</span>
         </div>
-        <pre class="p-5 text-sm font-mono text-gray-300 overflow-x-auto leading-relaxed"><span class="text-gray-500"># Install</span>
+        <pre class="p-5 text-sm font-mono text-gray-300 overflow-x-auto leading-relaxed"><span class="text-gray-400"># Install</span>
 <span class="text-blue-400">$</span> git clone https://github.com/alexgoller/illumio-plugger.git
 <span class="text-blue-400">$</span> cd illumio-plugger && make build
 
-<span class="text-gray-500"># Setup (auto-detects Docker, reads .env)</span>
+<span class="text-gray-400"># Setup (auto-detects Docker, reads .env)</span>
 <span class="text-blue-400">$</span> plugger init
 <span class="text-green-400">&#10003;</span> Docker socket: ~/.docker/run/docker.sock
 <span class="text-green-400">&#10003;</span> PCE is reachable
 
-<span class="text-gray-500"># Browse and install plugins</span>
+<span class="text-gray-400"># Browse and install plugins</span>
 <span class="text-blue-400">$</span> plugger search
 NAME                  VERSION  MODE    DESCRIPTION
 ai-security-report    0.1.0    daemon  AI-powered security posture analysis...
@@ -506,7 +506,7 @@ rule-scheduler        0.1.0    daemon  Time-based rule scheduling...
 <span class="text-blue-400">$</span> plugger install ai-security-report
 <span class="text-blue-400">$</span> plugger install pce-health-monitor
 
-<span class="text-gray-500"># Start everything</span>
+<span class="text-gray-400"># Start everything</span>
 <span class="text-blue-400">$</span> plugger run
 Plugger running: 2 plugin(s) active
 Dashboard: http://localhost:8800</pre>
@@ -524,7 +524,7 @@ Dashboard: http://localhost:8800</pre>
         <code class="bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-yellow-300">plugger create my-plugin -t shell</code>
         <code class="bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-blue-300">plugger create my-plugin -t python</code>
     </div>
-    <p class="text-gray-500 text-sm">
+    <p class="text-gray-300 text-sm">
         <a href="https://github.com/alexgoller/illumio-plugger/blob/main/docs/plugin-development.md" class="text-blue-400 hover:text-blue-300">Plugin Development Guide →</a>
     </p>
 </div>
@@ -532,7 +532,7 @@ Dashboard: http://localhost:8800</pre>
 
 <!-- Footer -->
 <footer class="border-t border-gray-800 py-8 px-6">
-<div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-gray-600">
+<div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-gray-500">
     <div class="flex items-center gap-4">
         <a href="https://github.com/alexgoller/illumio-plugger" class="hover:text-gray-400">GitHub</a>
         <a href="https://github.com/alexgoller/illumio-plugger/tree/main/docs" class="hover:text-gray-400">Documentation</a>
