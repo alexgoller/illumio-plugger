@@ -866,7 +866,7 @@ pre.json-block{background:#11111b;border:1px solid #313244;border-radius:0.5rem;
 
 <script>
 const BASE=(()=>{const m=window.location.pathname.match(/^\/plugins\/[^/]+\/ui/);return m?m[0]:''})();
-let currentData=null;
+let currentData=null;let rulesetNames=[];
 
 function formatNum(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toLocaleString()}
 function actionBadge(a){
@@ -959,9 +959,9 @@ function renderRulesets(){
   if(!currentData||!currentData.resolved_rules)return;
   const container=document.getElementById('ruleset-list');
   const byRuleset={};
-  const rulesetOrder=[];
+  rulesetNames=[];
   for(const r of currentData.resolved_rules){
-    if(!byRuleset[r.ruleset]){byRuleset[r.ruleset]={scope:r.ruleset_scope,rules:[],fwRules:[]};rulesetOrder.push(r.ruleset);}
+    if(!byRuleset[r.ruleset]){byRuleset[r.ruleset]={scope:r.ruleset_scope,rules:[],fwRules:[]};rulesetNames.push(r.ruleset);}
     byRuleset[r.ruleset].rules.push(r);
   }
   // Map firewall_rules to rulesets too
@@ -972,9 +972,9 @@ function renderRulesets(){
   }
 
   let html='';
-  for(const name of rulesetOrder){
+  for(const name of rulesetNames){
     const data=byRuleset[name];
-    const safeName=name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const rsIdx=rulesetNames.indexOf(name);
     html+=`<div class="bg-dark-800 rounded-xl border border-gray-700">
       <div class="px-5 py-4 border-b border-gray-700 flex items-center justify-between">
         <div>
@@ -982,8 +982,8 @@ function renderRulesets(){
           <div class="text-xs text-gray-400 mt-1">Scope: ${data.scope} | ${data.rules.length} rule(s) | ${data.fwRules.length} firewall entries</div>
         </div>
         <div class="flex gap-2">
-          <button onclick="copyRulesetJSON('${safeName}')" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Copy JSON</button>
-          <button onclick="copyRulesetTSV('${safeName}')" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Copy TSV</button>
+          <button onclick="copyRulesetJSON(${rsIdx})" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Copy JSON</button>
+          <button onclick="copyRulesetTSV(${rsIdx})" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Copy TSV</button>
         </div>
       </div>
       <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -1007,8 +1007,29 @@ function renderRulesets(){
   container.innerHTML=html||'<p class="text-gray-500 text-center py-8">No rulesets resolved yet</p>';
 }
 
-function copyRulesetJSON(rsName){
-  if(!currentData||!currentData.firewall_rules)return;
+function clipCopy(text,msg){
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(text).then(()=>alert(msg)).catch(()=>clipFallback(text,msg));
+  }else{
+    clipFallback(text,msg);
+  }
+}
+function clipFallback(text,msg){
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');alert(msg)}catch(e){
+    // Open in a new window as last resort
+    const w=window.open('','_blank','width=800,height=600');
+    w.document.write('<pre style="white-space:pre-wrap;word-break:break-all">'+text.replace(/</g,'&lt;')+'</pre>');
+    w.document.title=msg;
+  }
+  document.body.removeChild(ta);
+}
+
+function copyRulesetJSON(idx){
+  if(!currentData||!currentData.firewall_rules||!rulesetNames[idx])return;
+  const rsName=rulesetNames[idx];
   const rules=currentData.firewall_rules.filter(r=>r.ruleset===rsName);
   const exportData={
     ruleset:rsName,
@@ -1017,18 +1038,19 @@ function copyRulesetJSON(rsName){
     rule_count:rules.length,
     firewall_rules:rules,
   };
-  navigator.clipboard.writeText(JSON.stringify(exportData,null,2)).then(()=>alert('JSON for "'+rsName+'" copied ('+rules.length+' rules)'));
+  clipCopy(JSON.stringify(exportData,null,2),'JSON for "'+rsName+'" copied ('+rules.length+' rules)');
 }
 
-function copyRulesetTSV(rsName){
-  if(!currentData||!currentData.firewall_rules)return;
+function copyRulesetTSV(idx){
+  if(!currentData||!currentData.firewall_rules||!rulesetNames[idx])return;
+  const rsName=rulesetNames[idx];
   const rules=currentData.firewall_rules.filter(r=>r.ruleset===rsName);
   const lines=['#\tAction\tSource Label\tSource IPs\tDest Label\tDest IPs\tPort\tProtocol\tService'];
   for(const r of rules){
     const portStr=r.to_port?r.port+'-'+r.to_port:r.port;
     lines.push([r.id,r.action,r.source_label,r.source_ips.join(';'),r.destination_label,r.destination_ips.join(';'),portStr,r.protocol,r.service_name||''].join('\t'));
   }
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>alert('TSV for "'+rsName+'" copied ('+rules.length+' rules) — paste into Excel or Sheets'));
+  clipCopy(lines.join('\n'),'TSV for "'+rsName+'" copied ('+rules.length+' rules) — paste into Excel or Sheets');
 }
 
 function renderJSON(){
@@ -1046,7 +1068,7 @@ function renderJSON(){
 
 function copyJSON(){
   const text=document.getElementById('json-output').textContent;
-  navigator.clipboard.writeText(text).then(()=>alert('JSON copied to clipboard'));
+  clipCopy(text,'JSON copied to clipboard');
 }
 
 function copyFirewallTable(){
@@ -1056,7 +1078,7 @@ function copyFirewallTable(){
     const portStr=r.to_port?r.port+'-'+r.to_port:r.port;
     lines.push([r.id,r.action,r.ruleset,r.source_label,r.source_ips.join(';'),r.destination_label,r.destination_ips.join(';'),portStr,r.protocol,r.service_name||''].join('\t'));
   }
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>alert('Table copied (TSV) — paste into Excel or Google Sheets'));
+  clipCopy(lines.join('\n'),'Table copied (TSV) — paste into Excel or Google Sheets');
 }
 
 function downloadJSON(){

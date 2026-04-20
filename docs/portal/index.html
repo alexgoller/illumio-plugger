@@ -106,7 +106,7 @@ html:not(.dark) .docs-content pre code { color:#166534; }
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">12</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">13</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">3</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -208,7 +208,7 @@ html:not(.dark) .docs-content pre code { color:#166534; }
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (12)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (13)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -282,6 +282,22 @@ html:not(.dark) .docs-content pre code { color:#166534; }
             <p class="text-sm text-gray-300 mb-3">Git-like policy change tracker. Field-level diffs between draft and active, history snapshots, user attribution from audit events.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install policy-diff</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Policy Resolver -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="policy-resolver" data-categories="policy" onclick="showDocs('policy-resolver')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Policy Resolver</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Resolve label-based policy into IP-level firewall rules. Expand labels, label groups, IP lists to concrete IPs. JSON/TSV export per ruleset.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install policy-resolver</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
         </div>
@@ -1133,6 +1149,57 @@ To enable AI-powered analysis, configure one of:
 - Optional LLM analysis with Illumio best-practice context
 - One-click provisioning to PCE draft policy`
 },
+"policy-resolver": {
+    title: "Policy Resolver",
+    mode: "daemon",
+    tags: ["policy"],
+    readme: `# Policy Resolver
+
+Resolve Illumio label-based policy into concrete IP-level firewall rules. Takes abstract rulesets with label scopes and resolves every consumer/provider to actual workload IPs, producing a flat list of source IP / destination IP / port / protocol entries ready for firewall implementation.
+
+## Install
+
+\\\`\\\`\\\`bash
+plugger install policy-resolver
+\\\`\\\`\\\`
+
+## Why
+
+Illumio policy is written using labels (app, env, role). But when firewall teams need to implement these rules on path firewalls, they need IP addresses. This plugin bridges that gap.
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \\\`POLL_INTERVAL\\\` | \\\`600\\\` | Seconds between resolution runs |
+| \\\`RESOLVE_DRAFT\\\` | \\\`false\\\` | Resolve draft policy instead of active |
+
+## What It Resolves
+
+- **Label-based providers/consumers** → matching workload IPs
+- **Label groups** → recursively expanded to member labels → IPs
+- **IP lists** → all CIDRs, ranges, FQDNs (multi-entry, exclusion-aware)
+- **Service references** → port/protocol pairs
+- **Allow, Deny, Override Deny** rules with proper ordering
+
+## Rule Ordering
+
+Output follows Illumio policy evaluation order:
+1. **Override Deny** (highest priority)
+2. **Allow** (permit rules)
+3. **Deny** (lowest priority)
+
+## Dashboard Views
+
+- **Firewall Rules** — flat searchable table, click to expand all IPs, Copy Table as TSV
+- **By Ruleset** — grouped view with per-ruleset Copy JSON and Copy TSV buttons
+- **JSON Export** — full export with download button
+
+## Export Formats
+
+- **JSON** — structured with ruleset, source/dest labels, source/dest IPs, port, protocol, action
+- **TSV** — tab-separated for Excel/Google Sheets paste`
+},
 "pce-health-monitor": {
     title: "PCE Health Monitor",
     mode: "daemon",
@@ -1526,7 +1593,7 @@ Requires LDAP access to an Active Directory domain controller with a service acc
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync'];
+    const order = ['ai-security-report','ai-assisted-rules','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];
