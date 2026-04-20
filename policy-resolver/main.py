@@ -733,6 +733,140 @@ def export_firewall_format(resolved_rules):
     return firewall_rules
 
 
+def export_paloalto_cli(firewall_rules):
+    """Export as PAN-OS set commands."""
+    lines = ["# Palo Alto PAN-OS CLI commands", f"# Generated: {datetime.now(timezone.utc).isoformat()}", ""]
+    for r in firewall_rules:
+        name = f"illumio-{r['id']:04d}"
+        action = "allow" if r["action"] == "permit" else "deny"
+        port = r["port"]
+        proto = r["protocol"]
+        svc_name = r.get("service_name", "")
+
+        # Service
+        if port == "all" or port == -1:
+            svc = "any"
+        elif r.get("to_port"):
+            svc = f"tcp-{port}-{r['to_port']}" if proto == "tcp" else f"udp-{port}-{r['to_port']}"
+        elif svc_name:
+            svc = f"service-{svc_name.lower().replace(' ', '-')}"
+        else:
+            svc = f"service-{proto}-{port}"
+
+        # Source/dest
+        src_ips = r["source_ips"]
+        dst_ips = r["destination_ips"]
+
+        comment = f"{r['ruleset']} | {r['source_label']} -> {r['destination_label']}"
+
+        lines.append(f"# Rule {r['id']}: {comment}")
+        lines.append(f"set rulebase security rules \"{name}\" from any to any action {action}")
+        if src_ips:
+            for ip in src_ips:
+                lines.append(f"set rulebase security rules \"{name}\" source \"{ip}\"")
+        if dst_ips:
+            for ip in dst_ips:
+                lines.append(f"set rulebase security rules \"{name}\" destination \"{ip}\"")
+        lines.append(f"set rulebase security rules \"{name}\" application any")
+        lines.append(f"set rulebase security rules \"{name}\" service \"{svc}\"")
+        lines.append(f"set rulebase security rules \"{name}\" description \"{comment}\"")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def export_cisco_acl(firewall_rules):
+    """Export as Cisco ASA / IOS ACL commands."""
+    lines = ["! Cisco ACL commands", f"! Generated: {datetime.now(timezone.utc).isoformat()}", "!"]
+    acl_name = "ILLUMIO_POLICY"
+
+    for r in firewall_rules:
+        action = "permit" if r["action"] == "permit" else "deny"
+        port = r["port"]
+        proto = r["protocol"]
+
+        if proto not in ("tcp", "udp"):
+            proto = "ip"
+
+        for src in (r["source_ips"] or ["any"]):
+            for dst in (r["destination_ips"] or ["any"]):
+                src_str = "any" if src in ("0.0.0.0/0", "any") else f"host {src}" if "/" not in src else src
+                dst_str = "any" if dst in ("0.0.0.0/0", "any") else f"host {dst}" if "/" not in dst else dst
+
+                if port == "all" or port == -1 or proto == "ip":
+                    lines.append(f"access-list {acl_name} {action} {proto} {src_str} {dst_str}")
+                elif r.get("to_port"):
+                    lines.append(f"access-list {acl_name} {action} {proto} {src_str} {dst_str} range {port} {r['to_port']}")
+                else:
+                    lines.append(f"access-list {acl_name} {action} {proto} {src_str} {dst_str} eq {port}")
+
+    lines.append(f"! Total: {len([l for l in lines if l.startswith('access-list')])} ACL entries")
+    return "\n".join(lines)
+
+
+def export_iptables(firewall_rules):
+    """Export as iptables commands."""
+    lines = ["#!/bin/bash", f"# iptables rules generated: {datetime.now(timezone.utc).isoformat()}", ""]
+
+    for r in firewall_rules:
+        target = "ACCEPT" if r["action"] == "permit" else "DROP"
+        port = r["port"]
+        proto = r["protocol"]
+        comment = f"illumio-{r['id']:04d} {r['ruleset']}"
+
+        for src in (r["source_ips"] or ["0.0.0.0/0"]):
+            for dst in (r["destination_ips"] or ["0.0.0.0/0"]):
+                # Skip IPv6 for iptables (use ip6tables separately)
+                if ":" in src or ":" in dst:
+                    continue
+
+                parts = [f"iptables -A FORWARD -s {src} -d {dst}"]
+                if proto in ("tcp", "udp"):
+                    parts.append(f"-p {proto}")
+                    if port != "all" and port != -1:
+                        if r.get("to_port"):
+                            parts.append(f"--dport {port}:{r['to_port']}")
+                        else:
+                            parts.append(f"--dport {port}")
+                parts.append(f"-j {target}")
+                parts.append(f'-m comment --comment "{comment}"')
+                lines.append(" ".join(parts))
+
+    lines.append(f"\n# Total: {len([l for l in lines if l.startswith('iptables')])} rules")
+    return "\n".join(lines)
+
+
+def export_generic_acl(firewall_rules):
+    """Export as a simple generic ACL format — one line per rule."""
+    lines = [
+        f"# Generic ACL — {datetime.now(timezone.utc).isoformat()}",
+        "# Format: ACTION SOURCE DESTINATION PORT/PROTOCOL [SERVICE_NAME] # COMMENT",
+        "#",
+    ]
+
+    for r in firewall_rules:
+        action = r["action"].upper()
+        port = r["port"]
+        proto = r["protocol"]
+        svc = r.get("service_name", "")
+        comment = f"{r['ruleset']} | {r['source_label']} -> {r['destination_label']}"
+
+        if port == "all" or port == -1:
+            port_str = f"any/{proto}" if proto != "all" else "any"
+        elif r.get("to_port"):
+            port_str = f"{port}-{r['to_port']}/{proto}"
+        else:
+            port_str = f"{port}/{proto}"
+
+        for src in (r["source_ips"] or ["any"]):
+            for dst in (r["destination_ips"] or ["any"]):
+                svc_part = f"  {svc}" if svc else ""
+                lines.append(f"{action:<14} {src:<20} {dst:<20} {port_str:<16}{svc_part}  # {comment}")
+
+    lines.append(f"\n# Total: {len([l for l in lines if not l.startswith('#')])} entries")
+    return "\n".join(lines)
+
+
 def save_export(firewall_rules, summary):
     """Save JSON export to /data."""
     try:
@@ -887,6 +1021,7 @@ pre.json-block{background:#11111b;border:1px solid #313244;border-radius:0.5rem;
 <div class="flex gap-1 border-b border-gray-700 mb-6">
   <button class="tab-btn active" onclick="showTab(this,'firewall')">Firewall Rules</button>
   <button class="tab-btn" onclick="showTab(this,'resolved')">By Ruleset</button>
+  <button class="tab-btn" onclick="showTab(this,'formats')">Export Formats</button>
   <button class="tab-btn" onclick="showTab(this,'json')">JSON Export</button>
 </div>
 
@@ -922,6 +1057,53 @@ pre.json-block{background:#11111b;border:1px solid #313244;border-radius:0.5rem;
 <!-- Tab: By Ruleset -->
 <div id="tab-resolved" class="tab-content hidden">
   <div id="ruleset-list" class="space-y-4"></div>
+</div>
+
+<!-- Tab: Export Formats -->
+<div id="tab-formats" class="tab-content hidden">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer hover:border-gray-500 transition-colors" onclick="loadFormat('paloalto')">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-white font-semibold">Palo Alto PAN-OS</h3>
+        <span class="text-xs px-2 py-0.5 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30">CLI</span>
+      </div>
+      <p class="text-sm text-gray-300">PAN-OS <code class="text-xs bg-dark-700 text-blue-300 px-1 rounded">set rulebase security rules</code> commands. Paste into CLI or load via Panorama.</p>
+    </div>
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer hover:border-gray-500 transition-colors" onclick="loadFormat('cisco')">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-white font-semibold">Cisco ASA / IOS</h3>
+        <span class="text-xs px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30">ACL</span>
+      </div>
+      <p class="text-sm text-gray-300">Extended ACL <code class="text-xs bg-dark-700 text-blue-300 px-1 rounded">access-list</code> commands for ASA, FTD, or IOS routers.</p>
+    </div>
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer hover:border-gray-500 transition-colors" onclick="loadFormat('iptables')">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-white font-semibold">iptables</h3>
+        <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">Linux</span>
+      </div>
+      <p class="text-sm text-gray-300">Linux <code class="text-xs bg-dark-700 text-blue-300 px-1 rounded">iptables -A FORWARD</code> commands. IPv4 only, IPv6 addresses skipped.</p>
+    </div>
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer hover:border-gray-500 transition-colors" onclick="loadFormat('generic')">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-white font-semibold">Generic ACL</h3>
+        <span class="text-xs px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30">Universal</span>
+      </div>
+      <p class="text-sm text-gray-300">Simple <code class="text-xs bg-dark-700 text-blue-300 px-1 rounded">ACTION SRC DST PORT/PROTO</code> one-liner per rule. Works for any vendor.</p>
+    </div>
+  </div>
+  <div id="format-output-panel" class="bg-dark-800 rounded-xl border border-gray-700" style="display:none">
+    <div class="px-5 py-3 border-b border-gray-700 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span id="format-label" class="text-sm text-white font-semibold"></span>
+        <span id="format-count" class="text-xs text-gray-400"></span>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="copyFormatOutput()" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Copy</button>
+        <button onclick="downloadFormatOutput()" class="text-xs bg-dark-700 hover:bg-dark-900 text-gray-300 px-3 py-1.5 rounded border border-gray-600">Download</button>
+      </div>
+    </div>
+    <pre class="json-block" id="format-output" style="max-height:500px"></pre>
+  </div>
 </div>
 
 <!-- Tab: JSON -->
@@ -1139,6 +1321,45 @@ function renderJSON(){
   document.getElementById('json-output').textContent=JSON.stringify(exportData,null,2);
 }
 
+let currentFormat='';
+let currentFormatText='';
+const formatNames={paloalto:'Palo Alto PAN-OS',cisco:'Cisco ASA/IOS ACL',iptables:'iptables',generic:'Generic ACL'};
+const formatExts={paloalto:'pan-os.txt',cisco:'cisco-acl.txt',iptables:'iptables.sh',generic:'acl.txt'};
+
+async function loadFormat(fmt){
+  const panel=document.getElementById('format-output-panel');
+  const output=document.getElementById('format-output');
+  const label=document.getElementById('format-label');
+  const count=document.getElementById('format-count');
+  panel.style.display='block';
+  output.textContent='Loading...';
+  label.textContent=formatNames[fmt]||fmt;
+  currentFormat=fmt;
+  try{
+    const resp=await fetch(BASE+'/api/export/'+fmt);
+    currentFormatText=await resp.text();
+    output.textContent=currentFormatText;
+    const lineCount=currentFormatText.split('\n').filter(l=>l&&!l.startsWith('#')&&!l.startsWith('!')&&!l.startsWith('//')).length;
+    count.textContent=lineCount+' entries';
+  }catch(e){
+    output.textContent='Error loading format: '+e;
+  }
+}
+
+function copyFormatOutput(){
+  if(!currentFormatText)return;
+  clipCopy(currentFormatText,formatNames[currentFormat]+' copied to clipboard');
+}
+
+function downloadFormatOutput(){
+  if(!currentFormatText)return;
+  const blob=new Blob([currentFormatText],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='policy_resolved_'+(formatExts[currentFormat]||'export.txt');a.click();
+  URL.revokeObjectURL(url);
+}
+
 function copyJSON(){
   const text=document.getElementById('json-output').textContent;
   clipCopy(text,'JSON copied to clipboard');
@@ -1216,6 +1437,25 @@ class ResolverHandler(BaseHTTPRequestHandler):
         elif path == "/api/resolved":
             with state_lock:
                 self._send(200, json.dumps(report_state, default=str))
+        elif path.startswith("/api/export/"):
+            fmt = path.split("/api/export/")[1]
+            with state_lock:
+                fw_rules = report_state.get("firewall_rules", [])
+            if not fw_rules:
+                self._send(404, json.dumps({"error": "No resolved rules yet"}))
+                return
+            formatters = {
+                "paloalto": export_paloalto_cli,
+                "cisco": export_cisco_acl,
+                "iptables": export_iptables,
+                "generic": export_generic_acl,
+            }
+            fn = formatters.get(fmt)
+            if not fn:
+                self._send(400, json.dumps({"error": f"Unknown format: {fmt}. Use: {', '.join(formatters)}"}))
+                return
+            self._send(200, fn(fw_rules), "text/plain; charset=utf-8")
+
         elif path == "/api/config":
             self._send(200, json.dumps({
                 "poll_interval": POLL_INTERVAL,
