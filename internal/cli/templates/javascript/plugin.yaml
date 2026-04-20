@@ -1,0 +1,26 @@
+apiVersion: plugger/v1
+name: my-plugin
+version: 0.1.0
+image: my-plugin:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: MY_PLUGIN_SETTING
+    required: false
+    default: "default-value"
+  - name: POLL_INTERVAL
+    required: false
+    default: "60"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 128m
+  cpuLimit: "0.25"

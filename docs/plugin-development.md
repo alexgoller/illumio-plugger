@@ -202,6 +202,30 @@ labels = pce.labels.get()
 rulesets = pce.get("/sec_policy/active/rule_sets").json()
 ```
 
+### JavaScript Template
+
+Best for plugins where you want zero external dependencies — uses only Node.js built-in modules.
+
+```bash
+plugger create my-plugin -t javascript
+```
+
+Also accepts `-t js` as shorthand.
+
+Includes: Built-in PCE API client using `node:https`, HTTP server with `/healthz`, Tailwind CSS dashboard, daemon/cron/event modes. No npm packages — everything uses Node.js built-ins (`http`, `https`, `Buffer`, `URL`).
+
+**PCE API quick reference:**
+```javascript
+// GET workloads
+const { status, data } = await pce.get("/workloads", { max_results: 100 });
+
+// POST (create label)
+await pce.post("/labels", { key: "role", value: "web" });
+
+// PUT (update workload)
+await pce.put("/workloads/abc", { labels: [...] });
+```
+
 ## Dockerfile
 
 A typical plugin Dockerfile:

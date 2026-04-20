@@ -111,7 +111,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
     <div class="fade-in"><div class="text-3xl font-bold text-blue-400">13</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
-    <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">3</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
+    <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
     <div class="fade-in fade-d4"><div class="text-3xl font-bold text-pink-400">AI</div><div class="text-xs text-gray-400 mt-1">Assisted (optional)</div></div>
@@ -449,7 +449,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
                 </div>
                 <h3 class="text-white font-semibold">Plugin Development</h3>
             </div>
-            <p class="text-sm text-gray-300">Build your own plugins: manifests, metadata, templates (Go/Shell/Python), health checks, web UI proxying.</p>
+            <p class="text-sm text-gray-300">Build your own plugins: manifests, metadata, templates (Go/Shell/Python/JavaScript), health checks, web UI proxying.</p>
         </div>
         <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('operations')">
             <div class="flex items-center gap-3 mb-2">
@@ -530,6 +530,7 @@ Dashboard: http://localhost:8800</pre>
         <code class="bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-green-300">plugger create my-plugin -t go</code>
         <code class="bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-yellow-300">plugger create my-plugin -t shell</code>
         <code class="bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-blue-300">plugger create my-plugin -t python</code>
+        <code class="bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono text-orange-300">plugger create my-plugin -t javascript</code>
     </div>
     <p class="text-gray-300 text-sm">
         <a href="https://github.com/alexgoller/illumio-plugger/blob/main/docs/plugin-development.md" class="text-blue-400 hover:text-blue-300">Plugin Development Guide →</a>

@@ -20,6 +20,9 @@ var shellTemplate embed.FS
 //go:embed all:templates/python
 var pythonTemplate embed.FS
 
+//go:embed all:templates/javascript
+var jsTemplate embed.FS
+
 func newCreateCmd() *cobra.Command {
 	var templateType string
 
@@ -30,7 +33,8 @@ func newCreateCmd() *cobra.Command {
 a plugger plugin. Templates available:
   go     — compiled Go binary with HTTP server and health endpoint
   shell  — lightweight shell script with curl + jq
-  python — Python 3 with the Illumio SDK (illumio) pre-installed`,
+  python     — Python 3 with the Illumio SDK (illumio) pre-installed
+  javascript — Node.js with zero dependencies (built-in https module)`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -59,8 +63,11 @@ a plugger plugin. Templates available:
 			case "python":
 				templateFS = pythonTemplate
 				templateRoot = "templates/python"
+			case "javascript", "js":
+				templateFS = jsTemplate
+				templateRoot = "templates/javascript"
 			default:
-				return fmt.Errorf("unknown template type %q (use 'go', 'shell', or 'python')", templateType)
+				return fmt.Errorf("unknown template type %q (use 'go', 'shell', 'python', or 'javascript')", templateType)
 			}
 
 			// Walk and copy template files
@@ -119,6 +126,8 @@ a plugger plugin. Templates available:
 				fmt.Printf("  # Edit main.go with your plugin logic\n")
 			case "python":
 				fmt.Printf("  # Edit main.py with your plugin logic (illumio SDK pre-installed)\n")
+			case "javascript", "js":
+				fmt.Printf("  # Edit main.js with your plugin logic (zero dependencies, uses node:https)\n")
 			default:
 				fmt.Printf("  # Edit entrypoint.sh with your plugin logic\n")
 			}
@@ -129,7 +138,7 @@ a plugger plugin. Templates available:
 		},
 	}
 
-	cmd.Flags().StringVarP(&templateType, "template", "t", "go", "template type: go, shell, or python")
+	cmd.Flags().StringVarP(&templateType, "template", "t", "go", "template type: go, shell, python, or javascript")
 	return cmd
 }
 

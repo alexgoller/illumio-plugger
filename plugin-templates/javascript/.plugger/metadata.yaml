@@ -1,0 +1,32 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Plugin web UI
+    type: ui
+    path: /
+
+config:
+  - name: MY_PLUGIN_SETTING
+    description: Example setting for the plugin
+    required: false
+    type: string
+    default: "default-value"
+  - name: POLL_INTERVAL
+    description: Seconds between work cycles (daemon mode)
+    required: false
+    type: int
+    default: "60"
+
+volumes:
+  - path: /data
+    description: Persistent storage for plugin output
+    required: true
+
+info:
+  title: My Plugin
+  description: A JavaScript/Node.js plugin for the Illumio Plugger framework (zero dependencies)
+  author: Your Name
+  license: Apache-2.0
