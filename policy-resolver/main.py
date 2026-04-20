@@ -235,22 +235,94 @@ def resolve_scope_labels(scope_entry):
     """
     Resolve a ruleset scope entry to label constraints.
     scope_entry: list of {label: {href: ...}, exclusion: bool}
-    Returns list of {key, value} for matching.
+    Also handles label_group references in scopes.
+    Returns (include_constraints, exclude_constraints).
     """
-    constraints = []
+    includes = []
+    excludes = []
     for item in scope_entry:
-        lbl_href = ""
-        if isinstance(item, dict):
-            lbl = item.get("label", {})
-            if isinstance(lbl, dict):
-                lbl_href = lbl.get("href", "")
-            excl = item.get("exclusion", False)
-            if excl:
-                continue  # Skip exclusions for now
-        resolved = label_cache.get(lbl_href, {})
-        if resolved:
-            constraints.append({"key": resolved["key"], "value": resolved["value"]})
-    return constraints
+        if not isinstance(item, dict):
+            continue
+        excl = item.get("exclusion", False)
+
+        # Label reference
+        if "label" in item:
+            lbl = item["label"]
+            lbl_href = lbl.get("href", "") if isinstance(lbl, dict) else ""
+            resolved = label_cache.get(lbl_href, {})
+            if resolved:
+                entry = {"key": resolved["key"], "value": resolved["value"]}
+                if excl:
+                    excludes.append(entry)
+                else:
+                    includes.append(entry)
+
+        # Label group reference in scope
+        elif "label_group" in item:
+            lg = item["label_group"]
+            lg_href = lg.get("href", "") if isinstance(lg, dict) else ""
+            member_hrefs = expand_label_group(lg_href)
+            # Label groups in scope: workloads matching ANY member label
+            # We store these specially for OR matching later
+            for mh in member_hrefs:
+                resolved = label_cache.get(mh, {})
+                if resolved:
+                    entry = {"key": resolved["key"], "value": resolved["value"]}
+                    if excl:
+                        excludes.append(entry)
+                    else:
+                        includes.append(entry)
+
+    return includes, excludes
+
+
+def workloads_in_scope(scope_includes, scope_excludes):
+    """
+    Find workloads matching scope constraints.
+    Includes: all must match (AND across different keys, OR within same key from label groups).
+    Excludes: any match removes the workload.
+    """
+    if not scope_includes:
+        return list(workload_cache)
+
+    # Group includes by key — within a key, ANY value matches (OR from label groups)
+    # Across keys, ALL must match (AND)
+    by_key = defaultdict(set)
+    for c in scope_includes:
+        by_key[c["key"]].add(c["value"])
+
+    # Group excludes by key
+    excl_by_key = defaultdict(set)
+    for c in scope_excludes:
+        excl_by_key[c["key"]].add(c["value"])
+
+    matching = []
+    for wl in workload_cache:
+        wl_labels = get_workload_labels(wl)
+
+        # Check includes: for each key, workload's value must be in the allowed set
+        all_match = True
+        for key, allowed_values in by_key.items():
+            wl_value = wl_labels.get(key, "")
+            if wl_value not in allowed_values:
+                all_match = False
+                break
+        if not all_match:
+            continue
+
+        # Check excludes: if workload matches any exclusion, skip it
+        excluded = False
+        for key, excl_values in excl_by_key.items():
+            wl_value = wl_labels.get(key, "")
+            if wl_value in excl_values:
+                excluded = True
+                break
+        if excluded:
+            continue
+
+        matching.append(wl)
+
+    return matching
 
 
 # ---------------------------------------------------------------------------
@@ -283,22 +355,19 @@ def expand_label_group(lg_href, visited=None):
     return hrefs
 
 
-def resolve_actors(actors, scope_constraints=None):
+def resolve_actors(actors, scope_includes=None, scope_excludes=None):
     """
     Resolve a providers or consumers list into IP endpoints.
 
     Each actor can be:
-      - {"actors": "ams"} → all workloads (or scoped workloads)
-      - {"label": {"href": "..."}} → workloads matching this label
+      - {"actors": "ams"} → all workloads (scoped or global)
+      - {"label": {"href": "..."}} → workloads matching this label (AND'd with scope)
+      - {"label_group": {"href": "..."}} → expanded label group
       - {"ip_list": {"href": "..."}} → IP list entries
       - {"workload": {"href": "..."}} → specific workload
 
-    Returns: {
-        "ips": ["10.0.0.1", "10.0.0.2", ...],
-        "ip_lists": [{"name": ..., "ip_ranges": [...], "fqdns": [...]}],
-        "labels_desc": "app=web AND env=prod",
-        "type": "workloads" | "ip_list" | "all" | "mixed"
-    }
+    scope_includes/scope_excludes: from resolve_scope_labels().
+    None = no scope (global). [] = scoped but empty (global ruleset).
     """
     all_ips = []
     all_ip_lists = []
@@ -312,14 +381,14 @@ def resolve_actors(actors, scope_constraints=None):
         # All workloads
         if actor.get("actors") == "ams":
             actor_type = "all"
-            if scope_constraints:
-                # "All workloads" within scope → resolve scope labels to workloads
-                matching = workloads_matching_labels(scope_constraints)
+            if scope_includes:
+                # "All workloads" within scope
+                matching = workloads_in_scope(scope_includes, scope_excludes or [])
                 for wl in matching:
                     all_ips.extend(get_workload_ips(wl))
                 label_parts.append("All workloads in scope")
             else:
-                # Global "all workloads"
+                # Global "all workloads" (unscoped ruleset or unscoped consumers)
                 for wl in workload_cache:
                     all_ips.extend(get_workload_ips(wl))
                 label_parts.append("All workloads")
@@ -330,10 +399,10 @@ def resolve_actors(actors, scope_constraints=None):
             lbl_href = lbl.get("href", "") if isinstance(lbl, dict) else ""
             resolved = label_cache.get(lbl_href, {})
             if resolved:
-                # Combine this label with scope constraints
-                constraints = list(scope_constraints or [])
-                constraints.append({"key": resolved["key"], "value": resolved["value"]})
-                matching = workloads_matching_labels(constraints)
+                # AND the actor's label with scope includes
+                combined = list(scope_includes or [])
+                combined.append({"key": resolved["key"], "value": resolved["value"]})
+                matching = workloads_in_scope(combined, scope_excludes or [])
                 for wl in matching:
                     all_ips.extend(get_workload_ips(wl))
                 label_parts.append(f"{resolved['key']}={resolved['value']}")
@@ -361,14 +430,14 @@ def resolve_actors(actors, scope_constraints=None):
             lg_href = actor["label_group"].get("href", "") if isinstance(actor["label_group"], dict) else ""
             lg = label_group_cache.get(lg_href)
             if lg:
-                # Expand label group to all member labels, then find workloads matching any
+                # Expand label group to all member labels, find workloads matching any
                 member_labels = expand_label_group(lg_href)
                 for lbl_href in member_labels:
                     resolved_lbl = label_cache.get(lbl_href, {})
                     if resolved_lbl:
-                        constraints = list(scope_constraints or [])
-                        constraints.append({"key": resolved_lbl["key"], "value": resolved_lbl["value"]})
-                        matching = workloads_matching_labels(constraints)
+                        combined = list(scope_includes or [])
+                        combined.append({"key": resolved_lbl["key"], "value": resolved_lbl["value"]})
+                        matching = workloads_in_scope(combined, scope_excludes or [])
                         for wl in matching:
                             all_ips.extend(get_workload_ips(wl))
                 label_parts.append(f"Label Group: {lg['name']}")
@@ -487,17 +556,21 @@ def format_service(svc):
 # Policy resolution
 # ---------------------------------------------------------------------------
 
-def _resolve_rule(rule, rs_name, rs_href, scope_desc, scope_constraints, rule_type):
+def _resolve_rule(rule, rs_name, rs_href, scope_desc, scope_includes, scope_excludes, rule_type):
     """Resolve a single rule (allow or deny) into a resolved entry."""
     providers = rule.get("providers", [])
     consumers = rule.get("consumers", [])
     ingress_services = rule.get("ingress_services", [])
     unscoped_consumers = rule.get("unscoped_consumers", False)
 
-    provider_result = resolve_actors(providers, scope_constraints)
+    # Providers always resolve within scope
+    provider_result = resolve_actors(providers, scope_includes, scope_excludes)
 
-    consumer_scope = None if unscoped_consumers else scope_constraints
-    consumer_result = resolve_actors(consumers, consumer_scope)
+    # Consumers resolve within scope for intra-scope, globally for extra-scope
+    if unscoped_consumers:
+        consumer_result = resolve_actors(consumers, None, None)
+    else:
+        consumer_result = resolve_actors(consumers, scope_includes, scope_excludes)
 
     services = resolve_services(ingress_services)
     services_desc = [format_service(s) for s in services]
@@ -560,12 +633,23 @@ def resolve_policy(rulesets):
         rs_href = rs.get("href", "")
         scopes = rs.get("scopes", [[]])
 
-        scope_constraints = []
+        # Resolve all scope entries (multiple scopes = OR between them)
+        # For simplicity, merge all scope entries into one combined include/exclude set
+        all_scope_includes = []
+        all_scope_excludes = []
         scope_desc_parts = []
-        if scopes and scopes[0]:
-            scope_constraints = resolve_scope_labels(scopes[0])
-            for c in scope_constraints:
-                scope_desc_parts.append(f"{c['key']}={c['value']}")
+
+        for scope_entry in scopes:
+            if not scope_entry:
+                continue
+            includes, excludes = resolve_scope_labels(scope_entry)
+            all_scope_includes.extend(includes)
+            all_scope_excludes.extend(excludes)
+            for c in includes:
+                desc = f"{c['key']}={c['value']}"
+                if desc not in scope_desc_parts:
+                    scope_desc_parts.append(desc)
+
         scope_desc = " AND ".join(scope_desc_parts) if scope_desc_parts else "(global)"
 
         allow_rules = rs.get("rules", [])
@@ -581,7 +665,8 @@ def resolve_policy(rulesets):
             if not rule.get("enabled", True):
                 continue
             total_rules += 1
-            resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc, scope_constraints, "allow")
+            resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc,
+                                     all_scope_includes, all_scope_excludes, "allow")
             resolved_rules.append(resolved)
 
         # Process deny rules (override and regular)
@@ -589,7 +674,8 @@ def resolve_policy(rulesets):
             if not rule.get("enabled", True):
                 continue
             total_deny_rules += 1
-            resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc, scope_constraints, "deny")
+            resolved = _resolve_rule(rule, rs_name, rs_href, scope_desc,
+                                     all_scope_includes, all_scope_excludes, "deny")
             resolved_rules.append(resolved)
 
     # Sort: override-deny first, then allow, then deny
