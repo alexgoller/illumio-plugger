@@ -305,7 +305,7 @@ def run_sync(pce):
 
 
 def poller_loop(pce):
-    interval = int(os.environ.get("SYNC_INTERVAL", "300"))
+    interval = int(os.environ.get("SYNC_INTERVAL", "3600"))
     while True:
         try:
             run_sync(pce)

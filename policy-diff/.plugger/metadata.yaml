@@ -13,7 +13,7 @@ config:
     description: Seconds between policy comparisons
     required: false
     type: int
-    default: "120"
+    default: "3600"
   - name: EVENT_LOOKBACK_HOURS
     description: Hours of audit events to fetch
     required: false

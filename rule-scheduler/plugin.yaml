@@ -9,7 +9,7 @@ schedule:
 env:
   - name: CHECK_INTERVAL
     required: false
-    default: "60"
+    default: "120"
   - name: TZ
     required: false
     default: "UTC"

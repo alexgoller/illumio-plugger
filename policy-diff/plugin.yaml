@@ -9,7 +9,7 @@ schedule:
 env:
   - name: POLL_INTERVAL
     required: false
-    default: "300"
+    default: "3600"
   - name: PCE_TLS_SKIP_VERIFY
     required: false
     default: "true"

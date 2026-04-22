@@ -26,7 +26,7 @@ config:
     description: Seconds between syncs
     required: false
     type: int
-    default: "300"
+    default: "3600"
   - name: TAG_PREFIX
     description: Prefix for PAN-OS tags (default illumio)
     required: false

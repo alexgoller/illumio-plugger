@@ -263,7 +263,7 @@ def check_stale(pce):
 
 
 def poller_loop(pce):
-    interval = int(os.environ.get("POLL_INTERVAL", "600"))
+    interval = int(os.environ.get("POLL_INTERVAL", "3600"))
     while True:
         try:
             check_stale(pce)

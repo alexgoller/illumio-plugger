@@ -134,7 +134,7 @@ def check_pce_health():
 
 def poller_loop():
     """Background thread that polls PCE health periodically."""
-    interval = int(os.environ.get("POLL_INTERVAL", "30"))
+    interval = int(os.environ.get("POLL_INTERVAL", "120"))
     while True:
         try:
             check_pce_health()

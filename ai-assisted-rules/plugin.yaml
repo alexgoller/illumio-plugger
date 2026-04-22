@@ -9,7 +9,7 @@ schedule:
 env:
   - name: POLL_INTERVAL
     required: false
-    default: "300"
+    default: "3600"
   - name: LOOKBACK_HOURS
     required: false
     default: "24"

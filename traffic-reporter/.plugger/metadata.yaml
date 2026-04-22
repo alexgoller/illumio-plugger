@@ -13,7 +13,7 @@ config:
     description: Seconds between traffic polls
     required: false
     type: int
-    default: "300"
+    default: "3600"
   - name: LOOKBACK_HOURS
     description: Hours of traffic history to query
     required: false

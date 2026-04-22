@@ -13,7 +13,7 @@ config:
     description: Seconds between policy resolution runs
     required: false
     type: int
-    default: "600"
+    default: "3600"
   - name: RESOLVE_DRAFT
     description: "Also resolve draft policy (true/false)"
     required: false

@@ -1291,7 +1291,7 @@ def run_check(pce):
 
 
 def poller_loop(pce):
-    interval = int(os.environ.get("POLL_INTERVAL", "300"))
+    interval = int(os.environ.get("POLL_INTERVAL", "3600"))
     while True:
         run_check(pce)
         time.sleep(interval)

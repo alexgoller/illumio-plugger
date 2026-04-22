@@ -31,7 +31,7 @@ log = logging.getLogger("policy-resolver")
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "600"))
+POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "3600"))
 RESOLVE_DRAFT = os.environ.get("RESOLVE_DRAFT", "false").lower() == "true"
 HTTP_PORT = int(os.environ.get("HTTP_PORT", "8080"))
 

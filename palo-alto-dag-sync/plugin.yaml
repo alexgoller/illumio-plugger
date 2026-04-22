@@ -19,7 +19,7 @@ env:
     default: "true"
   - name: SYNC_INTERVAL
     required: false
-    default: "300"
+    default: "3600"
   - name: TAG_PREFIX
     required: false
     default: "illumio"

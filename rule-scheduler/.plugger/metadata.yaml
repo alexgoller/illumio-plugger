@@ -13,7 +13,7 @@ config:
     description: Seconds between schedule checks
     required: false
     type: int
-    default: "60"
+    default: "120"
   - name: TZ
     description: Timezone for schedule evaluation (e.g. America/New_York, Europe/Berlin)
     required: false

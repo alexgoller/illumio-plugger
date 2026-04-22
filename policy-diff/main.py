@@ -315,7 +315,7 @@ def compare_policy(pce):
 
 
 def poller_loop(pce):
-    interval = int(os.environ.get("POLL_INTERVAL", "120"))
+    interval = int(os.environ.get("POLL_INTERVAL", "3600"))
     while True:
         try:
             compare_policy(pce)

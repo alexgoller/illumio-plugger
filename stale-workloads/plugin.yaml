@@ -9,7 +9,7 @@ schedule:
 env:
   - name: POLL_INTERVAL
     required: false
-    default: "600"
+    default: "3600"
   - name: STALE_DAYS
     required: false
     default: "7"

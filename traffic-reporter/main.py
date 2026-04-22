@@ -215,7 +215,7 @@ def poll_traffic(pce):
 
 
 def poller_loop(pce):
-    interval = int(os.environ.get("POLL_INTERVAL", "300"))
+    interval = int(os.environ.get("POLL_INTERVAL", "3600"))
     while True:
         poll_traffic(pce)
         time.sleep(interval)

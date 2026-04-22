@@ -346,7 +346,7 @@ def run_check(pce):
 
 
 def poller_loop(pce):
-    interval = int(os.environ.get("CHECK_INTERVAL", "60"))
+    interval = int(os.environ.get("CHECK_INTERVAL", "120"))
     while True:
         try:
             run_check(pce)
