@@ -117,8 +117,9 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 				eventRegistry.Register(name, es)
 			}
 			if len(eventSchedulers) > 0 {
-				fmt.Printf("Event webhook: POST http://%s/api/events/trigger (token: %s)\n",
-					addr, eventRegistry.Token())
+				tok := eventRegistry.Token()
+				fmt.Printf("Event webhook: POST http://%s/api/events/trigger (token: %s...)\n",
+					addr, tok[:8])
 			}
 
 			// Start dashboard

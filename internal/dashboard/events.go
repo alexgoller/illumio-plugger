@@ -28,7 +28,7 @@ func NewEventRegistry(token string) *EventRegistry {
 		b := make([]byte, 16)
 		rand.Read(b)
 		token = hex.EncodeToString(b)
-		slog.Info("generated webhook token (use this in pce-events config)", "token", token)
+		slog.Info("generated webhook token", "token_prefix", token[:8]+"...")
 	}
 	return &EventRegistry{
 		schedulers: make(map[string]*scheduler.EventScheduler),
@@ -151,7 +151,6 @@ func (h *Handler) handleEventStats(w http.ResponseWriter, r *http.Request) {
 
 	h.json(w, http.StatusOK, map[string]any{
 		"plugins": stats,
-		"token":   h.events.token,
 	})
 }
 
