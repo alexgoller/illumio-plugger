@@ -1,5 +1,7 @@
 # Palo Alto DAG Sync
 
+> **Status: Untested** — This plugin has not been validated against a live Palo Alto Networks firewall or Panorama instance. The API integration follows PAN-OS XML API documentation. Please report issues.
+
 Syncs Illumio PCE workload labels to Palo Alto Networks Dynamic Address
 Groups (DAGs). Polls PCE workloads, maps labels to PAN-OS tags using a
 configurable format, and registers IP-to-tag mappings via the PAN-OS

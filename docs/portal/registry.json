@@ -91,7 +91,7 @@
       "name": "palo-alto-dag-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-palo-alto-dag-sync:latest",
-      "description": "Sync Illumio workload labels to Palo Alto Dynamic Address Groups via PAN-OS XML API",
+      "description": "Sync Illumio workload labels to Palo Alto Dynamic Address Groups via PAN-OS XML API (untested)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",

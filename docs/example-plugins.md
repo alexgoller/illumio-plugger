@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with ten plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
+Plugger ships with thirteen plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -325,3 +325,112 @@ plugger install rule-scheduler
 - Immediate reconciliation on startup
 - Enable/disable rules and rulesets on the PCE
 - Dashboard showing active schedules, next transitions, and history
+
+---
+
+## AI Security Report
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK + Anthropic/OpenAI) | **UI:** Yes (Chart.js)
+
+Comprehensive AI-powered security posture analysis for Illumio PCE. Collects workloads, traffic, policy, and process data, runs 10 security analysis categories, scores each 0-100, and presents an interactive dashboard with charts, heatmaps, compliance mapping, and PDF export.
+
+**Install:**
+```bash
+plugger install ai-security-report
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SCAN_INTERVAL` | `86400` | Seconds between scans (minimum 3600) |
+| `LOOKBACK_DAYS` | `7` | Days of traffic history to analyze |
+| `MAX_TRAFFIC_RESULTS` | `100000` | Maximum traffic flows to query |
+| `PROCESS_SAMPLE_SIZE` | `50` | Workloads to sample for process data |
+| `REPORT_RETENTION` | `30` | Historical reports to keep |
+| `AI_PROVIDER` | | `anthropic`, `openai`, or `ollama` (optional) |
+| `AI_API_KEY` | | API key for the LLM provider (optional) |
+| `AI_MODEL` | | Model override (optional, auto-detected) |
+| `AI_BASE_URL` | | Custom endpoint for Ollama |
+
+**Security analysis categories:** Enforcement Coverage, OS Lifecycle Risk, Label Hygiene, Environmental Separation, Risky Services, Policy Analysis, Traffic Anomalies, Lateral Movement Surface, Agent Health, Compliance Mapping
+
+**Features:**
+- Overall security score (0-100) with letter grade (A-F)
+- AI-generated executive summary and per-section narratives (optional)
+- AI-prioritized remediation roadmap
+- Environment separation heatmap
+- Compliance mapping to NIST CSF, CIS Controls, PCI-DSS
+- Historical report storage with trend comparison
+- PDF export via browser print
+- Works without AI — all data analysis and scoring is built-in
+
+---
+
+## Remedy CMDB Sync
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+> **Status: Untested** — This plugin has not been validated against a live BMC Helix/Remedy instance.
+
+Sync BMC Helix/Remedy CMDB configuration items to Illumio labels. Queries CIs via the CMDB REST API, maps CI attributes (business service, environment, location, category) to Illumio labels using configurable rules, and optionally applies labels to PCE workloads.
+
+**Install:**
+```bash
+plugger install remedy-cmdb-sync
+```
+
+**Modes:**
+- **analytics** (default) — Read-only. Connects to CMDB, discovers CIs, shows what labels would be derived and which PCE workloads match. No changes are made.
+- **sync** — Applies derived labels to matching PCE workloads (matched by hostname/IP). Only use after verifying analytics results.
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REMEDY_HOST` | _(required)_ | BMC Helix/Remedy server hostname |
+| `REMEDY_PORT` | `8443` | Remedy API port |
+| `REMEDY_USER` | _(required)_ | Remedy API username |
+| `REMEDY_PASSWORD` | _(required)_ | Remedy API password |
+| `REMEDY_CI_CLASS` | `BMC_ComputerSystem` | CMDB CI class to query |
+| `MODE` | `analytics` | `analytics` or `sync` |
+| `SCAN_INTERVAL` | `3600` | Seconds between scans |
+| `MAPPING_RULES` | _(built-in)_ | Custom mapping rules as JSON array |
+
+**Features:**
+- Queries BMC_ComputerSystem CIs via CMDB REST API with JWT authentication
+- Paginated CI fetching for large CMDBs
+- Configurable attribute-to-label mapping with regex and priority
+- Analytics mode for safe, read-only feasibility analysis
+- Sync mode to apply labels to PCE workloads matched by hostname/IP
+- Dashboard with CI browser, match detail, coverage charts
+
+---
+
+## Policy Resolver
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+Resolve Illumio label-based policy into concrete IP-level firewall rules. Takes abstract rulesets with label scopes and resolves every consumer/provider to actual workload IPs, producing a flat list of source IP / destination IP / port / protocol entries ready for firewall implementation.
+
+**Install:**
+```bash
+plugger install policy-resolver
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POLL_INTERVAL` | `600` | Seconds between resolution runs |
+| `RESOLVE_DRAFT` | `false` | Resolve draft policy instead of active |
+
+**Features:**
+- Resolves label-based policy to IP-level firewall rules
+- Handles all actor types: labels, IP lists, "all workloads", specific workloads
+- Service reference resolution (named services to port/proto)
+- Allow, Deny, Override Deny rules with proper ordering
+- JSON export with download button
+- TSV copy for spreadsheet paste
+- Searchable firewall rule table with expandable rows
+- Resolves active or draft policy (configurable)

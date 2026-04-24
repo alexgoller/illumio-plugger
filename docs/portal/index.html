@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 11 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 13 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -362,7 +362,10 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3 cursor-pointer" data-plugin="palo-alto-dag-sync" data-categories="integration" onclick="showDocs('palo-alto-dag-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Palo Alto DAG Sync</h3>
-                <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">untested</span>
+                </div>
             </div>
             <p class="text-sm text-gray-300 mb-3">Sync Illumio workload labels to Palo Alto Dynamic Address Groups via PAN-OS XML API. Configurable tag format, dry-run mode.</p>
             <div class="flex items-center justify-between">
@@ -1459,6 +1462,8 @@ plugger install rule-scheduler
     mode: "daemon",
     tags: ["integration"],
     readme: `# Palo Alto DAG Sync
+
+> **Status: Untested** — This plugin has not been validated against a live Palo Alto Networks firewall or Panorama instance.
 
 Syncs Illumio PCE workload labels to Palo Alto Networks Dynamic Address Groups (DAGs). Polls PCE workloads, maps labels to PAN-OS tags using a configurable format, and registers IP-to-tag mappings via the PAN-OS XML API.
 

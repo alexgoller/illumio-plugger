@@ -1,0 +1,157 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/alexgoller/plugger-
+
+jobs:
+  # ------------------------------------------------------------------
+  # Build and push Docker images for all 13 plugins
+  # ------------------------------------------------------------------
+  docker:
+    name: "Docker: ${{ matrix.plugin }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin:
+          - pce-health-monitor
+          - traffic-reporter
+          - policy-diff
+          - pce-posture-report
+          - pce-events
+          - ai-assisted-rules
+          - stale-workloads
+          - palo-alto-dag-sync
+          - ad-label-sync
+          - rule-scheduler
+          - ai-security-report
+          - remedy-cmdb-sync
+          - policy-resolver
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}${{ matrix.plugin }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.plugin }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.plugin }}
+          cache-to: type=gha,scope=${{ matrix.plugin }},mode=max
+
+  # ------------------------------------------------------------------
+  # Build the Go CLI binary for multiple OS/arch combinations
+  # ------------------------------------------------------------------
+  cli:
+    name: "CLI: ${{ matrix.goos }}/${{ matrix.goarch }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BINARY="plugger-${{ matrix.goos }}-${{ matrix.goarch }}"
+          go build \
+            -ldflags "-X github.com/illumio/plugger/internal/cli.Version=${VERSION}" \
+            -o "bin/${BINARY}" \
+            ./cmd/plugger
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugger-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/plugger-*
+
+  # ------------------------------------------------------------------
+  # Create a GitHub Release with CLI binaries (only on tags)
+  # ------------------------------------------------------------------
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [docker, cli]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all CLI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: plugger-*
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*
