@@ -42,6 +42,7 @@ SCAN_INTERVAL = int(os.environ.get("SCAN_INTERVAL", "3600"))
 MATCH_BY = os.environ.get("MATCH_BY", "ip").lower()
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "50"))
 CREATE_EA_DEFS = os.environ.get("CREATE_EA_DEFS", "true").lower() == "true"
+SYNC_IPLISTS = os.environ.get("SYNC_IPLISTS", "true").lower() == "true"
 HTTP_PORT = int(os.environ.get("HTTP_PORT", "8080"))
 
 # Label mapping: Illumio key -> Infoblox EA name
@@ -73,6 +74,7 @@ state = {
     "infoblox_status": "not configured",
     "matches": [], "unmatched_pce": [], "unmatched_ib": [],
     "summary": {}, "sync_results": [],
+    "iplist_defs": [], "iplist_results": [],
 }
 
 label_cache = {}
@@ -198,6 +200,29 @@ class InfobloxClient:
         resp.raise_for_status()
         records = resp.json()
         return records[0] if records else None
+
+    def get_networks(self, max_results=500):
+        """Fetch all networks with extensible attributes, paginated."""
+        all_nets = []
+        params = {
+            "_return_fields+": "extattrs,comment",
+            "_paging": "1",
+            "_return_as_object": "1",
+            "_max_results": str(max_results),
+        }
+        resp = self.session.get(self._url("network"), params=params, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        all_nets.extend(data.get("result", []))
+
+        while "next_page_id" in data:
+            resp = self.session.get(self._url("network"),
+                                    params={"_page_id": data["next_page_id"]}, timeout=60)
+            resp.raise_for_status()
+            data = resp.json()
+            all_nets.extend(data.get("result", []))
+
+        return all_nets
 
 
 # ---------------------------------------------------------------------------
@@ -430,6 +455,101 @@ def sync_infoblox_to_illumio(pce, matches):
 
 
 # ---------------------------------------------------------------------------
+# IP List sync: Infoblox networks → Illumio IP Lists
+# ---------------------------------------------------------------------------
+
+IP_LIST_PREFIX = "infoblox-"
+
+
+def build_iplist_definitions(networks):
+    """Build IP List definitions from Infoblox network objects."""
+    ip_lists = []
+    for net in networks:
+        network_cidr = net.get("network", "")
+        if not network_cidr:
+            continue
+
+        comment = net.get("comment", "")
+        extattrs = net.get("extattrs", {})
+
+        # Build a descriptive name from EAs or comment
+        name_parts = []
+        for ea_name in ("Site", "Location", "Department", "Environment", "Function"):
+            val = extattrs.get(ea_name, {}).get("value", "")
+            if val:
+                name_parts.append(val)
+
+        if name_parts:
+            display_name = "-".join(name_parts)
+        elif comment:
+            display_name = comment.replace(" ", "-").lower()[:50]
+        else:
+            display_name = network_cidr.replace("/", "_").replace(".", "-")
+
+        ip_list_name = f"{IP_LIST_PREFIX}{display_name}"
+
+        # Extract all EA values for description
+        ea_desc = ", ".join(f"{k}={v.get('value', '')}" for k, v in extattrs.items() if v.get("value"))
+
+        ip_lists.append({
+            "name": ip_list_name,
+            "network": network_cidr,
+            "comment": comment,
+            "extattrs": {k: v.get("value", "") for k, v in extattrs.items()},
+            "ea_description": ea_desc,
+            "description": f"Synced from Infoblox | {network_cidr} | {ea_desc}" if ea_desc else f"Synced from Infoblox | {network_cidr}",
+        })
+
+    return ip_lists
+
+
+def sync_iplists_to_illumio(pce, iplist_defs):
+    """Create/update Illumio IP Lists from Infoblox network definitions."""
+    results = []
+
+    # Get existing IP lists
+    try:
+        resp = pce.get("/sec_policy/draft/ip_lists")
+        existing = resp.json() if resp.status_code == 200 else []
+    except Exception:
+        existing = []
+
+    existing_by_name = {ipl.get("name", ""): ipl for ipl in existing}
+
+    for ipdef in iplist_defs:
+        target_name = ipdef["name"]
+        ip_ranges = [{"from_ip": ipdef["network"], "exclusion": False}]
+        body = {
+            "name": target_name,
+            "description": ipdef["description"],
+            "ip_ranges": ip_ranges,
+        }
+
+        try:
+            if target_name in existing_by_name:
+                # Update existing
+                href = existing_by_name[target_name]["href"]
+                resp = pce.put(href, json={"description": ipdef["description"], "ip_ranges": ip_ranges})
+                if resp.status_code in (200, 204):
+                    results.append({"name": target_name, "network": ipdef["network"], "status": "updated"})
+                else:
+                    results.append({"name": target_name, "network": ipdef["network"], "status": "error",
+                                    "error": f"PUT {resp.status_code}"})
+            else:
+                # Create new
+                resp = pce.post("/sec_policy/draft/ip_lists", json=body)
+                if resp.status_code in (200, 201):
+                    results.append({"name": target_name, "network": ipdef["network"], "status": "created"})
+                else:
+                    results.append({"name": target_name, "network": ipdef["network"], "status": "error",
+                                    "error": f"POST {resp.status_code}"})
+        except Exception as e:
+            results.append({"name": target_name, "network": ipdef["network"], "status": "error", "error": str(e)})
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Scan orchestrator
 # ---------------------------------------------------------------------------
 
@@ -440,6 +560,7 @@ def run_scan(pce, ib_client):
     log.info("Fetched %d PCE workloads", len(workloads))
 
     host_records = []
+    networks = []
     ib_status = "not configured"
 
     if ib_client and INFOBLOX_HOST:
@@ -451,6 +572,9 @@ def run_scan(pce, ib_client):
                     ib_client.ensure_ea_definitions(ea_names)
                 host_records = ib_client.get_host_records()
                 log.info("Fetched %d Infoblox host records", len(host_records))
+                if SYNC_IPLISTS:
+                    networks = ib_client.get_networks()
+                    log.info("Fetched %d Infoblox networks", len(networks))
                 ib_client.logout()
         except Exception as e:
             log.error("Infoblox error: %s", e)
@@ -488,14 +612,29 @@ def run_scan(pce, ib_client):
         synced = sum(1 for r in sync_results if r.get("status") == "synced")
         ib_status = f"synced ({synced} labeled)"
 
+    # IP List sync: Infoblox networks → Illumio IP Lists
+    iplist_defs = build_iplist_definitions(networks) if networks else []
+    iplist_results = []
+    if SYNC_IPLISTS and MODE in ("infoblox-to-illumio", "analytics") and iplist_defs:
+        if MODE == "infoblox-to-illumio":
+            iplist_results = sync_iplists_to_illumio(pce, iplist_defs)
+            created = sum(1 for r in iplist_results if r["status"] == "created")
+            updated = sum(1 for r in iplist_results if r["status"] == "updated")
+            log.info("IP List sync: %d created, %d updated", created, updated)
+        else:
+            log.info("IP List preview: %d networks → %d IP Lists (analytics mode)", len(networks), len(iplist_defs))
+
     summary = {
         "total_workloads": len(workloads),
         "total_host_records": len(host_records),
+        "total_networks": len(networks),
         "matched": len(matches),
         "unmatched_pce": len(unmatched_pce),
         "unmatched_ib": len(unmatched_ib),
         "changes_needed": changes_needed,
         "match_pct": round(len(matches) / max(len(workloads), 1) * 100, 1),
+        "iplist_count": len(iplist_defs),
+        "iplist_synced": sum(1 for r in iplist_results if r.get("status") in ("created", "updated")),
     }
 
     with state_lock:
@@ -504,6 +643,8 @@ def run_scan(pce, ib_client):
         state["unmatched_ib"] = unmatched_ib[:200]
         state["summary"] = summary
         state["sync_results"] = sync_results
+        state["iplist_defs"] = iplist_defs[:200]
+        state["iplist_results"] = iplist_results
         state["infoblox_status"] = ib_status
         state["last_scan"] = datetime.now(timezone.utc).isoformat()
         state["scan_count"] += 1
@@ -612,6 +753,7 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,sans-serif}
 <div class="flex gap-1 border-b border-gray-700 mb-6">
   <button class="tab-btn active" onclick="showTab(this,'matches')">Matches</button>
   <button class="tab-btn" onclick="showTab(this,'unmatched')">Unmatched</button>
+  <button class="tab-btn" onclick="showTab(this,'iplists')">IP Lists</button>
   <button class="tab-btn" onclick="showTab(this,'sync')">Sync Log</button>
 </div>
 <div id="tab-matches" class="tab-content">
@@ -630,6 +772,13 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,sans-serif}
       <div class="max-h-[400px] overflow-y-auto"><table class="w-full text-sm"><thead><tr class="text-xs text-gray-400 uppercase"><th class="px-3 py-2 text-left">Name</th><th class="px-3 py-2 text-left">IPs</th></tr></thead><tbody id="unmatched-ib"></tbody></table></div>
     </div>
   </div>
+</div>
+<div id="tab-iplists" class="tab-content hidden">
+  <div class="bg-dark-800 rounded-xl border border-gray-700"><div class="max-h-[500px] overflow-y-auto">
+    <table class="w-full text-sm"><thead class="sticky top-0 bg-dark-800"><tr class="text-xs text-gray-400 uppercase text-left">
+      <th class="px-4 py-3">IP List Name</th><th class="px-4 py-3">Network</th><th class="px-4 py-3">Infoblox EAs</th><th class="px-4 py-3" id="ipl-sync-col" style="display:none">Status</th>
+    </tr></thead><tbody id="iplist-table"></tbody></table>
+  </div></div>
 </div>
 <div id="tab-sync" class="tab-content hidden">
   <div class="bg-dark-800 rounded-xl border border-gray-700"><div class="max-h-[400px] overflow-y-auto">
@@ -676,6 +825,17 @@ function update(d){
   // Unmatched
   document.getElementById('unmatched-pce').innerHTML=(d.unmatched_pce||[]).map(u=>`<tr class="border-b border-gray-700/50"><td class="px-3 py-2 text-gray-300">${u.hostname}</td><td class="px-3 py-2">${u.ips.slice(0,2).map(ip=>`<span class="ip-tag">${ip}</span>`).join('')}</td></tr>`).join('');
   document.getElementById('unmatched-ib').innerHTML=(d.unmatched_ib||[]).map(u=>`<tr class="border-b border-gray-700/50"><td class="px-3 py-2 text-gray-300">${u.name}</td><td class="px-3 py-2">${u.ips.slice(0,2).map(ip=>`<span class="ip-tag">${ip}</span>`).join('')}</td></tr>`).join('');
+
+  // IP Lists
+  const ipls=d.iplist_defs||[];
+  const iplResults={};for(const r of(d.iplist_results||[]))iplResults[r.name]=r;
+  if(d.mode!=='analytics'&&d.iplist_results?.length)document.getElementById('ipl-sync-col').style.display='';
+  document.getElementById('iplist-table').innerHTML=ipls.length?ipls.map(ipl=>{
+    const eas=Object.entries(ipl.extattrs||{}).filter(([,v])=>v).map(([k,v])=>`<span class="ea-tag">${k}:${v}</span>`).join('')||'<span class="text-gray-600">—</span>';
+    const sr2=iplResults[ipl.name];
+    const syncCell=sr2?`<td class="px-4 py-2.5"><span class="text-xs ${sr2.status==='error'?'bg-red-500/15 text-red-300':'bg-green-500/15 text-green-300'} rounded px-2 py-0.5">${sr2.status}</span></td>`:'';
+    return`<tr class="border-b border-gray-700/50 hover:bg-dark-900"><td class="px-4 py-2.5 text-gray-300">${ipl.name}</td><td class="px-4 py-2.5"><span class="ip-tag">${ipl.network}</span></td><td class="px-4 py-2.5">${eas}</td>${syncCell}</tr>`;
+  }).join(''):'<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No Infoblox networks found</td></tr>';
 
   // Sync log
   const sr=d.sync_results||[];
