@@ -158,6 +158,18 @@
       "tags": ["policy", "firewall", "resolver", "export", "ip-rules", "migration"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-resolver"
+    },
+    {
+      "name": "ztna-sync",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-ztna-sync:latest",
+      "description": "Sync Illumio workloads to ZTNA applications — Zscaler ZPA, Netskope NPA, Cloudflare Access, Cisco Secure Access (untested)",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["ztna", "zscaler", "netskope", "cloudflare", "cisco", "zero-trust", "integration", "sync"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ztna-sync"
     }
   ]
 }

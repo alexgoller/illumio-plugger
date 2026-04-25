@@ -1,0 +1,132 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: ZTNA Sync dashboard
+    type: ui
+    path: /
+
+config:
+  - name: ZTNA_PROVIDER
+    description: "ZTNA provider: zscaler, netskope, cloudflare, or cisco"
+    required: true
+    type: string
+    default: ""
+  - name: MODE
+    description: "analytics = read-only preview, sync = push to ZTNA platform"
+    required: false
+    type: string
+    default: "analytics"
+  - name: SCAN_INTERVAL
+    description: Seconds between sync cycles
+    required: false
+    type: int
+    default: "3600"
+  - name: GROUP_BY
+    description: "Label keys to group applications by (comma-separated, e.g. app,env)"
+    required: false
+    type: string
+    default: "app,env"
+  - name: PORT_SOURCE
+    description: "Source for port discovery: traffic or policy"
+    required: false
+    type: string
+    default: "traffic"
+  - name: LOOKBACK_HOURS
+    description: Hours of traffic to analyze for port discovery
+    required: false
+    type: int
+    default: "168"
+  - name: NAMING_PATTERN
+    description: "Application naming pattern (e.g. {app}-{env}-{role})"
+    required: false
+    type: string
+    default: "{app}-{env}"
+  - name: LABEL_FILTER
+    description: "Optional JSON label filter, e.g. {\"env\": [\"prod\", \"staging\"]}"
+    required: false
+    type: string
+    default: ""
+  # Zscaler ZPA
+  - name: ZPA_CLIENT_ID
+    description: Zscaler client ID (OneAPI or legacy)
+    required: false
+    type: string
+    default: ""
+  - name: ZPA_CLIENT_SECRET
+    description: Zscaler client secret
+    required: false
+    type: secret
+  - name: ZPA_CUSTOMER_ID
+    description: Zscaler ZPA customer ID
+    required: false
+    type: string
+    default: ""
+  - name: ZPA_VANITY_DOMAIN
+    description: Zscaler vanity domain (for OneAPI auth)
+    required: false
+    type: string
+    default: ""
+  - name: ZPA_CLOUD
+    description: "Zscaler cloud: PRODUCTION, BETA, GOV, GOVUS, ZPATWO"
+    required: false
+    type: string
+    default: "PRODUCTION"
+  - name: ZPA_CONNECTOR_GROUP_ID
+    description: Pre-existing App Connector Group ID
+    required: false
+    type: string
+    default: ""
+  # Netskope
+  - name: NETSKOPE_TENANT
+    description: Netskope tenant name (e.g. myorg from myorg.goskope.com)
+    required: false
+    type: string
+    default: ""
+  - name: NETSKOPE_API_TOKEN
+    description: Netskope REST API v2 token
+    required: false
+    type: secret
+  - name: NETSKOPE_PUBLISHER_ID
+    description: Netskope Publisher ID for routing
+    required: false
+    type: string
+    default: ""
+  # Cloudflare
+  - name: CF_API_TOKEN
+    description: Cloudflare API token with Access Apps Write permission
+    required: false
+    type: secret
+  - name: CF_ACCOUNT_ID
+    description: Cloudflare account ID
+    required: false
+    type: string
+    default: ""
+  # Cisco
+  - name: CISCO_API_KEY
+    description: Cisco Secure Access API key
+    required: false
+    type: string
+    default: ""
+  - name: CISCO_API_SECRET
+    description: Cisco Secure Access API secret
+    required: false
+    type: secret
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent data
+    required: false
+
+info:
+  title: ZTNA Sync
+  description: "Sync Illumio workloads to ZTNA application definitions — Zscaler ZPA, Netskope, Cloudflare Access, Cisco Secure Access"
+  author: Illumio
+  license: Apache-2.0
