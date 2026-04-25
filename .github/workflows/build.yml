@@ -15,7 +15,7 @@ env:
 
 jobs:
   # ------------------------------------------------------------------
-  # Build and push Docker images for all 13 plugins
+  # Build and push Docker images for all 15 plugins
   # ------------------------------------------------------------------
   docker:
     name: "Docker: ${{ matrix.plugin }}"
@@ -37,6 +37,8 @@ jobs:
           - ai-security-report
           - remedy-cmdb-sync
           - policy-resolver
+          - ztna-sync
+          - infoblox-ipam-sync
 
     steps:
       - name: Checkout

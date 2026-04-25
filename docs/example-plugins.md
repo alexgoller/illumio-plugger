@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with thirteen plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
+Plugger ships with fifteen plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -434,3 +434,94 @@ plugger install policy-resolver
 - TSV copy for spreadsheet paste
 - Searchable firewall rule table with expandable rows
 - Resolves active or draft policy (configurable)
+
+---
+
+## ZTNA Sync
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+> **Status: Untested** — This plugin has not been validated against live ZTNA platforms.
+
+Sync Illumio workloads to ZTNA application definitions. Groups workloads by label, discovers listening ports from traffic data, and creates application segments on your ZTNA platform.
+
+Supports: **Zscaler ZPA** · **Netskope NPA** · **Cloudflare Access** · **Cisco Secure Access**
+
+**Install:**
+```bash
+plugger install ztna-sync
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZTNA_PROVIDER` | _(required)_ | `zscaler`, `netskope`, `cloudflare`, or `cisco` |
+| `MODE` | `analytics` | `analytics` = preview only, `sync` = create/update apps on ZTNA platform |
+| `SCAN_INTERVAL` | `3600` | Seconds between sync cycles |
+| `GROUP_BY` | `app,env` | Comma-separated label keys to group applications by |
+| `NAMING_PATTERN` | `{app}-{env}` | Template for ZTNA application names |
+| `PORT_SOURCE` | `traffic` | Where to discover ports: `traffic` or `policy` |
+| `LOOKBACK_HOURS` | `168` | Hours of traffic history to analyze for port discovery |
+| `LABEL_FILTER` | _(empty)_ | JSON object to filter which workloads to include |
+
+**How it works:**
+1. Collects workloads from the PCE with labels and interface IPs
+2. Groups by label — workloads sharing the same `app|env` become one ZTNA application
+3. Discovers ports from PCE traffic flows
+4. Builds application definitions — name, server IPs, TCP/UDP ports per application
+5. Analytics mode (default) shows what would be created; sync mode pushes to the ZTNA platform
+
+**Features:**
+- Multi-provider: Zscaler ZPA, Netskope NPA, Cloudflare Access, Cisco Secure Access
+- Analytics mode for safe preview before any sync
+- Configurable label grouping and naming patterns
+- Port discovery from PCE traffic data or policy rules
+- Label-based filtering to sync only specific apps/environments
+- Idempotent sync — creates new, updates existing (matched by `illumio-` prefix)
+- Dashboard with full application table, IP/port visibility, sync status
+- JSON export for manual review, scripting, or audit
+
+---
+
+## Infoblox IPAM Sync
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+> **Status: Untested** — This plugin has not been validated against a live Infoblox instance.
+
+Bi-directional sync between Illumio PCE and Infoblox IPAM/DDI. Maps Illumio labels to Infoblox extensible attributes and vice versa.
+
+**Install:**
+```bash
+plugger install infoblox-ipam-sync
+```
+
+**Modes:**
+- **analytics** (default) — Read-only. Shows matches and what would sync — changes nothing.
+- **illumio-to-infoblox** — Push Illumio labels as extensible attributes on host records.
+- **infoblox-to-illumio** — Pull Infoblox EAs and apply as Illumio workload labels.
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INFOBLOX_HOST` | _(required)_ | Grid Master hostname or IP |
+| `INFOBLOX_USER` | _(required)_ | WAPI username |
+| `INFOBLOX_PASSWORD` | _(required)_ | WAPI password (secret) |
+| `INFOBLOX_WAPI_VERSION` | `v2.12` | WAPI version |
+| `MODE` | `analytics` | `analytics`, `illumio-to-infoblox`, or `infoblox-to-illumio` |
+| `SCAN_INTERVAL` | `3600` | Seconds between sync cycles |
+| `MATCH_BY` | `ip` | Match strategy: `ip`, `hostname`, or `both` |
+| `BATCH_SIZE` | `50` | Operations per WAPI batch request |
+
+**Features:**
+- Bi-directional sync (Illumio to Infoblox or Infoblox to Illumio)
+- Analytics mode for safe preview before any changes
+- Match workloads to host records by IP, hostname, or both
+- Configurable label-to-EA mapping
+- Partial EA updates via `extattrs+` (doesn't overwrite unrelated EAs)
+- Batch WAPI operations for performance
+- Auto-create EA definitions on Infoblox
+- Metadata tracking (IllumioManaged, IllumioSyncTime)
+- Dashboard with match visualization and change preview

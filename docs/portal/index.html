@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 13 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 15 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -110,7 +110,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">13</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">15</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -212,7 +212,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (13)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (15)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -402,6 +402,38 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Sync BMC Helix/Remedy CMDB CIs to Illumio labels. Maps business service, environment, location to labels. Analytics + sync modes.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install remedy-cmdb-sync</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- ZTNA Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="ztna-sync" data-categories="integration" onclick="showDocs('ztna-sync')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">ZTNA Sync</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">untested</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Sync Illumio workloads to ZTNA application definitions. Supports Zscaler ZPA, Netskope NPA, Cloudflare Access, Cisco Secure Access. Analytics + sync modes.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install ztna-sync</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Infoblox IPAM Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d6 cursor-pointer" data-plugin="infoblox-ipam-sync" data-categories="integration" onclick="showDocs('infoblox-ipam-sync')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Infoblox IPAM Sync</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">untested</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Bi-directional sync between Illumio PCE and Infoblox IPAM/DDI. Maps labels to extensible attributes and vice versa. Analytics + sync modes.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install infoblox-ipam-sync</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
         </div>
@@ -1602,13 +1634,137 @@ Requires LDAP access to an Active Directory domain controller with a service acc
 - Sync mode to apply labels to PCE workloads matched by hostname
 - OU tree visualization and label coverage statistics
 - Dashboard with per-computer match detail and suggested labels`
+},
+"ztna-sync": {
+    title: "ZTNA Sync",
+    mode: "daemon",
+    tags: ["integration"],
+    readme: `# ZTNA Sync
+
+> **Status: Untested** — This plugin has not been validated against live ZTNA platforms. Always start in analytics mode to preview before enabling sync.
+
+Sync Illumio workloads to ZTNA application definitions. Groups workloads by label, discovers listening ports from traffic data, and creates application segments on your ZTNA platform.
+
+Supports: **Zscaler ZPA**, **Netskope NPA**, **Cloudflare Access**, **Cisco Secure Access**
+
+## Install
+
+\`\`\`bash
+plugger install ztna-sync
+\`\`\`
+
+## How It Works
+
+1. **Collects workloads** from the PCE with labels and interface IPs
+2. **Groups by label** — workloads sharing the same \`app|env\` become one ZTNA application
+3. **Discovers ports** — queries PCE traffic flows to find listening ports
+4. **Builds application definitions** — name, server IPs, TCP/UDP ports per application
+5. **Analytics mode** (default) — shows what would be created, changes nothing
+6. **Sync mode** — creates or updates application segments on the ZTNA platform
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`ZTNA_PROVIDER\` | _(required)_ | \`zscaler\`, \`netskope\`, \`cloudflare\`, or \`cisco\` |
+| \`MODE\` | \`analytics\` | \`analytics\` = preview only, \`sync\` = push to ZTNA platform |
+| \`SCAN_INTERVAL\` | \`3600\` | Seconds between sync cycles |
+| \`GROUP_BY\` | \`app,env\` | Label keys to group applications by |
+| \`NAMING_PATTERN\` | \`{app}-{env}\` | Template for ZTNA application names |
+| \`PORT_SOURCE\` | \`traffic\` | Port discovery source: \`traffic\` or \`policy\` |
+| \`LOOKBACK_HOURS\` | \`168\` | Hours of traffic history for port discovery |
+| \`LABEL_FILTER\` | _(empty)_ | JSON filter for workload selection |
+
+## Provider Configuration
+
+**Zscaler ZPA:** \`ZPA_CLIENT_ID\`, \`ZPA_CLIENT_SECRET\`, \`ZPA_CUSTOMER_ID\`, \`ZPA_CONNECTOR_GROUP_ID\`
+
+**Netskope NPA:** \`NETSKOPE_TENANT\`, \`NETSKOPE_API_TOKEN\`, \`NETSKOPE_PUBLISHER_ID\`
+
+**Cloudflare Access:** \`CF_API_TOKEN\`, \`CF_ACCOUNT_ID\`
+
+**Cisco Secure Access:** \`CISCO_API_KEY\`, \`CISCO_API_SECRET\`
+
+## Features
+
+- Multi-provider support (Zscaler, Netskope, Cloudflare, Cisco)
+- Analytics mode for safe preview before any sync
+- Configurable label grouping and naming patterns
+- Port discovery from PCE traffic data or policy rules
+- Label-based filtering to sync only specific apps/environments
+- Idempotent sync — creates new, updates existing (matched by \`illumio-\` prefix)
+- Dashboard with application table, IP/port visibility, sync status
+- JSON export for review or scripting`
+},
+"infoblox-ipam-sync": {
+    title: "Infoblox IPAM Sync",
+    mode: "daemon",
+    tags: ["integration"],
+    readme: `# Infoblox IPAM Sync
+
+> **Status: Untested** — This plugin has not been validated against a live Infoblox instance. Use analytics mode first.
+
+Bi-directional sync between Illumio PCE and Infoblox IPAM/DDI. Maps Illumio labels to Infoblox extensible attributes and vice versa.
+
+## Install
+
+\`\`\`bash
+plugger install infoblox-ipam-sync
+\`\`\`
+
+## Modes
+
+| Mode | Direction | What It Does |
+|------|-----------|-------------|
+| \`analytics\` (default) | Read-only | Shows matches and what would sync — changes nothing |
+| \`illumio-to-infoblox\` | PCE to Infoblox | Push Illumio labels as extensible attributes on host records |
+| \`infoblox-to-illumio\` | Infoblox to PCE | Pull Infoblox EAs and apply as Illumio workload labels |
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`INFOBLOX_HOST\` | _(required)_ | Grid Master hostname or IP |
+| \`INFOBLOX_USER\` | _(required)_ | WAPI username |
+| \`INFOBLOX_PASSWORD\` | _(required)_ | WAPI password (secret) |
+| \`INFOBLOX_WAPI_VERSION\` | \`v2.12\` | WAPI version |
+| \`INFOBLOX_SSL_VERIFY\` | \`false\` | Verify TLS certificate |
+| \`MODE\` | \`analytics\` | \`analytics\`, \`illumio-to-infoblox\`, or \`infoblox-to-illumio\` |
+| \`SCAN_INTERVAL\` | \`3600\` | Seconds between sync cycles |
+| \`MATCH_BY\` | \`ip\` | Match strategy: \`ip\`, \`hostname\`, or \`both\` |
+| \`BATCH_SIZE\` | \`50\` | Operations per WAPI batch request |
+| \`CREATE_EA_DEFS\` | \`true\` | Auto-create EA definitions on Infoblox |
+
+## Label Mapping (Illumio to Infoblox)
+
+| Illumio Label | Infoblox EA |
+|--------------|-------------|
+| \`app\` | \`IllumioApp\` |
+| \`env\` | \`IllumioEnv\` |
+| \`role\` | \`IllumioRole\` |
+| \`loc\` | \`IllumioLoc\` |
+
+Override with \`LABEL_MAPPING\` JSON. Reverse mapping available via \`REVERSE_MAPPING\`.
+
+## Features
+
+- Bi-directional sync (Illumio to Infoblox or Infoblox to Illumio)
+- Analytics mode for safe preview before any changes
+- Match workloads to host records by IP, hostname, or both
+- Configurable label-to-EA mapping
+- Partial EA updates via \`extattrs+\` (preserves unrelated EAs)
+- Batch WAPI operations for performance
+- Auto-create EA definitions on Infoblox
+- Metadata tracking (\`IllumioManaged\`, \`IllumioSyncTime\`)
+- Session cookie reuse for efficient API calls
+- Dashboard with match visualization and change preview`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync'];
+    const order = ['ai-security-report','ai-assisted-rules','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];
