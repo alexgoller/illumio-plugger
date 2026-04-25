@@ -170,6 +170,18 @@
       "tags": ["ztna", "zscaler", "netskope", "cloudflare", "cisco", "zero-trust", "integration", "sync"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ztna-sync"
+    },
+    {
+      "name": "infoblox-ipam-sync",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-infoblox-ipam-sync:latest",
+      "description": "Bi-directional sync between Illumio labels and Infoblox extensible attributes — enrich IPAM with segmentation context (untested)",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["infoblox", "ipam", "ddi", "labels", "sync", "integration", "extensible-attributes"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/infoblox-ipam-sync"
     }
   ]
 }

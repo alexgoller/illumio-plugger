@@ -1,0 +1,86 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Infoblox IPAM sync dashboard
+    type: ui
+    path: /
+
+config:
+  - name: INFOBLOX_HOST
+    description: Infoblox Grid Master hostname or IP
+    required: true
+    type: string
+    default: ""
+  - name: INFOBLOX_USER
+    description: WAPI username
+    required: true
+    type: string
+    default: ""
+  - name: INFOBLOX_PASSWORD
+    description: WAPI password
+    required: true
+    type: secret
+  - name: INFOBLOX_WAPI_VERSION
+    description: "WAPI version (e.g. v2.12)"
+    required: false
+    type: string
+    default: "v2.12"
+  - name: INFOBLOX_SSL_VERIFY
+    description: Verify TLS certificate for Infoblox
+    required: false
+    type: bool
+    default: "false"
+  - name: MODE
+    description: "analytics, illumio-to-infoblox, or infoblox-to-illumio"
+    required: false
+    type: string
+    default: "analytics"
+  - name: SCAN_INTERVAL
+    description: Seconds between sync cycles
+    required: false
+    type: int
+    default: "3600"
+  - name: MATCH_BY
+    description: "Match strategy: ip, hostname, or both"
+    required: false
+    type: string
+    default: "ip"
+  - name: LABEL_MAPPING
+    description: "JSON: Illumio label key → Infoblox EA name"
+    required: false
+    type: string
+    default: ""
+  - name: REVERSE_MAPPING
+    description: "JSON: Infoblox EA name → Illumio label key"
+    required: false
+    type: string
+    default: ""
+  - name: BATCH_SIZE
+    description: Operations per WAPI batch request
+    required: false
+    type: int
+    default: "50"
+  - name: CREATE_EA_DEFS
+    description: Auto-create EA definitions on Infoblox
+    required: false
+    type: bool
+    default: "true"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent data
+    required: false
+
+info:
+  title: Infoblox IPAM Sync
+  description: "Bi-directional sync between Illumio labels and Infoblox extensible attributes — enrich IPAM with segmentation context or label workloads from IPAM truth"
+  author: Illumio
+  license: Apache-2.0
