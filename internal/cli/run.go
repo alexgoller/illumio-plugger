@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/illumio/plugger/internal/config"
 	"github.com/illumio/plugger/internal/dashboard"
 	"github.com/illumio/plugger/internal/health"
 	"github.com/illumio/plugger/internal/lifecycle"
@@ -128,10 +130,26 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 				handler.SetEventRegistry(eventRegistry)
 				mux := handler.Routes()
 				go func() {
-					slog.Info("dashboard starting", "addr", addr)
-					fmt.Printf("Dashboard: http://%s\n", addr)
-					if err := http.ListenAndServe(addr, mux); err != nil {
-						slog.Error("dashboard error", "error", err)
+					certFile, keyFile := resolveTLSCerts(app.Config)
+					if certFile != "" && keyFile != "" {
+						slog.Info("dashboard starting with TLS", "addr", addr)
+						fmt.Printf("Dashboard: https://%s\n", addr)
+						server := &http.Server{
+							Addr:    addr,
+							Handler: mux,
+							TLSConfig: &tls.Config{
+								MinVersion: tls.VersionTLS12,
+							},
+						}
+						if err := server.ListenAndServeTLS(certFile, keyFile); err != nil {
+							slog.Error("dashboard TLS error", "error", err)
+						}
+					} else {
+						slog.Warn("dashboard starting WITHOUT TLS (no certs found)", "addr", addr)
+						fmt.Printf("Dashboard: http://%s (no TLS)\n", addr)
+						if err := http.ListenAndServe(addr, mux); err != nil {
+							slog.Error("dashboard error", "error", err)
+						}
 					}
 				}()
 			}
@@ -262,4 +280,52 @@ func setupHealthChecker(ctx context.Context, deps *lifecycle.Deps, p *plugin.Plu
 	})
 	checker.Start(ctx)
 	return checker
+}
+
+// resolveTLSCerts determines which TLS cert/key to use.
+// Priority: 1) BYO cert from config  2) auto-generated self-signed  3) generate on the fly
+// TLS is ON by default. Set plugger.tls.enabled: false to explicitly disable.
+func resolveTLSCerts(cfg *config.Config) (certFile, keyFile string) {
+	tlsCfg := cfg.Plugger.TLS
+
+	// Only skip TLS if explicitly set to false in config
+	// (Missing/zero value = enabled, since we want TLS by default)
+	if tlsCfg.CertFile == "" && tlsCfg.KeyFile == "" && !tlsCfg.Enabled {
+		// Check if there's no tls section at all (legacy config) — still enable TLS
+		// Only disable if enabled is explicitly false AND no certs configured
+		// We detect "explicitly set to false" vs "not set" by checking if certs exist
+		dataDir := cfg.Plugger.DataDir
+		if !config.TLSCertsExist(dataDir) {
+			// No certs exist and TLS not enabled in config — skip
+			return "", ""
+		}
+		// Certs exist from a previous init — use them even without config entry
+	}
+
+	// BYO certificate from config (highest priority)
+	if tlsCfg.CertFile != "" && tlsCfg.KeyFile != "" {
+		if _, err := os.Stat(tlsCfg.CertFile); err == nil {
+			if _, err := os.Stat(tlsCfg.KeyFile); err == nil {
+				slog.Info("using BYO TLS certificate", "cert", tlsCfg.CertFile)
+				return tlsCfg.CertFile, tlsCfg.KeyFile
+			}
+		}
+		slog.Warn("BYO TLS cert/key not found, falling back to self-signed", "cert", tlsCfg.CertFile, "key", tlsCfg.KeyFile)
+	}
+
+	// Auto-generated self-signed
+	dataDir := cfg.Plugger.DataDir
+	if config.TLSCertsExist(dataDir) {
+		slog.Info("using self-signed TLS certificate", "cert", config.TLSCertPath(dataDir))
+		return config.TLSCertPath(dataDir), config.TLSKeyPath(dataDir)
+	}
+
+	// Generate on the fly if none exist
+	certPath, keyPath, err := config.GenerateSelfSignedCert(dataDir)
+	if err != nil {
+		slog.Warn("failed to generate self-signed cert, running without TLS", "error", err)
+		return "", ""
+	}
+	slog.Info("generated self-signed TLS certificate", "cert", certPath)
+	return certPath, keyPath
 }

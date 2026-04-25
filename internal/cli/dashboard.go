@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -19,9 +20,22 @@ func newDashboardCmd() *cobra.Command {
 			handler := dashboard.NewHandler(app.Store, app.Runtime, app.Config, app.Logger)
 			mux := handler.Routes()
 
-			slog.Info("starting dashboard", "addr", addr)
-			fmt.Printf("Plugger Dashboard: http://%s\n", addr)
+			certFile, keyFile := resolveTLSCerts(app.Config)
+			if certFile != "" && keyFile != "" {
+				slog.Info("starting dashboard with TLS", "addr", addr)
+				fmt.Printf("Plugger Dashboard: https://%s\n", addr)
+				server := &http.Server{
+					Addr:    addr,
+					Handler: mux,
+					TLSConfig: &tls.Config{
+						MinVersion: tls.VersionTLS12,
+					},
+				}
+				return server.ListenAndServeTLS(certFile, keyFile)
+			}
 
+			slog.Warn("starting dashboard WITHOUT TLS", "addr", addr)
+			fmt.Printf("Plugger Dashboard: http://%s (no TLS)\n", addr)
 			return http.ListenAndServe(addr, mux)
 		},
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/illumio/plugger/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -124,7 +125,21 @@ func newInitCmd() *cobra.Command {
 				}
 			}
 
-			// 8. Summary
+			// 8. Generate self-signed TLS certificate
+			if !config.TLSCertsExist(dataDir) {
+				certPath, _, tlsErr := config.GenerateSelfSignedCert(dataDir)
+				if tlsErr != nil {
+					fmt.Printf("\n⚠ Failed to generate TLS certificate: %v\n", tlsErr)
+				} else {
+					fmt.Printf("\n✓ TLS certificate generated: %s\n", certPath)
+					fmt.Println("  Dashboard will serve HTTPS by default (self-signed)")
+					fmt.Println("  To use your own cert: set plugger.tls.certFile and keyFile in config.yaml")
+				}
+			} else {
+				fmt.Printf("\n✓ TLS certificate exists: %s\n", config.TLSCertPath(dataDir))
+			}
+
+			// 9. Summary
 			fmt.Println()
 			fmt.Println("Next steps:")
 			if pceHost == "" {
@@ -310,6 +325,10 @@ plugger:
   eventPollInterval: 30
 %s
   # webhookToken: ""
+  tls:
+    enabled: true
+    # certFile: ""    # Leave empty to use auto-generated self-signed cert
+    # keyFile: ""     # Set both for BYO certificate from your CA
 
 logging:
   level: info

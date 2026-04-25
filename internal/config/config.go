@@ -24,12 +24,19 @@ type PCEConfig struct {
 }
 
 type PluggerConfig struct {
-	DataDir           string `yaml:"dataDir"           mapstructure:"dataDir"`
-	Network           string `yaml:"network"           mapstructure:"network"`
-	EventPollInterval int    `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
-	Registry          string `yaml:"registry"          mapstructure:"registry"`
-	WebhookToken      string `yaml:"webhookToken"      mapstructure:"webhookToken"`
-	DockerSocket      string `yaml:"dockerSocket"      mapstructure:"dockerSocket"`
+	DataDir           string    `yaml:"dataDir"           mapstructure:"dataDir"`
+	Network           string    `yaml:"network"           mapstructure:"network"`
+	EventPollInterval int       `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
+	Registry          string    `yaml:"registry"          mapstructure:"registry"`
+	WebhookToken      string    `yaml:"webhookToken"      mapstructure:"webhookToken"`
+	DockerSocket      string    `yaml:"dockerSocket"      mapstructure:"dockerSocket"`
+	TLS               TLSConfig `yaml:"tls"               mapstructure:"tls"`
+}
+
+type TLSConfig struct {
+	Enabled  bool   `yaml:"enabled"  mapstructure:"enabled"`
+	CertFile string `yaml:"certFile" mapstructure:"certFile"`
+	KeyFile  string `yaml:"keyFile"  mapstructure:"keyFile"`
 }
 
 type LoggingConfig struct {
@@ -116,6 +123,10 @@ plugger:
   eventPollInterval: 30
   # dockerSocket: unix:///var/run/docker.sock
   # webhookToken: ""
+  tls:
+    enabled: true
+    # certFile: ""    # Leave empty for auto-generated self-signed cert
+    # keyFile: ""     # Set both for BYO certificate
 
 logging:
   level: info
