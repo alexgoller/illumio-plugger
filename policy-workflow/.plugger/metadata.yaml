@@ -1,0 +1,88 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Policy workflow approval dashboard
+    type: ui
+    path: /
+
+config:
+  - name: SCAN_INTERVAL
+    description: Seconds between draft change detection scans
+    required: false
+    type: int
+    default: "300"
+  - name: APPROVAL_ADAPTER
+    description: "Approval system adapter: webhook, slack, or servicenow"
+    required: false
+    type: string
+    default: "webhook"
+  - name: APPROVAL_TIMEOUT
+    description: Seconds before pending approvals expire (default 7 days)
+    required: false
+    type: int
+    default: "604800"
+  - name: AUTO_PROVISION
+    description: Automatically provision to active policy after approval
+    required: false
+    type: bool
+    default: "false"
+  - name: AUTO_APPROVE_LOW
+    description: Auto-approve low and info risk changes without approval
+    required: false
+    type: bool
+    default: "true"
+  - name: REQUIRE_ALL_APPROVERS
+    description: Require all approvers to approve (vs any-one-of)
+    required: false
+    type: bool
+    default: "true"
+  - name: SLACK_BOT_TOKEN
+    description: Slack bot OAuth token (for Slack adapter)
+    required: false
+    type: string
+    secret: true
+  - name: SLACK_SIGNING_SECRET
+    description: Slack signing secret for verifying interactive callbacks
+    required: false
+    type: string
+    secret: true
+  - name: SNOW_INSTANCE
+    description: ServiceNow instance name (e.g., myorg.service-now.com)
+    required: false
+    type: string
+  - name: SNOW_USER
+    description: ServiceNow API username
+    required: false
+    type: string
+  - name: SNOW_PASSWORD
+    description: ServiceNow API password
+    required: false
+    type: string
+    secret: true
+  - name: WEBHOOK_URL
+    description: Generic webhook URL for approval notifications
+    required: false
+    type: string
+  - name: WEBHOOK_CALLBACK_TOKEN
+    description: Token for authenticating webhook callbacks
+    required: false
+    type: string
+    secret: true
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "false"
+
+volumes:
+  - path: /data
+    description: Approval configuration and persistent state
+
+info:
+  title: Policy Workflow
+  description: Approval workflow for Illumio PCE policy changes with risk classification, multi-team routing, and provisioning gates
+  author: Illumio
+  license: Apache-2.0

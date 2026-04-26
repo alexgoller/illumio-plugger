@@ -1,0 +1,65 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Policy GitOps dashboard — export status, drift report, provisioning
+    type: ui
+    path: /
+
+config:
+  - name: GIT_REPO_URL
+    description: Git repository URL (HTTPS or SSH)
+    required: true
+    type: string
+  - name: GIT_TOKEN
+    description: Personal access token for HTTPS auth (or SSH key path)
+    required: true
+    type: secret
+  - name: GIT_BRANCH
+    description: Target branch for sync operations
+    required: false
+    type: string
+    default: "main"
+  - name: GIT_PROVIDER
+    description: "Git provider: github, gitlab, or bitbucket"
+    required: false
+    type: string
+    default: "github"
+  - name: SYNC_MODE
+    description: "Sync direction: export (PCE->Git), provision (Git->PCE), bidirectional"
+    required: false
+    type: string
+    default: "export"
+  - name: SCAN_INTERVAL
+    description: Seconds between sync cycles
+    required: false
+    type: int
+    default: "3600"
+  - name: AUTO_PROVISION
+    description: Automatically provision draft to active after Git->PCE sync
+    required: false
+    type: bool
+    default: "false"
+  - name: DRIFT_ALERT
+    description: Enable drift detection alerts
+    required: false
+    type: bool
+    default: "true"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent storage for Git clone and state
+    required: true
+
+info:
+  title: Policy GitOps
+  description: Export Illumio policy to Git as YAML, enforce change review via PRs, detect drift, and provision approved changes back to the PCE
+  author: Illumio
+  license: Apache-2.0

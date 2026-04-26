@@ -1,0 +1,55 @@
+apiVersion: plugger/v1
+name: policy-workflow
+version: 0.1.0
+image: policy-workflow:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: SCAN_INTERVAL
+    required: false
+    default: "300"
+  - name: APPROVAL_ADAPTER
+    required: false
+    default: "webhook"
+  - name: APPROVAL_TIMEOUT
+    required: false
+    default: "604800"
+  - name: AUTO_PROVISION
+    required: false
+    default: "false"
+  - name: AUTO_APPROVE_LOW
+    required: false
+    default: "true"
+  - name: REQUIRE_ALL_APPROVERS
+    required: false
+    default: "true"
+  - name: SLACK_BOT_TOKEN
+    required: false
+  - name: SLACK_SIGNING_SECRET
+    required: false
+  - name: SNOW_INSTANCE
+    required: false
+  - name: SNOW_USER
+    required: false
+  - name: SNOW_PASSWORD
+    required: false
+  - name: WEBHOOK_URL
+    required: false
+  - name: WEBHOOK_CALLBACK_TOKEN
+    required: false
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "false"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

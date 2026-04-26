@@ -1,0 +1,59 @@
+# Policy Workflow — Approval Configuration
+#
+# Mount this file at /data/approval-config.yaml inside the container.
+# Defines who approves what, based on policy scope and risk level.
+
+approvers:
+  # Per-scope approvers: map label expressions to team ownership
+  scopes:
+    "app=payments AND env=prod":
+      team: payments-team
+      slack_channel: "#payments-approvals"
+      email: payments-team@example.com
+      servicenow_group: "Payments Engineering"
+
+    "app=shareddb AND env=prod":
+      team: database-team
+      slack_channel: "#dba-approvals"
+      email: dba-team@example.com
+      servicenow_group: "Database Engineering"
+
+    "app=frontend AND env=prod":
+      team: frontend-team
+      slack_channel: "#frontend-approvals"
+      email: frontend-team@example.com
+
+    "env=dev":
+      team: dev-team
+      slack_channel: "#dev-changes"
+      email: dev-team@example.com
+
+  # Default approver for scopes not matched above
+  default:
+    team: security-team
+    slack_channel: "#security-approvals"
+    email: security@example.com
+    servicenow_group: "Information Security"
+
+  # Cross-scope rules always require security review (in addition to scope owners)
+  cross_scope:
+    team: security-team
+    slack_channel: "#security-approvals"
+    email: security@example.com
+
+  # Critical-risk changes always escalate to security leadership
+  critical:
+    team: security-leadership
+    slack_channel: "#security-urgent"
+    email: ciso@example.com
+
+# Risk levels that require explicit approval (others are auto-approved)
+require_approval:
+  - critical
+  - high
+  - medium
+  # 'low' and 'info' are auto-approved by default
+
+# Automatically provision to active policy after all approvals are received?
+# Set to true for full automation, false to require manual "Provision" click.
+auto_provision: false
