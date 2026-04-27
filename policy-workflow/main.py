@@ -459,6 +459,26 @@ class ChangeDetector:
     def __init__(self, pce):
         self.pce = pce
         self._last_fingerprints = {}  # For deduplication
+        self._label_cache = {}  # href -> {"key": ..., "value": ...}
+        self._load_label_cache()
+
+    def _load_label_cache(self):
+        """Load all labels from PCE into an href -> {key, value} cache."""
+        try:
+            resp = self.pce.get("/labels")
+            if resp.status_code == 200:
+                labels = resp.json()
+                if isinstance(labels, list):
+                    for lbl in labels:
+                        href = lbl.get("href", "")
+                        if href:
+                            self._label_cache[href] = {
+                                "key": lbl.get("key", ""),
+                                "value": lbl.get("value", ""),
+                            }
+                    log.info("Loaded %d labels into cache", len(self._label_cache))
+        except Exception:
+            log.exception("Failed to load label cache")
 
     def detect_draft_changes(self) -> list:
         """Poll PCE and return a list of detected changes.
@@ -470,16 +490,6 @@ class ChangeDetector:
             ip_list, old_value, new_value, scope, href, summary.
         """
         changes = []
-
-        # TODO: Implement draft vs active comparison
-        # Steps:
-        #   1. Fetch draft rulesets: GET /sec_policy/draft/rule_sets
-        #   2. Fetch active rulesets: GET /sec_policy/active/rule_sets
-        #   3. Compare and identify additions, modifications, deletions
-        #   4. For each ruleset, compare individual rules
-        #   5. Fetch and compare IP lists, services, label groups
-        #   6. Fetch and compare enforcement boundaries
-        #   7. Deduplicate by change fingerprint
 
         try:
             ruleset_changes = self._compare_rulesets()
@@ -510,43 +520,282 @@ class ChangeDetector:
 
         Returns list of change dicts for new/modified/deleted rulesets and rules.
         """
-        # TODO: Implement
-        # draft_rulesets = self.pce.rulesets.get(policy_version="draft")
-        # active_rulesets = self.pce.rulesets.get(policy_version="active")
-        # ... compare by href, content hash ...
-        return []
+        changes = []
+
+        draft_resp = self.pce.get("/sec_policy/draft/rule_sets", params={"max_results": 5000})
+        draft_rulesets = draft_resp.json() if draft_resp.status_code == 200 else []
+        if not isinstance(draft_rulesets, list):
+            draft_rulesets = []
+
+        active_resp = self.pce.get("/sec_policy/active/rule_sets", params={"max_results": 5000})
+        active_rulesets = active_resp.json() if active_resp.status_code == 200 else []
+        if not isinstance(active_rulesets, list):
+            active_rulesets = []
+
+        # Index by name for comparison
+        active_by_name = {}
+        for rs in active_rulesets:
+            name = rs.get("name", rs.get("href", ""))
+            active_by_name[name] = rs
+
+        draft_by_name = {}
+        for rs in draft_rulesets:
+            name = rs.get("name", rs.get("href", ""))
+            draft_by_name[name] = rs
+
+        # New rulesets (in draft but not in active)
+        for name, d_rs in draft_by_name.items():
+            scope_str = self._extract_scope(d_rs)
+            if name not in active_by_name:
+                changes.append({
+                    "change_type": ChangeType.NEW_RULESET.value,
+                    "summary": f"New ruleset: {name}",
+                    "href": d_rs.get("href", ""),
+                    "scope": scope_str,
+                    "ruleset_name": name,
+                    "ruleset": d_rs,
+                    "data": d_rs,
+                })
+                # Also emit individual new rules within the new ruleset
+                for rule in d_rs.get("rules", []):
+                    svc_summary = RiskClassifier()._get_services_summary({"rule": rule})
+                    changes.append({
+                        "change_type": ChangeType.NEW_RULE.value,
+                        "summary": f"New rule in {name}: {svc_summary or 'all services'}",
+                        "href": rule.get("href", d_rs.get("href", "")),
+                        "scope": scope_str,
+                        "ruleset_name": name,
+                        "ruleset": d_rs,
+                        "rule": rule,
+                        "data": rule,
+                    })
+            else:
+                # Existing ruleset — check for modifications
+                a_rs = active_by_name[name]
+                # Compare ruleset-level properties (enabled, scopes, description)
+                rs_changed = False
+                for key in ("enabled", "scopes", "description"):
+                    if d_rs.get(key) != a_rs.get(key):
+                        rs_changed = True
+                        break
+
+                if rs_changed:
+                    changes.append({
+                        "change_type": ChangeType.MODIFIED_RULESET.value,
+                        "summary": f"Modified ruleset: {name}",
+                        "href": d_rs.get("href", ""),
+                        "scope": scope_str,
+                        "ruleset_name": name,
+                        "ruleset": d_rs,
+                        "old_value": a_rs,
+                        "new_value": d_rs,
+                        "data": d_rs,
+                    })
+
+                # Compare rules within the ruleset
+                active_rules = {r.get("href", ""): r for r in a_rs.get("rules", [])}
+                draft_rules = {r.get("href", ""): r for r in d_rs.get("rules", [])}
+
+                for href, d_rule in draft_rules.items():
+                    if href not in active_rules:
+                        svc_summary = RiskClassifier()._get_services_summary({"rule": d_rule})
+                        changes.append({
+                            "change_type": ChangeType.NEW_RULE.value,
+                            "summary": f"New rule in {name}: {svc_summary or 'all services'}",
+                            "href": href,
+                            "scope": scope_str,
+                            "ruleset_name": name,
+                            "ruleset": d_rs,
+                            "rule": d_rule,
+                            "data": d_rule,
+                        })
+                    else:
+                        a_rule = active_rules[href]
+                        # Compare rule content (ignore metadata fields)
+                        rule_changed = False
+                        for key in ("providers", "consumers", "ingress_services",
+                                    "enabled", "unscoped_consumers", "sec_connect"):
+                            if d_rule.get(key) != a_rule.get(key):
+                                rule_changed = True
+                                break
+                        if rule_changed:
+                            changes.append({
+                                "change_type": ChangeType.MODIFIED_RULE.value,
+                                "summary": f"Modified rule in {name}",
+                                "href": href,
+                                "scope": scope_str,
+                                "ruleset_name": name,
+                                "ruleset": d_rs,
+                                "rule": d_rule,
+                                "old_value": a_rule,
+                                "new_value": d_rule,
+                                "data": d_rule,
+                            })
+
+                # Deleted rules (in active but not in draft)
+                for href, a_rule in active_rules.items():
+                    if href not in draft_rules:
+                        changes.append({
+                            "change_type": ChangeType.DELETED_RULE.value,
+                            "summary": f"Deleted rule in {name}",
+                            "href": href,
+                            "scope": scope_str,
+                            "ruleset_name": name,
+                            "ruleset": d_rs,
+                            "rule": a_rule,
+                            "data": a_rule,
+                        })
+
+        # Deleted rulesets (in active but not in draft)
+        for name, a_rs in active_by_name.items():
+            if name not in draft_by_name:
+                scope_str = self._extract_scope(a_rs)
+                changes.append({
+                    "change_type": ChangeType.DELETED_RULESET.value,
+                    "summary": f"Deleted ruleset: {name}",
+                    "href": a_rs.get("href", ""),
+                    "scope": scope_str,
+                    "ruleset_name": name,
+                    "ruleset": a_rs,
+                    "data": a_rs,
+                })
+
+        return changes
 
     def _compare_ip_lists(self) -> list:
         """Compare draft vs active IP lists.
 
         Returns list of change dicts for new/modified IP lists.
         """
-        # TODO: Implement
-        # draft_ip_lists = self.pce.ip_lists.get(policy_version="draft")
-        # active_ip_lists = self.pce.ip_lists.get(policy_version="active")
-        return []
+        changes = []
+
+        draft_resp = self.pce.get("/sec_policy/draft/ip_lists")
+        draft_lists = draft_resp.json() if draft_resp.status_code == 200 else []
+        if not isinstance(draft_lists, list):
+            draft_lists = []
+
+        active_resp = self.pce.get("/sec_policy/active/ip_lists")
+        active_lists = active_resp.json() if active_resp.status_code == 200 else []
+        if not isinstance(active_lists, list):
+            active_lists = []
+
+        active_by_name = {}
+        for ipl in active_lists:
+            name = ipl.get("name", ipl.get("href", ""))
+            active_by_name[name] = ipl
+
+        for ipl in draft_lists:
+            name = ipl.get("name", ipl.get("href", ""))
+            if name not in active_by_name:
+                changes.append({
+                    "change_type": ChangeType.NEW_IP_LIST.value,
+                    "summary": f"New IP list: {name}",
+                    "href": ipl.get("href", ""),
+                    "scope": "global",
+                    "ip_list": ipl,
+                    "data": ipl,
+                })
+            else:
+                a_ipl = active_by_name[name]
+                # Compare IP ranges and FQDNs
+                if (ipl.get("ip_ranges") != a_ipl.get("ip_ranges") or
+                        ipl.get("fqdns") != a_ipl.get("fqdns") or
+                        ipl.get("description") != a_ipl.get("description")):
+                    changes.append({
+                        "change_type": ChangeType.MODIFIED_IP_LIST.value,
+                        "summary": f"Modified IP list: {name}",
+                        "href": ipl.get("href", ""),
+                        "scope": "global",
+                        "ip_list": ipl,
+                        "old_value": a_ipl,
+                        "new_value": ipl,
+                        "data": ipl,
+                    })
+
+        return changes
 
     def _compare_services(self) -> list:
         """Compare draft vs active service definitions.
 
         Returns list of change dicts for new/modified services.
         """
-        # TODO: Implement
-        # draft_services = self.pce.services.get(policy_version="draft")
-        # active_services = self.pce.services.get(policy_version="active")
-        return []
+        changes = []
 
-    def _deduplicate(self, changes: list) -> list:
-        """Remove duplicate changes using content-based fingerprinting."""
-        # TODO: Implement fingerprint-based deduplication
-        # For now, return all changes
+        draft_resp = self.pce.get("/sec_policy/draft/services")
+        draft_services = draft_resp.json() if draft_resp.status_code == 200 else []
+        if not isinstance(draft_services, list):
+            draft_services = []
+
+        active_resp = self.pce.get("/sec_policy/active/services")
+        active_services = active_resp.json() if active_resp.status_code == 200 else []
+        if not isinstance(active_services, list):
+            active_services = []
+
+        active_by_name = {}
+        for svc in active_services:
+            name = svc.get("name", svc.get("href", ""))
+            active_by_name[name] = svc
+
+        for svc in draft_services:
+            name = svc.get("name", svc.get("href", ""))
+            if name not in active_by_name:
+                changes.append({
+                    "change_type": ChangeType.NEW_SERVICE.value,
+                    "summary": f"New service: {name}",
+                    "href": svc.get("href", ""),
+                    "scope": "global",
+                    "data": svc,
+                })
+            else:
+                a_svc = active_by_name[name]
+                # Compare service ports and process names
+                if (svc.get("service_ports") != a_svc.get("service_ports") or
+                        svc.get("windows_services") != a_svc.get("windows_services") or
+                        svc.get("description") != a_svc.get("description")):
+                    changes.append({
+                        "change_type": ChangeType.MODIFIED_SERVICE.value,
+                        "summary": f"Modified service: {name}",
+                        "href": svc.get("href", ""),
+                        "scope": "global",
+                        "old_value": a_svc,
+                        "new_value": svc,
+                        "data": svc,
+                    })
+
         return changes
 
-    @staticmethod
-    def _extract_scope(ruleset: dict) -> str:
-        """Extract a human-readable scope string from a ruleset's scopes."""
-        # TODO: Implement scope extraction from ruleset scopes
-        # e.g., "app=payments AND env=prod"
+    def _deduplicate(self, changes: list) -> list:
+        """Remove duplicate changes using content-based fingerprinting.
+
+        Creates a fingerprint from change_type + href + summary. Skips changes
+        already seen in this scan cycle and also skips changes already tracked
+        from a previous scan cycle (stored in _last_fingerprints).
+        """
+        import hashlib
+
+        seen = set()
+        unique = []
+        for change in changes:
+            # Build a fingerprint from the identifying properties
+            fp_data = f"{change.get('change_type', '')}|{change.get('href', '')}|{change.get('summary', '')}"
+            fp = hashlib.sha256(fp_data.encode()).hexdigest()[:16]
+
+            if fp in seen or fp in self._last_fingerprints:
+                continue
+            seen.add(fp)
+            unique.append(change)
+
+        # Update last fingerprints for next cycle
+        self._last_fingerprints = seen
+        return unique
+
+    def _extract_scope(self, ruleset: dict) -> str:
+        """Extract a human-readable scope string from a ruleset's scopes.
+
+        Resolves label hrefs via the label cache to produce readable
+        strings like "app=payments AND env=prod".  Falls back to href
+        if the label is not in the cache.
+        """
         scopes = ruleset.get("scopes", [])
         if not scopes:
             return "unscoped"
@@ -558,9 +807,20 @@ class ChangeDetector:
                     if isinstance(ref, dict):
                         label = ref.get("label", {})
                         if isinstance(label, dict):
-                            key = label.get("key", "?")
-                            value = label.get("value", "?")
-                            labels.append(f"{key}={value}")
+                            key = label.get("key", "")
+                            value = label.get("value", "")
+                            # If key/value are present inline, use them directly
+                            if key and value:
+                                labels.append(f"{key}={value}")
+                            elif label.get("href"):
+                                # Resolve via label cache
+                                cached = self._label_cache.get(label["href"], {})
+                                ck = cached.get("key", "")
+                                cv = cached.get("value", "")
+                                if ck and cv:
+                                    labels.append(f"{ck}={cv}")
+                                else:
+                                    labels.append(label["href"].split("/")[-1])
                 if labels:
                     parts.append(" AND ".join(labels))
         return " | ".join(parts) if parts else "unscoped"
@@ -601,7 +861,7 @@ class ApprovalManager:
         request_id = f"cr-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
 
         scope = change.get("scope", "unknown")
-        approvers_needed = self._determine_approvers(scope, risk_level)
+        approvers_needed = self._determine_approvers(scope, risk_level, change)
 
         require_approval_levels = self.config.get("require_approval", ["critical", "high", "medium"])
         needs_approval = risk_level.value in require_approval_levels
@@ -731,22 +991,36 @@ class ApprovalManager:
                 return req
             req["status"] = ChangeStatus.PROVISIONING.value
 
-        # TODO: Implement actual provisioning
-        # Steps:
-        #   1. Call PCE provision API: POST /sec_policy (provision draft to active)
-        #   2. Verify provisioning succeeded
-        #   3. Update request status to PROVISIONED or FAILED
-
         try:
             log.info("Provisioning change request %s...", request_id)
-            # TODO: pce.provision_policy_changes(change_description=req["change_summary"], ...)
-            # Stub: mark as provisioned
-            with self._lock:
-                req["status"] = ChangeStatus.PROVISIONED.value
-                req["provisioned"] = True
-                req["provisioned_at"] = datetime.now(timezone.utc).isoformat()
-                req["provision_result"] = "success"
-            log.info("Change request %s provisioned successfully", request_id)
+
+            # Build the provision payload — target the specific ruleset href
+            ruleset_href = req.get("ruleset_href", "")
+            provision_data = {
+                "update_description": f"Approved: {req.get('change_summary', 'policy-workflow provision')}",
+            }
+            if ruleset_href:
+                # Extract ruleset-level href (rules are provisioned via parent ruleset)
+                if "/sec_rules/" in ruleset_href:
+                    ruleset_href = ruleset_href.split("/sec_rules/")[0]
+                provision_data["change_subset"] = {
+                    "rule_sets": [{"href": ruleset_href}]
+                }
+
+            resp = pce.post("/sec_policy", json=provision_data)
+            if resp.status_code in (200, 201, 204):
+                with self._lock:
+                    req["status"] = ChangeStatus.PROVISIONED.value
+                    req["provisioned"] = True
+                    req["provisioned_at"] = datetime.now(timezone.utc).isoformat()
+                    req["provision_result"] = "success"
+                log.info("Change request %s provisioned successfully", request_id)
+            else:
+                error_msg = resp.text[:500] if hasattr(resp, "text") else str(resp.status_code)
+                with self._lock:
+                    req["status"] = ChangeStatus.FAILED.value
+                    req["provision_result"] = f"HTTP {resp.status_code}: {error_msg}"
+                log.error("Provision failed for %s: HTTP %d: %s", request_id, resp.status_code, error_msg)
         except Exception as e:
             with self._lock:
                 req["status"] = ChangeStatus.FAILED.value
@@ -766,8 +1040,13 @@ class ApprovalManager:
                         req["status"] = ChangeStatus.EXPIRED.value
                         log.info("Change request %s expired", req["id"])
 
-    def _determine_approvers(self, scope: str, risk_level: RiskLevel) -> list:
+    def _determine_approvers(self, scope: str, risk_level: RiskLevel, change: dict = None) -> list:
         """Determine which teams need to approve based on scope and risk.
+
+        Args:
+            scope: The human-readable scope string (e.g. "app=payments AND env=prod").
+            risk_level: Classified risk level.
+            change: The original change dict, used for cross-scope detection.
 
         Returns a list of approver dicts from the config.
         """
@@ -791,26 +1070,64 @@ class ApprovalManager:
         if not matched:
             approvers.append(config_approvers.get("default", {"team": "security-team"}))
 
-        # Cross-scope always adds security review
-        # TODO: Detect cross-scope from the change details
-        cross_scope = config_approvers.get("cross_scope")
-        if cross_scope:
-            # Will be added when cross-scope detection is implemented
-            pass
+        # Detect cross-scope from the change details and add security review
+        is_cross_scope = False
+        if change:
+            rule = change.get("rule", {})
+            if isinstance(rule, dict) and rule.get("unscoped_consumers", False):
+                is_cross_scope = True
+
+        cross_scope_config = config_approvers.get("cross_scope")
+        if is_cross_scope and cross_scope_config:
+            # Avoid adding a duplicate if the team is already in the list
+            existing_teams = {a.get("team") for a in approvers}
+            if cross_scope_config.get("team") not in existing_teams:
+                approvers.append(cross_scope_config)
 
         return approvers
 
     @staticmethod
     def _scope_matches(scope: str, pattern: str) -> bool:
-        """Check if a scope string matches a pattern.
+        """Check if a scope string matches a pattern using label expression matching.
 
-        Simple substring match for now. Could be enhanced with
-        proper label expression parsing.
+        Both scope and pattern are in the form "key=value AND key=value".
+        A pattern matches if every label constraint in the pattern is
+        satisfied by the scope.  The "|" separator in scope denotes
+        alternative scope sets — the pattern must match at least one.
+
+        Examples:
+            scope="app=payments AND env=prod", pattern="app=payments AND env=prod" -> True
+            scope="app=payments AND env=prod", pattern="env=prod" -> True
+            scope="app=payments AND env=prod", pattern="app=billing" -> False
+            scope="app=payments AND env=prod | app=billing AND env=dev",
+                   pattern="app=billing" -> True
         """
-        # TODO: Implement proper label expression matching
         if not scope or not pattern:
             return False
-        return pattern.lower() in scope.lower()
+
+        def parse_labels(expr: str) -> dict:
+            """Parse 'key=value AND key=value' into {key: value} dict."""
+            labels = {}
+            for part in expr.split(" AND "):
+                part = part.strip()
+                if "=" in part:
+                    k, _, v = part.partition("=")
+                    labels[k.strip().lower()] = v.strip().lower()
+            return labels
+
+        pattern_labels = parse_labels(pattern)
+        if not pattern_labels:
+            return False
+
+        # Scope may have multiple alternatives separated by " | "
+        scope_alternatives = scope.split(" | ")
+        for scope_alt in scope_alternatives:
+            scope_labels = parse_labels(scope_alt)
+            # Check if all pattern constraints are satisfied
+            if all(scope_labels.get(k) == v for k, v in pattern_labels.items()):
+                return True
+
+        return False
 
 
 # ============================================================
@@ -856,20 +1173,31 @@ class WebhookAdapter(BaseAdapter):
             log.warning("WEBHOOK_URL not set, skipping webhook notification for %s", request["id"])
             return
 
-        # TODO: Implement webhook POST
-        # import requests as req_lib
-        # payload = {
-        #     "id": request["id"],
-        #     "risk_level": request["risk_level"],
-        #     "risk_reasons": request["risk_reasons"],
-        #     "change_summary": request["change_summary"],
-        #     "scope": request["scope"],
-        #     "callback_approve": f"/api/approve/{request['id']}",
-        #     "callback_reject": f"/api/reject/{request['id']}",
-        # }
-        # resp = req_lib.post(self.webhook_url, json=payload, timeout=10)
-        # resp.raise_for_status()
-        log.info("Webhook: would notify %s about %s", self.webhook_url, request["id"])
+        import requests as req_lib
+
+        payload = {
+            "id": request["id"],
+            "risk_level": request["risk_level"],
+            "risk_reasons": request["risk_reasons"],
+            "change_type": request.get("change_type", ""),
+            "change_summary": request["change_summary"],
+            "scope": request["scope"],
+            "ruleset_name": request.get("ruleset_name", ""),
+            "ruleset_href": request.get("ruleset_href", ""),
+            "required_approvals": request.get("required_approvals", []),
+            "created": request.get("created", ""),
+            "expires_at": request.get("expires_at", ""),
+            "callback_approve": f"/api/approve/{request['id']}",
+            "callback_reject": f"/api/reject/{request['id']}",
+        }
+
+        headers = {"Content-Type": "application/json"}
+        if self.callback_token:
+            headers["Authorization"] = f"Bearer {self.callback_token}"
+
+        resp = req_lib.post(self.webhook_url, json=payload, headers=headers, timeout=15)
+        resp.raise_for_status()
+        log.info("Webhook: notified %s about %s (HTTP %d)", self.webhook_url, request["id"], resp.status_code)
 
     def check_approval_status(self, request: dict) -> Optional[str]:
         """Webhook adapter relies on callbacks, not polling."""
@@ -894,11 +1222,85 @@ class SlackAdapter(BaseAdapter):
             log.warning("SLACK_BOT_TOKEN not set, skipping Slack notification for %s", request["id"])
             return
 
-        # TODO: Implement Slack message posting
-        # Use Slack Web API: chat.postMessage with Block Kit blocks
-        # Include: risk badge, change summary, approve/reject buttons
-        # Channel determined from request's required_approvals -> scope config -> slack_channel
-        log.info("Slack: would post approval request %s", request["id"])
+        import requests as req_lib
+
+        risk = request.get("risk_level", "medium").upper()
+        risk_emoji = {"CRITICAL": ":red_circle:", "HIGH": ":large_orange_circle:",
+                      "MEDIUM": ":large_yellow_circle:", "LOW": ":large_green_circle:"}.get(risk, ":white_circle:")
+
+        reasons_text = "\n".join(f"- {r}" for r in request.get("risk_reasons", []))
+        approvers_text = ", ".join(a["team"] for a in request.get("required_approvals", []))
+
+        blocks = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": f"{risk_emoji} {risk} RISK — Policy Change Approval", "emoji": True},
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        f"*{request.get('change_summary', 'Policy change detected')}*\n\n"
+                        f"*ID:* `{request['id']}`\n"
+                        f"*Scope:* {request.get('scope', 'unknown')}\n"
+                        f"*Type:* {request.get('change_type', '')}\n"
+                        f"*Approvers needed:* {approvers_text}"
+                    ),
+                },
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*Risk reasons:*\n{reasons_text}"},
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Approve"},
+                        "style": "primary",
+                        "action_id": "approve_change",
+                        "value": request["id"],
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Reject"},
+                        "style": "danger",
+                        "action_id": "reject_change",
+                        "value": request["id"],
+                    },
+                ],
+            },
+        ]
+
+        # Determine channel — use the first approver's slack_channel or fall back
+        channel = None
+        for appr in request.get("required_approvals", []):
+            if appr.get("slack_channel"):
+                channel = appr["slack_channel"]
+                break
+        if not channel:
+            channel = os.environ.get("SLACK_DEFAULT_CHANNEL", "#security-approvals")
+
+        payload = {
+            "channel": channel,
+            "text": f"[{risk}] Approval needed: {request.get('change_summary', '')}",
+            "blocks": blocks,
+        }
+
+        resp = req_lib.post(
+            "https://slack.com/api/chat.postMessage",
+            json=payload,
+            headers={"Authorization": f"Bearer {self.bot_token}", "Content-Type": "application/json"},
+            timeout=15,
+        )
+        resp_data = resp.json()
+        if not resp_data.get("ok"):
+            log.error("Slack API error for %s: %s", request["id"], resp_data.get("error", "unknown"))
+            raise RuntimeError(f"Slack API error: {resp_data.get('error', 'unknown')}")
+
+        log.info("Slack: posted approval request %s to %s", request["id"], channel)
 
     def check_approval_status(self, request: dict) -> Optional[str]:
         """Slack adapter uses interactive callbacks, not polling."""
@@ -924,17 +1326,98 @@ class ServiceNowAdapter(BaseAdapter):
             log.warning("SNOW_INSTANCE not set, skipping ServiceNow CR for %s", request["id"])
             return
 
-        # TODO: Implement ServiceNow CR creation
-        # POST https://{instance}.service-now.com/api/now/table/change_request
-        # Fields: short_description, description, category, risk_level, assignment_group
-        log.info("ServiceNow: would create CR for %s", request["id"])
+        import requests as req_lib
+
+        risk = request.get("risk_level", "medium")
+        risk_map = {"critical": "1", "high": "2", "medium": "3", "low": "4", "info": "4"}
+        reasons_text = "; ".join(request.get("risk_reasons", []))
+        approvers_text = ", ".join(a["team"] for a in request.get("required_approvals", []))
+
+        # Determine assignment group from the first approver
+        assignment_group = ""
+        for appr in request.get("required_approvals", []):
+            if appr.get("team"):
+                assignment_group = appr["team"]
+                break
+
+        cr_payload = {
+            "short_description": f"[{risk.upper()}] {request.get('change_summary', 'Illumio policy change')}",
+            "description": (
+                f"Change ID: {request['id']}\n"
+                f"Risk Level: {risk.upper()}\n"
+                f"Risk Reasons: {reasons_text}\n"
+                f"Scope: {request.get('scope', 'unknown')}\n"
+                f"Change Type: {request.get('change_type', '')}\n"
+                f"Ruleset: {request.get('ruleset_name', '')}\n"
+                f"Href: {request.get('ruleset_href', '')}\n"
+                f"Required Approvals: {approvers_text}\n"
+                f"Expires: {request.get('expires_at', '')}"
+            ),
+            "category": "Network",
+            "type": "Standard",
+            "risk": risk_map.get(risk, "3"),
+            "assignment_group": assignment_group,
+            "correlation_id": request["id"],
+        }
+
+        url = f"https://{self.instance}.service-now.com/api/now/table/change_request"
+        resp = req_lib.post(
+            url,
+            json=cr_payload,
+            auth=(self.user, self.password),
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+
+        cr_data = resp.json().get("result", {})
+        sys_id = cr_data.get("sys_id", "")
+        cr_number = cr_data.get("number", "")
+
+        # Store sys_id on the request for later status polling
+        request["servicenow_sys_id"] = sys_id
+        request["servicenow_number"] = cr_number
+
+        log.info("ServiceNow: created CR %s (sys_id=%s) for %s", cr_number, sys_id, request["id"])
 
     def check_approval_status(self, request: dict) -> Optional[str]:
-        """Poll ServiceNow for CR status."""
-        # TODO: Implement CR status polling
-        # GET https://{instance}.service-now.com/api/now/table/change_request/{sys_id}
-        # Check approval_status field
-        return None
+        """Poll ServiceNow for CR approval status.
+
+        Returns "approved", "rejected", or None if still pending.
+        """
+        sys_id = request.get("servicenow_sys_id", "")
+        if not sys_id or not self.instance:
+            return None
+
+        import requests as req_lib
+
+        url = f"https://{self.instance}.service-now.com/api/now/table/change_request/{sys_id}"
+        try:
+            resp = req_lib.get(
+                url,
+                auth=(self.user, self.password),
+                headers={"Accept": "application/json"},
+                params={"sysparm_fields": "approval,state,close_code"},
+                timeout=15,
+            )
+            resp.raise_for_status()
+
+            cr = resp.json().get("result", {})
+            approval = cr.get("approval", "").lower()
+
+            # ServiceNow approval field values:
+            #   "approved" = approved
+            #   "rejected" = rejected
+            #   "not yet requested", "requested" = still pending
+            if approval == "approved":
+                return "approved"
+            elif approval == "rejected":
+                return "rejected"
+            else:
+                return None
+        except Exception:
+            log.exception("Failed to poll ServiceNow CR status for sys_id %s", sys_id)
+            return None
 
 
 def create_adapter() -> BaseAdapter:
