@@ -15,7 +15,8 @@ env:
 
 jobs:
   # ------------------------------------------------------------------
-  # Build and push Docker images for all 15 plugins
+  # Build and push Docker images for all 15 in-repo plugins
+  # (policy-gitops and policy-workflow are built from their own repo)
   # ------------------------------------------------------------------
   docker:
     name: "Docker: ${{ matrix.plugin }}"

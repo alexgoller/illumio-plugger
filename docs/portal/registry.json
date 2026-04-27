@@ -182,6 +182,30 @@
       "tags": ["infoblox", "ipam", "ddi", "labels", "sync", "integration", "extensible-attributes"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/infoblox-ipam-sync"
+    },
+    {
+      "name": "policy-gitops",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-policy-gitops:latest",
+      "description": "Git-based policy management — sync rulesets, IP lists, services, label groups as YAML between Git and PCE with drift detection (external repo)",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["policy", "gitops", "git", "sync", "yaml", "automation"],
+      "author": "Alex Goller",
+      "homepage": "https://github.com/alexgoller/illumio-policy-gitops"
+    },
+    {
+      "name": "policy-workflow",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-policy-workflow:latest",
+      "description": "Approval-based policy workflow engine — multi-stage pipelines, Slack/Teams notifications, audit logging (external repo)",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["policy", "workflow", "approval", "automation", "notifications"],
+      "author": "Alex Goller",
+      "homepage": "https://github.com/alexgoller/illumio-policy-gitops"
     }
   ]
 }

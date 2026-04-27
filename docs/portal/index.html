@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 15 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 17 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -110,7 +110,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">15</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">17</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -212,7 +212,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (15)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (17)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -434,6 +434,38 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Bi-directional sync between Illumio PCE and Infoblox IPAM/DDI. Maps labels to extensible attributes and vice versa. Analytics + sync modes.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install infoblox-ipam-sync</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Policy GitOps (external repo) -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="policy-gitops" data-categories="policy,operations" onclick="showDocs('policy-gitops')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Policy GitOps</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-teal-500/15 text-teal-300 border border-teal-500/30">external</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Git-based policy management. Sync rulesets, IP lists, services, and label groups as YAML between a Git repo and the PCE. Push/pull workflows with drift detection.</p>
+            <div class="flex items-center justify-between">
+                <a href="https://github.com/alexgoller/illumio-policy-gitops" target="_blank" class="text-xs text-teal-400 hover:text-teal-300">External repo →</a>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- Policy Workflow (external repo) -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d1 cursor-pointer" data-plugin="policy-workflow" data-categories="policy,operations" onclick="showDocs('policy-workflow')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Policy Workflow</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-teal-500/15 text-teal-300 border border-teal-500/30">external</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Approval-based policy workflow engine. Multi-stage approval pipelines, Slack/Teams notifications, and audit logging for policy changes. Integrates with Policy GitOps.</p>
+            <div class="flex items-center justify-between">
+                <a href="https://github.com/alexgoller/illumio-policy-gitops" target="_blank" class="text-xs text-teal-400 hover:text-teal-300">External repo →</a>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
         </div>
@@ -1758,13 +1790,57 @@ Override with \`LABEL_MAPPING\` JSON. Reverse mapping available via \`REVERSE_MA
 - Metadata tracking (\`IllumioManaged\`, \`IllumioSyncTime\`)
 - Session cookie reuse for efficient API calls
 - Dashboard with match visualization and change preview`
+},
+"policy-gitops": {
+    title: "Policy GitOps",
+    mode: "daemon",
+    tags: ["policy","operations"],
+    readme: `# Policy GitOps
+
+> **This plugin has moved to an external repository:** [github.com/alexgoller/illumio-policy-gitops](https://github.com/alexgoller/illumio-policy-gitops)
+
+Git-based policy management for Illumio PCE. Connects a Git repository to the PCE and synchronizes policy objects (rulesets, IP lists, services, label groups) as YAML files.
+
+## Features
+
+- Push (PCE to Git) and pull (Git to PCE) workflows
+- Drift detection between Git and PCE state
+- Commit history and change tracking
+- YAML serialization of all policy object types
+- Web dashboard for monitoring sync status
+
+## Install
+
+See the [external repository](https://github.com/alexgoller/illumio-policy-gitops) for installation instructions and full documentation.`
+},
+"policy-workflow": {
+    title: "Policy Workflow",
+    mode: "daemon",
+    tags: ["policy","operations"],
+    readme: `# Policy Workflow
+
+> **This plugin has moved to an external repository:** [github.com/alexgoller/illumio-policy-gitops](https://github.com/alexgoller/illumio-policy-gitops)
+
+Approval-based policy workflow engine for Illumio PCE. Integrates with Policy GitOps to add review and approval gates before policy changes are applied.
+
+## Features
+
+- Multi-stage approval pipelines
+- Slack and Teams notifications for pending approvals
+- Audit logging of all approval decisions
+- Configurable approval rules and escalation paths
+- Web dashboard for workflow management
+
+## Install
+
+See the [external repository](https://github.com/alexgoller/illumio-policy-gitops) for installation instructions and full documentation.`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync'];
+    const order = ['ai-security-report','ai-assisted-rules','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','policy-gitops','policy-workflow'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];
@@ -1813,7 +1889,8 @@ function showDocs(pluginId) {
     if (!plugin) return;
     document.getElementById('docs-modal-title').textContent = plugin.title;
     document.getElementById('docs-modal-content').innerHTML = marked.parse(plugin.readme);
-    document.getElementById('docs-github-link').href = 'https://github.com/alexgoller/illumio-plugger/tree/main/' + pluginId;
+    const externalPlugins = {'policy-gitops': 'https://github.com/alexgoller/illumio-policy-gitops', 'policy-workflow': 'https://github.com/alexgoller/illumio-policy-gitops'};
+    document.getElementById('docs-github-link').href = externalPlugins[pluginId] || ('https://github.com/alexgoller/illumio-plugger/tree/main/' + pluginId);
     document.getElementById('docs-overlay').classList.add('active');
     document.body.style.overflow = 'hidden';
 }

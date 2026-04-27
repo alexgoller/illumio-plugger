@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with fifteen plugins that demonstrate different capabilities and are useful out of the box. All are available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/) and can be installed with `plugger install <name>`.
+Plugger ships with seventeen plugins that demonstrate different capabilities and are useful out of the box. Fifteen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -525,3 +525,23 @@ plugger install infoblox-ipam-sync
 - Auto-create EA definitions on Infoblox
 - Metadata tracking (IllumioManaged, IllumioSyncTime)
 - Dashboard with match visualization and change preview
+
+---
+
+## Policy GitOps
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+> **Moved to external repository:** [github.com/alexgoller/illumio-policy-gitops](https://github.com/alexgoller/illumio-policy-gitops)
+
+Git-based policy management for Illumio PCE. Connects a Git repository to the PCE and synchronizes policy objects (rulesets, IP lists, services, label groups) as YAML files. Supports push (PCE to Git) and pull (Git to PCE) workflows with drift detection, commit history, and a web dashboard.
+
+---
+
+## Policy Workflow
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+> **Moved to external repository:** [github.com/alexgoller/illumio-policy-gitops](https://github.com/alexgoller/illumio-policy-gitops)
+
+Approval-based policy workflow engine for Illumio PCE. Integrates with Policy GitOps to add review and approval gates before policy changes are applied. Supports multi-stage approval pipelines, Slack/Teams notifications, and audit logging of all approval decisions.
