@@ -47,6 +47,7 @@ config:
 
 info:
   title: Stale Workloads
+  version: "0.1.0"
   description: Discover offline, unresponsive, and trafficless workloads — grouped by app|env with severity and cleanup recommendations
   author: Illumio
   license: Apache-2.0

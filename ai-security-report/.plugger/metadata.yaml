@@ -66,6 +66,7 @@ volumes:
 
 info:
   title: AI Security Report
+  version: "0.1.0"
   description: Comprehensive AI-powered security posture analysis — enforcement coverage, OS risk, label hygiene, environment separation, risky services, policy analysis, traffic anomalies, compliance mapping, and remediation roadmap
   author: Illumio
   license: Apache-2.0

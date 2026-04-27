@@ -32,6 +32,7 @@ volumes:
 
 info:
   title: Rule Scheduler
+  version: "0.1.0"
   description: Time-based rule and ruleset scheduling — business hours, maintenance windows, weekend lockdowns
   author: Illumio
   license: Apache-2.0

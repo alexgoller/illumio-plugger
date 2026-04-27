@@ -22,6 +22,7 @@ volumes:
 
 info:
   title: PCE Events (Pretty Cool Events)
+  version: "0.1.0"
   description: Real-time PCE event monitoring with Slack, Teams, PagerDuty, Email, webhooks, and 10+ output plugins
   author: Alex Goller
   license: Apache-2.0

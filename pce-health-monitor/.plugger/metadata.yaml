@@ -22,6 +22,7 @@ config:
 
 info:
   title: PCE Health Monitor
+  version: "0.1.0"
   description: Web dashboard showing Illumio PCE health status with endpoint checks
   author: Illumio
   license: Apache-2.0

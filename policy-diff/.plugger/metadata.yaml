@@ -32,6 +32,7 @@ volumes:
 
 info:
   title: Policy Diff
+  version: "0.1.0"
   description: Git-like policy change tracker — field-level diffs, change history with snapshots, user attribution from audit events
   author: Illumio
   license: Apache-2.0

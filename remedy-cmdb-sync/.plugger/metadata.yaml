@@ -81,6 +81,7 @@ volumes:
 
 info:
   title: Remedy CMDB Sync
+  version: "0.1.0"
   description: "Sync BMC Helix/Remedy CMDB configuration items to Illumio labels — analytics mode for feasibility testing, sync mode for label application"
   author: Illumio
   license: Apache-2.0

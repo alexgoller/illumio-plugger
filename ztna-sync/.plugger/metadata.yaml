@@ -127,6 +127,7 @@ volumes:
 
 info:
   title: ZTNA Sync
+  version: "0.1.0"
   description: "Sync Illumio workloads to ZTNA application definitions — Zscaler ZPA, Netskope, Cloudflare Access, Cisco Secure Access"
   author: Illumio
   license: Apache-2.0

@@ -53,6 +53,7 @@ config:
 
 info:
   title: AD Label Sync
+  version: "0.1.0"
   description: Discover Active Directory computers and map OU, group, location attributes to Illumio labels — analytics mode for feasibility testing
   author: Illumio
   license: Apache-2.0

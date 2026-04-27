@@ -50,6 +50,7 @@ config:
 
 info:
   title: Palo Alto DAG Sync
+  version: "0.1.0"
   description: Sync Illumio workload labels to Palo Alto Dynamic Address Groups via PAN-OS XML API
   author: Illumio
   license: Apache-2.0

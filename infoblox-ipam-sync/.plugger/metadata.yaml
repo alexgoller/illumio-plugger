@@ -81,6 +81,7 @@ volumes:
 
 info:
   title: Infoblox IPAM Sync
+  version: "0.1.0"
   description: "Bi-directional sync between Illumio labels and Infoblox extensible attributes — enrich IPAM with segmentation context or label workloads from IPAM truth"
   author: Illumio
   license: Apache-2.0

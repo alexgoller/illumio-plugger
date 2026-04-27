@@ -6,6 +6,8 @@ COPY main.py /app/main.py
 COPY ai_advisor.py /app/ai_advisor.py
 COPY label_advisor.py /app/label_advisor.py
 COPY .plugger/metadata.yaml /.plugger/metadata.yaml
+ARG VERSION=0.1.0
+RUN sed -i "s/^  version: .*/  version: \"${VERSION}\"/" /.plugger/metadata.yaml || true
 USER plugin
 WORKDIR /app
 EXPOSE 8080

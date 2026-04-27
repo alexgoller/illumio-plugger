@@ -56,6 +56,7 @@ volumes:
 
 info:
   title: AI Assisted Rules
+  version: "0.1.0"
   description: AI-powered policy advisor — analyzes blocked traffic, suggests rules with LLM reasoning, and provisions to PCE draft with one click
   author: Illumio
   license: Apache-2.0

@@ -32,6 +32,7 @@ config:
 
 info:
   title: Traffic Reporter
+  version: "0.1.0"
   description: PCE traffic flow analysis with top talkers, blocked connections, and service breakdown
   author: Illumio
   license: Apache-2.0

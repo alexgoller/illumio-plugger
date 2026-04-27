@@ -77,6 +77,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_type == 'tag' && github.ref_name || '0.1.0-dev' }}
           cache-from: type=gha,scope=${{ matrix.plugin }}
           cache-to: type=gha,scope=${{ matrix.plugin }},mode=max
 
