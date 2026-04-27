@@ -1,0 +1,19 @@
+# Illumio Policy — Scope Ownership
+# GitHub uses this file to require reviews from the right teams
+# Requires branch protection with "Require review from Code Owners" enabled
+
+# Global policy — security team must review all changes
+scopes/_global/         @org/security-team
+ip-lists/               @org/security-team
+services/               @org/security-team
+.illumio/               @org/security-team
+
+# Per-scope ownership — each team owns their application scope
+# scopes/payments-prod/   @org/payments-team
+# scopes/shareddb-prod/   @org/database-team
+# scopes/ordering-prod/   @org/ordering-team
+# scopes/frontend-prod/   @org/frontend-team
+
+# Cross-scope rules always require security team review
+scopes/*/cross-scope/   @org/security-team
+scopes/*/inbound/       @org/security-team

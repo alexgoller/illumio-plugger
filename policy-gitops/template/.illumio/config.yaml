@@ -1,0 +1,26 @@
+# Illumio Policy GitOps configuration
+# PCE credentials should be in GitHub Secrets, not here
+
+pce:
+  host: pce.example.com
+  port: 8443
+  org_id: 1
+
+policy:
+  export_rulesets: true
+  export_ip_lists: true
+  export_services: true
+  export_labels: false
+
+  # Provisioning behavior on merge to main
+  provision_mode: draft      # draft | active
+  provision_on_merge: true
+
+security:
+  block_on_critical: true
+  block_on_high: false
+  require_traffic_evidence: false
+
+traffic:
+  lookback_days: 30
+  min_connections: 10

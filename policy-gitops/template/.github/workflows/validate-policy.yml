@@ -1,0 +1,174 @@
+name: Validate Policy Change
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scopes/**'
+      - 'ip-lists/**'
+      - 'services/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Policy Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install illumio pyyaml requests
+
+      - name: Detect changed files
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD -- scopes/ ip-lists/ services/)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          COUNT=$(echo "$CHANGED" | grep -c '.' || true)
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: YAML lint
+        if: steps.changes.outputs.count != '0'
+        run: |
+          python3 -c "
+          import yaml, sys
+          errors = []
+          for f in '''${{ steps.changes.outputs.files }}'''.strip().split('\n'):
+              f = f.strip()
+              if not f or not f.endswith(('.yaml', '.yml')):
+                  continue
+              try:
+                  with open(f) as fh:
+                      yaml.safe_load(fh)
+              except Exception as e:
+                  errors.append(f'{f}: {e}')
+          if errors:
+              print('YAML lint errors:')
+              for e in errors:
+                  print(f'  ❌ {e}')
+              sys.exit(1)
+          print('✅ All YAML files valid')
+          "
+
+      - name: Security check
+        id: security
+        if: steps.changes.outputs.count != '0'
+        run: |
+          python3 .github/scripts/security-check.py \
+            --changed-files "${{ steps.changes.outputs.files }}" \
+            --output security-report.json
+        continue-on-error: true
+
+      - name: Traffic evidence
+        id: traffic
+        if: steps.changes.outputs.count != '0'
+        env:
+          PCE_HOST: ${{ secrets.PCE_HOST }}
+          PCE_PORT: ${{ secrets.PCE_PORT }}
+          PCE_API_KEY: ${{ secrets.PCE_API_KEY }}
+          PCE_API_SECRET: ${{ secrets.PCE_API_SECRET }}
+        run: |
+          python3 .github/scripts/traffic-evidence.py \
+            --changed-files "${{ steps.changes.outputs.files }}" \
+            --lookback-days 30 \
+            --output traffic-report.json
+        continue-on-error: true
+
+      - name: Render PR comment
+        if: steps.changes.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let security = {findings: [], summary: {critical: 0, high: 0, medium: 0, blocked: false}};
+            let traffic = {evidence: [], summary: {total_rules: 0, justified: 0, unjustified: 0}};
+
+            try { security = JSON.parse(fs.readFileSync('security-report.json', 'utf8')); } catch(e) {}
+            try { traffic = JSON.parse(fs.readFileSync('traffic-report.json', 'utf8')); } catch(e) {}
+
+            const changedFiles = `${{ steps.changes.outputs.files }}`.trim().split('\n').filter(f => f);
+            const ss = security.summary;
+            const ts = traffic.summary;
+
+            let body = `## 🔒 Illumio Policy Change Report\n\n`;
+            body += `### Summary\n`;
+            body += `| Metric | Value |\n|--------|-------|\n`;
+            body += `| Files changed | ${changedFiles.length} |\n`;
+            body += `| Security findings | ${ss.critical}C ${ss.high}H ${ss.medium}M |\n`;
+            body += `| Blocked | ${ss.blocked ? '❌ Yes' : '✅ No'} |\n`;
+            body += `| Traffic evidence | ${ts.justified} of ${ts.total_rules} rules justified |\n`;
+            body += `\n---\n\n`;
+
+            // Security findings
+            if (security.findings.length > 0) {
+              body += `### 🛡️ Security Findings\n\n`;
+              body += `| | Rule | Severity | File | Message |\n|---|---|---|---|---|\n`;
+              for (const f of security.findings) {
+                const icon = f.action === 'block' ? '❌' : '⚠️';
+                body += `| ${icon} | ${f.rule_id} | ${f.severity} | \`${f.file.split('/').pop()}\` | ${f.message} |\n`;
+              }
+              body += `\n`;
+            } else {
+              body += `### 🛡️ Security: ✅ All checks passed\n\n`;
+            }
+
+            // Traffic evidence
+            if (traffic.evidence.length > 0) {
+              body += `### 📊 Traffic Evidence\n\n`;
+              body += `| Rule | Ports | Evidence | Verdict |\n|---|---|---|---|\n`;
+              for (const e of traffic.evidence) {
+                const ports = (e.ports || []).join(', ');
+                if (e.traffic_found) {
+                  body += `| **${e.rule_name}** | ${ports} | ${(e.blocked_connections||0).toLocaleString()} blocked flows, ${e.unique_sources||0} sources | ✅ Justified |\n`;
+                } else {
+                  const reason = e.reason || e.error || 'No traffic found';
+                  body += `| **${e.rule_name}** | ${ports} | — | ⚠️ ${reason} |\n`;
+                }
+              }
+              body += `\n`;
+            }
+
+            body += `---\n<sub>🤖 Generated by Illumio Policy GitOps</sub>`;
+
+            // Find existing comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes('Illumio Policy Change Report'));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+      - name: Fail on critical findings
+        if: steps.security.outcome == 'failure'
+        run: |
+          echo "❌ Critical security findings detected — PR blocked"
+          exit 1

@@ -1,0 +1,64 @@
+# Security rules for policy validation pipeline
+# These rules are evaluated against every changed policy file in a PR
+
+rules:
+  # CRITICAL — blocks the PR
+  - id: SEC-001
+    name: "No any-to-any rules"
+    severity: critical
+    action: block
+    description: "Rules with 'all workloads' on both sides defeat micro-segmentation"
+
+  - id: SEC-002
+    name: "No broad port ranges"
+    severity: critical
+    action: block
+    description: "Port ranges exceeding 1000 ports are too permissive"
+
+  - id: SEC-003
+    name: "No insecure protocols"
+    severity: critical
+    action: block
+    ports: [21, 23, 69, 513, 514]
+    description: "FTP, Telnet, TFTP, rlogin, rsh — use SSH/SFTP instead"
+
+  # HIGH — warns in PR comment
+  - id: SEC-004
+    name: "Cross-scope rules need justification"
+    severity: high
+    action: warn
+    description: "Extra-scope rules must include a 'justification' field"
+
+  - id: SEC-005
+    name: "RDP/SMB restricted"
+    severity: high
+    action: warn
+    ports: [3389, 445]
+    description: "RDP and SMB are common lateral movement vectors"
+
+  - id: SEC-006
+    name: "Database ports scoped to app tier"
+    severity: high
+    action: warn
+    ports: [5432, 3306, 1433, 1521, 27017]
+    description: "Database ports should only be accessible from specific consumer roles"
+
+  # MEDIUM — informational
+  - id: SEC-007
+    name: "IP List broad CIDR"
+    severity: medium
+    action: warn
+    description: "IP lists with /8 or broader CIDRs are very permissive"
+
+  - id: SEC-008
+    name: "HTTP without HTTPS"
+    severity: medium
+    action: warn
+    ports: [80]
+    description: "Consider requiring HTTPS (443) instead of HTTP (80)"
+
+# Exemptions: bypass specific rules for specific rulesets
+exemptions:
+  - ruleset_pattern: "coreservices"
+    exempt_rules: [SEC-005]
+    reason: "Active Directory requires SMB for domain operations"

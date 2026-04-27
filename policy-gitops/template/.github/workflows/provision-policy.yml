@@ -1,0 +1,51 @@
+name: Provision Policy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scopes/**'
+      - 'ip-lists/**'
+      - 'services/**'
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    name: Provision to PCE
+    runs-on: ubuntu-latest
+    environment: production  # Configure environment protection rules in GitHub
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit for diff
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install illumio pyyaml
+
+      - name: Detect changed files
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 -- scopes/ ip-lists/ services/)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Provision to PCE
+        env:
+          PCE_HOST: ${{ secrets.PCE_HOST }}
+          PCE_PORT: ${{ secrets.PCE_PORT }}
+          PCE_ORG_ID: ${{ secrets.PCE_ORG_ID }}
+          PCE_API_KEY: ${{ secrets.PCE_API_KEY }}
+          PCE_API_SECRET: ${{ secrets.PCE_API_SECRET }}
+        run: |
+          python3 .github/scripts/provision.py \
+            --changed-files "${{ steps.changes.outputs.files }}" \
+            --mode draft
+          # Change to --mode active for auto-provision
