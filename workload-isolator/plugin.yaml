@@ -1,0 +1,32 @@
+apiVersion: plugger/v1
+name: workload-isolator
+version: 0.1.0
+image: plugger-workload-isolator:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: AUTH_TOKEN
+    required: true
+    secret: true
+  - name: ISOLATION_METHOD
+    required: false
+    default: "enforcement"
+  - name: DEFAULT_TTL
+    required: false
+    default: "0"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 128m
+  cpuLimit: "0.25"

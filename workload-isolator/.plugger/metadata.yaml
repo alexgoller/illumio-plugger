@@ -1,0 +1,52 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Workload Isolator dashboard and API
+    type: ui
+    path: /
+
+config:
+  - name: AUTH_TOKEN
+    description: Bearer token for API authentication (required)
+    required: true
+    type: secret
+  - name: ISOLATION_METHOD
+    description: "How to isolate: enforcement (change mode to full) or deny_rule (add deny all rule)"
+    required: false
+    type: string
+    default: "enforcement"
+  - name: NOTIFICATION_WEBHOOK
+    description: Slack/Teams webhook URL for isolation notifications
+    required: false
+    type: string
+    default: ""
+  - name: DEFAULT_TTL
+    description: Default auto-release seconds (0 = no auto-release)
+    required: false
+    type: int
+    default: "0"
+  - name: MAX_ISOLATED
+    description: Maximum concurrent isolated workloads (safety limit)
+    required: false
+    type: int
+    default: "100"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent state (isolation records)
+    required: false
+
+info:
+  title: Workload Isolator
+  version: "0.1.0"
+  description: "Instant workload quarantine via webhook — isolate compromised workloads, integrate with EDR/SOAR, auto-release with TTL"
+  author: Illumio
+  license: Apache-2.0
