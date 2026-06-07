@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 18 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 19 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -110,7 +110,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">18</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">19</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -212,7 +212,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (18)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (19)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -482,6 +482,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Approval-based policy workflow engine. Multi-stage approval pipelines, Slack/Teams notifications, and audit logging for policy changes. Integrates with Policy GitOps.</p>
             <div class="flex items-center justify-between">
                 <a href="https://github.com/alexgoller/illumio-policy-gitops" target="_blank" class="text-xs text-teal-400 hover:text-teal-300">External repo →</a>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- App Dependency Intel -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d2 cursor-pointer" data-plugin="app-dependency-intel" data-categories="monitoring,policy" onclick="showDocs('app-dependency-intel')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">App Dependency Intel</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Dependency intelligence beyond policy — blast radius, SPOF detection, compliance boundaries, change impact analysis, D3.js dependency graph.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install app-dependency-intel</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
         </div>
@@ -1941,13 +1957,73 @@ Approval-based policy workflow engine for Illumio PCE. Integrates with Policy Gi
 ## Install
 
 See the [external repository](https://github.com/alexgoller/illumio-policy-gitops) for installation instructions and full documentation.`
+},
+"app-dependency-intel": {
+    title: "App Dependency Intel",
+    mode: "daemon",
+    tags: ["monitoring","policy"],
+    readme: `# App Dependency Intel
+
+Not another traffic visualizer. This plugin analyzes application dependencies **beyond** what Illumination shows — blast radius estimation, single-point-of-failure detection, compliance boundary validation, change impact analysis, and resiliency scoring. Interactive D3.js force-directed dependency graph.
+
+## Install
+
+\`\`\`bash
+plugger install app-dependency-intel
+\`\`\`
+
+## Analysis Engines
+
+| Engine | What It Does |
+|--------|-------------|
+| **Blast Radius** | Estimates the downstream impact if a workload or app group goes offline — counts affected consumers, services, and environments |
+| **SPOF Detection** | Finds single points of failure — workloads that are the sole provider of a service consumed by multiple apps |
+| **Compliance Boundaries** | Validates that traffic stays within defined compliance zones (PCI, SOX, HIPAA) — flags cross-boundary flows |
+| **Change Impact** | Predicts which apps and workloads are affected when a policy rule, IP list, or label is modified |
+| **Resiliency Scoring** | Scores each app group 0-100 on redundancy, provider diversity, cross-env dependencies, and SPOF exposure |
+| **Dependency Graph** | Interactive D3.js force-directed graph showing app-to-app and workload-to-workload dependencies with drill-down |
+
+## Dashboard Tabs
+
+- **Overview** — top-level stats, worst blast-radius apps, lowest resiliency scores
+- **Blast Radius** — per-app impact tree with affected consumer counts
+- **SPOFs** — single-point-of-failure table with severity and consumer list
+- **Compliance** — boundary map with cross-zone violation highlights
+- **Change Impact** — what-if simulator for rule/label changes
+- **Graph** — full D3.js dependency visualization with zoom, filter, and search
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`SCAN_INTERVAL\` | \`3600\` | Seconds between analysis runs |
+| \`LOOKBACK_HOURS\` | \`168\` | Hours of traffic history to analyze (default 7 days) |
+| \`MAX_TRAFFIC_RESULTS\` | \`100000\` | Maximum traffic flows to query |
+| \`COMPLIANCE_ZONES\` | \`{}\` | JSON map of zone name to label selector for boundary validation |
+| \`RESILIENCY_WEIGHTS\` | _(built-in)_ | Custom weights for resiliency scoring factors |
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | \`/\` | Dashboard |
+| GET | \`/healthz\` | Health check |
+| GET | \`/api/analysis\` | Latest full analysis result |
+| GET | \`/api/blast-radius\` | Blast radius data for all apps |
+| GET | \`/api/spofs\` | Detected single points of failure |
+| GET | \`/api/compliance\` | Compliance boundary status |
+| GET | \`/api/impact\` | Change impact predictions |
+| POST | \`/api/impact/simulate\` | What-if simulation for a proposed change |
+| GET | \`/api/resiliency\` | Per-app resiliency scores |
+| GET | \`/api/graph\` | Dependency graph data (D3-ready JSON) |
+| POST | \`/api/scan\` | Trigger immediate analysis |`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];

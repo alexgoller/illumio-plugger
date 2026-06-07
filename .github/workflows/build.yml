@@ -15,7 +15,7 @@ env:
 
 jobs:
   # ------------------------------------------------------------------
-  # Build and push Docker images for all 15 in-repo plugins
+  # Build and push Docker images for all 16 in-repo plugins
   # (policy-gitops and policy-workflow are built from their own repo)
   # ------------------------------------------------------------------
   docker:
@@ -40,6 +40,7 @@ jobs:
           - policy-resolver
           - ztna-sync
           - infoblox-ipam-sync
+          - app-dependency-intel
 
     steps:
       - name: Checkout

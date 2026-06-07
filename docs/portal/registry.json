@@ -218,6 +218,18 @@
       "tags": ["security", "isolation", "quarantine", "edr", "soar", "incident-response", "webhook"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/workload-isolator"
+    },
+    {
+      "name": "app-dependency-intel",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-app-dependency-intel:latest",
+      "description": "Dependency analysis beyond policy — blast radius, SPOF detection, compliance boundaries, change impact, resiliency scoring",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["dependencies", "bcm", "compliance", "resiliency", "blast-radius", "change-impact", "d3js"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/app-dependency-intel"
     }
   ]
 }

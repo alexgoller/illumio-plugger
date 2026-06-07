@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with seventeen plugins that demonstrate different capabilities and are useful out of the box. Fifteen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
+Plugger ships with eighteen plugins that demonstrate different capabilities and are useful out of the box. Sixteen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -364,6 +364,37 @@ plugger install ai-security-report
 - Historical report storage with trend comparison
 - PDF export via browser print
 - Works without AI — all data analysis and scoring is built-in
+
+---
+
+## App Dependency Intel
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes (D3.js)
+
+Dependency intelligence that fills the gap beyond Illumination. While Illumination shows traffic flows, this plugin analyzes what those flows *mean* for operational resilience and compliance. It runs six analysis engines: blast radius estimation, single-point-of-failure detection, compliance boundary validation, change impact prediction, resiliency scoring, and an interactive D3.js dependency graph.
+
+**Install:**
+```bash
+plugger install app-dependency-intel
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SCAN_INTERVAL` | `3600` | Seconds between analysis runs |
+| `LOOKBACK_HOURS` | `168` | Hours of traffic history to analyze (7 days) |
+| `MAX_TRAFFIC_RESULTS` | `100000` | Maximum traffic flows to query |
+| `COMPLIANCE_ZONES` | `{}` | JSON map of zone name to label selector |
+| `RESILIENCY_WEIGHTS` | _(built-in)_ | Custom weights for resiliency scoring |
+
+**Analysis engines:**
+- **Blast Radius** — downstream impact if a workload/app goes offline
+- **SPOF Detection** — sole providers consumed by multiple apps
+- **Compliance Boundaries** — cross-zone traffic violations (PCI, SOX, HIPAA)
+- **Change Impact** — what-if simulation for policy/label changes
+- **Resiliency Scoring** — per-app 0-100 score on redundancy and SPOF exposure
+- **Dependency Graph** — D3.js force-directed visualization with drill-down
 
 ---
 
