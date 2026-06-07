@@ -128,7 +128,7 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 			if !noDashboard {
 				handler := dashboard.NewHandler(app.Store, app.Runtime, app.Config, app.Logger)
 				handler.SetEventRegistry(eventRegistry)
-				mux := handler.Routes()
+				mux := handler.WrappedRoutes()
 				go func() {
 					certFile, keyFile := resolveTLSCerts(app.Config)
 					if certFile != "" && keyFile != "" {

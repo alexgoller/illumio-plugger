@@ -18,7 +18,7 @@ func newDashboardCmd() *cobra.Command {
 		Short: "Start the web dashboard for managing plugins",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			handler := dashboard.NewHandler(app.Store, app.Runtime, app.Config, app.Logger)
-			mux := handler.Routes()
+			mux := handler.WrappedRoutes()
 
 			certFile, keyFile := resolveTLSCerts(app.Config)
 			if certFile != "" && keyFile != "" {

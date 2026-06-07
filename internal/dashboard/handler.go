@@ -77,6 +77,29 @@ func (h *Handler) Routes() *http.ServeMux {
 	// Reverse proxy to plugin UIs — handle all HTTP methods
 	mux.Handle("/plugins/{name}/ui/", http.HandlerFunc(h.handlePluginProxy))
 
+	// Health check — always unauthenticated
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	return mux
+}
+
+// WrappedRoutes returns the route handler wrapped with auth middleware if enabled.
+// Callers should use this instead of Routes() to get the fully configured handler.
+func (h *Handler) WrappedRoutes() http.Handler {
+	mux := h.Routes()
+
+	if h.deps.Config.Plugger.Auth.Enabled {
+		auth := NewAuthMiddleware(&h.deps.Config.Plugger.Auth)
+		mux.HandleFunc("GET /login", auth.HandleLogin)
+		mux.HandleFunc("POST /login", auth.HandleLogin)
+		mux.HandleFunc("POST /api/auth/logout", auth.HandleLogout)
+		return auth.Wrap(mux)
+	}
+
 	return mux
 }
 

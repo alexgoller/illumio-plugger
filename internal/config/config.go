@@ -24,13 +24,35 @@ type PCEConfig struct {
 }
 
 type PluggerConfig struct {
-	DataDir           string    `yaml:"dataDir"           mapstructure:"dataDir"`
-	Network           string    `yaml:"network"           mapstructure:"network"`
-	EventPollInterval int       `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
-	Registry          string    `yaml:"registry"          mapstructure:"registry"`
-	WebhookToken      string    `yaml:"webhookToken"      mapstructure:"webhookToken"`
-	DockerSocket      string    `yaml:"dockerSocket"      mapstructure:"dockerSocket"`
-	TLS               TLSConfig `yaml:"tls"               mapstructure:"tls"`
+	DataDir           string     `yaml:"dataDir"           mapstructure:"dataDir"`
+	Network           string     `yaml:"network"           mapstructure:"network"`
+	EventPollInterval int        `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
+	Registry          string     `yaml:"registry"          mapstructure:"registry"`
+	WebhookToken      string     `yaml:"webhookToken"      mapstructure:"webhookToken"`
+	DockerSocket      string     `yaml:"dockerSocket"      mapstructure:"dockerSocket"`
+	TLS               TLSConfig  `yaml:"tls"               mapstructure:"tls"`
+	Auth              AuthConfig `yaml:"auth"              mapstructure:"auth"`
+}
+
+type AuthConfig struct {
+	Enabled   bool           `yaml:"enabled"   mapstructure:"enabled"`
+	MasterKey string         `yaml:"masterKey" mapstructure:"masterKey"`
+	Dashboard DashboardAuth  `yaml:"dashboard" mapstructure:"dashboard"`
+	Keys      []APIKeyConfig `yaml:"keys"      mapstructure:"keys"`
+}
+
+type DashboardAuth struct {
+	Method     string `yaml:"method"     mapstructure:"method"`     // "key" or "none"
+	SessionTTL int    `yaml:"sessionTTL" mapstructure:"sessionTTL"` // seconds
+}
+
+type APIKeyConfig struct {
+	Key         string            `yaml:"key"         mapstructure:"key"`
+	Name        string            `yaml:"name"        mapstructure:"name"`
+	Description string            `yaml:"description" mapstructure:"description"`
+	Plugins     map[string]string `yaml:"plugins"     mapstructure:"plugins"` // plugin -> "read"|"write"
+	Access      string            `yaml:"access"      mapstructure:"access"`  // default access for wildcard
+	Dashboard   bool              `yaml:"dashboard"   mapstructure:"dashboard"`
 }
 
 type TLSConfig struct {
@@ -62,6 +84,13 @@ func DefaultConfig() *Config {
 			DataDir:           DefaultDataDir(),
 			Network:           "plugger-net",
 			EventPollInterval: 30,
+			Auth: AuthConfig{
+				Enabled: false,
+				Dashboard: DashboardAuth{
+					Method:     "key",
+					SessionTTL: 86400,
+				},
+			},
 		},
 		Logging: LoggingConfig{
 			Level:  "info",
@@ -86,6 +115,9 @@ func Load(cfgFile string) (*Config, error) {
 	viper.SetDefault("plugger.dataDir", DefaultDataDir())
 	viper.SetDefault("plugger.network", "plugger-net")
 	viper.SetDefault("plugger.eventPollInterval", 30)
+	viper.SetDefault("plugger.auth.enabled", false)
+	viper.SetDefault("plugger.auth.dashboard.method", "key")
+	viper.SetDefault("plugger.auth.dashboard.sessionTTL", 86400)
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "text")
 
@@ -127,6 +159,20 @@ plugger:
     enabled: true
     # certFile: ""    # Leave empty for auto-generated self-signed cert
     # keyFile: ""     # Set both for BYO certificate
+  auth:
+    enabled: false
+    # masterKey: ""   # Master key that grants full access (set via PLUGGER_PLUGGER_AUTH_MASTERKEY env)
+    dashboard:
+      method: key     # "key" or "none"
+      sessionTTL: 86400  # session lifetime in seconds (24h)
+    # keys:
+    #   - key: "pk_your_api_key_here"
+    #     name: "my-automation"
+    #     description: "CI/CD pipeline key"
+    #     dashboard: false
+    #     access: "read"   # default access level for unlisted plugins
+    #     plugins:
+    #       my-plugin: "write"
 
 logging:
   level: info
