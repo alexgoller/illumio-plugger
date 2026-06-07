@@ -176,6 +176,20 @@ This is the recommended way to run plugger. It:
 - Listens for event webhooks
 - Serves the dashboard
 
+## Authentication (Optional)
+
+By default, authentication is disabled and the dashboard and APIs are open. If plugger is accessible over the network, you can enable API key authentication to control access:
+
+```yaml
+# ~/.plugger/config.yaml
+plugger:
+  auth:
+    enabled: true
+    masterKey: "pk_master_xxx"
+```
+
+Generate keys with `plugger auth create-key` and assign per-plugin read/write permissions. See the [Operations Guide](operations.md#authentication) for full configuration details.
+
 ## Quick Reference
 
 ```bash

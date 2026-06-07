@@ -523,7 +523,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
                 </div>
                 <h3 class="text-white font-semibold">CLI Reference</h3>
             </div>
-            <p class="text-sm text-gray-300">All commands: init, run, install, create, start, stop, search, upgrade, repo, and more.</p>
+            <p class="text-sm text-gray-300">All commands: init, run, install, create, start, stop, search, upgrade, auth, repo, and more.</p>
         </div>
         <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('plugin-development')">
             <div class="flex items-center gap-3 mb-2">
@@ -541,7 +541,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
                 </div>
                 <h3 class="text-white font-semibold">Operations Guide</h3>
             </div>
-            <p class="text-sm text-gray-300">Production deployment, systemd, auto-restart, health checks, monitoring, troubleshooting, backup.</p>
+            <p class="text-sm text-gray-300">Production deployment, systemd, auto-restart, health checks, API key authentication, monitoring, troubleshooting, backup.</p>
         </div>
         <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 cursor-pointer" onclick="showProductDoc('events')">
             <div class="flex items-center gap-3 mb-2">
@@ -876,6 +876,14 @@ Check installed plugins against registry for updates.
 ### \`plugger upgrade <plugin>\`
 Upgrade to the latest version from registry.
 
+### \`plugger auth\`
+Manage API keys for authentication. Subcommands:
+
+- \`plugger auth create-key --name "Name" --plugins plugin:access,...\` — generate a new key
+- \`plugger auth list-keys\` — list configured keys (masked)
+- \`plugger auth revoke-key <prefix>\` — show revocation instructions
+- \`plugger auth test-key <key>\` — validate a key and show its permissions
+
 ### \`plugger repo\`
 Manage registries: \`repo list\`, \`repo add <name> <url>\`, \`repo remove <name>\`.
 
@@ -987,7 +995,7 @@ Declare \`type: ui\` in metadata ports. UI is accessible at \`http://plugger:880
     github: "https://github.com/alexgoller/illumio-plugger/blob/main/docs/operations.md",
     readme: `# Operations Guide
 
-Running plugger in production: deployment, monitoring, troubleshooting, and maintenance.
+Running plugger in production: deployment, monitoring, authentication, troubleshooting, and maintenance.
 
 ## Running as a Service (systemd)
 
@@ -1019,6 +1027,45 @@ WantedBy=multi-user.target
 | 5 | 16s | |
 
 If container stays running 30+ seconds, failure counter resets.
+
+## Authentication
+
+By default, authentication is disabled. Enable it to protect the dashboard and plugin APIs with API keys.
+
+\`\`\`yaml
+plugger:
+  auth:
+    enabled: true
+    masterKey: "pk_master_xxx"
+    dashboard:
+      method: key
+      sessionTTL: 86400
+    keys:
+      - key: "pk_soc_xxx"
+        name: "SOC Team"
+        plugins:
+          workload-isolator: "write"
+          ai-security-report: "read"
+        dashboard: true
+\`\`\`
+
+### Key Concepts
+
+- **Master key** — full write access to everything; for setup and emergencies
+- **Per-plugin permissions** — each key maps plugins to \`read\` or \`write\` access
+- **Dashboard login** — paste an API key once, get a session cookie (no username/password)
+- **API access** — pass the key as \`Authorization: Bearer pk_...\` header
+
+### Managing Keys
+
+\`\`\`bash
+plugger auth create-key --name "SOC Team" --plugins workload-isolator:write
+plugger auth list-keys
+plugger auth test-key pk_soc_xxx
+plugger auth revoke-key pk_soc_xxx
+\`\`\`
+
+When auth is disabled (\`enabled: false\`, the default), all endpoints are open. The \`/healthz\` endpoint is always open regardless of auth settings.
 
 ## Monitoring
 

@@ -173,6 +173,165 @@ plugger:
   dataDir: /tmp/plugger    # or ~/.plugger
 ```
 
+## Authentication
+
+By default, authentication is disabled and all dashboard and API endpoints are open. When deploying plugger on a network where others can reach port 8800, enable API key authentication to control who can view data and who can make changes.
+
+### Enabling Authentication
+
+Add an `auth` section to `~/.plugger/config.yaml`:
+
+```yaml
+plugger:
+  auth:
+    enabled: true
+    masterKey: "pk_master_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    dashboard:
+      method: key        # "key" = require login; "none" = open dashboard
+      sessionTTL: 86400  # session cookie lifetime in seconds (24h)
+    keys: []             # API keys (see below)
+```
+
+Set `auth.enabled: true` to activate authentication. When disabled (the default), all endpoints behave as before with no authentication required.
+
+### Master Key
+
+The `masterKey` grants full write access to every plugin and the dashboard. Use it for initial setup and emergency access. You can generate one with the CLI:
+
+```bash
+plugger auth create-key --name "master"
+```
+
+Copy the generated `pk_...` value into the `masterKey` field. The master key can also be set via the environment variable `PLUGGER_PLUGGER_AUTH_MASTERKEY`.
+
+### Creating API Keys
+
+Use the CLI to generate keys with specific plugin permissions:
+
+```bash
+# Key with write access to one plugin and read access to another
+plugger auth create-key \
+  --name "SOC Team" \
+  --plugins workload-isolator:write,ai-security-report:read \
+  --dashboard
+
+# Read-only key for all plugins
+plugger auth create-key --name "Viewer" --plugins "*:read" --dashboard
+
+# API-only key (no dashboard access)
+plugger auth create-key \
+  --name "CrowdStrike EDR" \
+  --plugins workload-isolator:write \
+  --no-dashboard
+```
+
+The command outputs the key value and a YAML snippet to paste into your `config.yaml` under `plugger.auth.keys`.
+
+### Per-Plugin Permissions
+
+Each key specifies access per plugin using `read` or `write` levels:
+
+| Level | GET / HEAD | POST / PUT / DELETE | Dashboard view | Dashboard actions |
+|-------|:---:|:---:|:---:|:---:|
+| `read` | Allowed | Denied | Allowed | Denied |
+| `write` | Allowed | Allowed | Allowed | Allowed |
+
+Plugins not listed in a key's `plugins` map are denied by default. Use `"*"` with a default `access` level for broad access:
+
+```yaml
+keys:
+  - key: "pk_soc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    name: "SOC Team"
+    plugins:
+      workload-isolator: "write"
+      ai-security-report: "read"
+    dashboard: true
+
+  - key: "pk_viewer_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    name: "Read-Only Viewer"
+    plugins: "*"
+    access: "read"
+    dashboard: true
+```
+
+### Dashboard Login Flow
+
+When `dashboard.method` is set to `key` (the default):
+
+1. Navigate to the plugger dashboard in a browser.
+2. If no valid session cookie exists, you are redirected to a login page.
+3. Paste an API key into the login form.
+4. Plugger validates the key and sets an `HttpOnly` session cookie.
+5. Subsequent requests use the cookie until it expires (controlled by `sessionTTL`).
+
+No username or password is needed -- just an API key with `dashboard: true`.
+
+Set `dashboard.method` to `none` to keep the dashboard open while still requiring API keys for `POST`/`PUT`/`DELETE` requests.
+
+### Using API Keys with curl
+
+Pass the key as a Bearer token in the `Authorization` header:
+
+```bash
+# Read plugin data
+curl -H "Authorization: Bearer pk_soc_xxx" \
+  https://plugger:8800/api/plugins
+
+# Trigger an action (requires write access)
+curl -X POST -H "Authorization: Bearer pk_soc_xxx" \
+  https://plugger:8800/api/plugins/workload-isolator/start
+```
+
+You can also pass the key as a query parameter (`?token=pk_...`), though the header method is preferred.
+
+### Disabling Authentication
+
+Authentication is disabled by default. To explicitly disable it after it was previously enabled:
+
+```yaml
+plugger:
+  auth:
+    enabled: false
+```
+
+When disabled, all endpoints are open with no authentication checks. The `/healthz` endpoint is always open regardless of the auth setting.
+
+### Configuration Example: SOC + Network Teams
+
+```yaml
+plugger:
+  auth:
+    enabled: true
+    masterKey: "pk_master_xxx"
+    dashboard:
+      method: key
+      sessionTTL: 86400
+    keys:
+      - key: "pk_soc_xxx"
+        name: "SOC"
+        description: "Security Operations — incident response"
+        plugins:
+          workload-isolator: "write"
+          ai-security-report: "read"
+          ai-assisted-rules: "read"
+        dashboard: true
+
+      - key: "pk_net_xxx"
+        name: "Network"
+        description: "Firewall and network management"
+        plugins:
+          policy-resolver: "write"
+          traffic-reporter: "read"
+        dashboard: true
+
+      - key: "pk_edr_xxx"
+        name: "CrowdStrike EDR"
+        description: "Automated isolation from EDR"
+        plugins:
+          workload-isolator: "write"
+        dashboard: false
+```
+
 ## Backup & Recovery
 
 ### Config Backup

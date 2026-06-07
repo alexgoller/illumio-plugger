@@ -293,6 +293,104 @@ The official registry (`alexgoller.github.io/illumio-plugger/registry.json`) is 
 
 ---
 
+### `plugger auth`
+
+Manage API keys for dashboard and plugin authentication. See the [Operations Guide](operations.md#authentication) for full details on configuring authentication.
+
+---
+
+### `plugger auth create-key`
+
+Generate a new API key with per-plugin permissions.
+
+```bash
+plugger auth create-key [flags]
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--name` | _(required)_ | Key name (e.g. "SOC Team") |
+| `--plugins` | | Plugin permissions: `name:access,...` (e.g. `workload-isolator:write,*:read`) |
+| `--dashboard` | `true` | Allow dashboard access |
+| `--description` | | Key description |
+
+**Examples:**
+```bash
+# Key with specific plugin permissions
+plugger auth create-key --name "SOC Team" --plugins workload-isolator:write,ai-security-report:read
+
+# Read-only key for all plugins
+plugger auth create-key --name "Viewer" --plugins "*:read"
+
+# API-only key (no dashboard)
+plugger auth create-key --name "CI/CD" --plugins policy-gitops:write --dashboard=false
+```
+
+Outputs the key value and a YAML snippet to paste into `config.yaml` under `plugger.auth.keys`. Save the key immediately -- it cannot be retrieved later.
+
+---
+
+### `plugger auth list-keys`
+
+List all configured API keys with masked values.
+
+```bash
+plugger auth list-keys
+```
+
+**Output:**
+```
+Master key: pk_master_a1b2...
+
+NAME                 KEY PREFIX      PLUGINS                                  DASHBOARD
+----                 ----------      -------                                  ---------
+SOC Team             pk_soc_a1b2c... workload-isolator:write, ai-securi...    yes
+CrowdStrike          pk_edr_d4e5f... workload-isolator:write                  no
+```
+
+If auth is disabled, prints a message and exits.
+
+---
+
+### `plugger auth revoke-key`
+
+Show instructions for revoking an API key.
+
+```bash
+plugger auth revoke-key <key-prefix>
+```
+
+Keys are revoked by removing them from `config.yaml` and restarting plugger. This command prints the steps.
+
+---
+
+### `plugger auth test-key`
+
+Test whether an API key is valid and display its permissions.
+
+```bash
+plugger auth test-key <api-key>
+```
+
+**Examples:**
+```bash
+plugger auth test-key pk_soc_a1b2c3d4e5f6...
+# Valid: SOC Team
+#   Description: Security Operations
+#   Dashboard: true
+#   workload-isolator: write
+#   ai-security-report: read
+
+plugger auth test-key pk_invalid_xxx
+# Invalid: key not found
+```
+
+Exits with code 1 if the key is not found.
+
+---
+
 ### `plugger version`
 
 Print the plugger version.
