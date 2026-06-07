@@ -1,0 +1,58 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Application Dependency Intelligence dashboard
+    type: ui
+    path: /
+
+config:
+  - name: LOOKBACK_DAYS
+    description: Days of traffic to analyze for dependencies
+    required: false
+    type: int
+    default: "30"
+  - name: MAX_FLOWS
+    description: Maximum traffic flows to process
+    required: false
+    type: int
+    default: "200000"
+  - name: SCAN_INTERVAL
+    description: Seconds between analysis runs
+    required: false
+    type: int
+    default: "3600"
+  - name: GROUP_BY
+    description: "Label keys for application grouping (comma-separated)"
+    required: false
+    type: string
+    default: "app,env"
+  - name: HUB_THRESHOLD
+    description: Minimum consumers to flag as infrastructure hub
+    required: false
+    type: int
+    default: "4"
+  - name: SPOF_THRESHOLD
+    description: Maximum provider workloads before SPOF warning
+    required: false
+    type: int
+    default: "1"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent data (historical dependency snapshots)
+    required: false
+
+info:
+  title: Application Dependency Intelligence
+  version: "0.1.0"
+  description: "Dependency analysis beyond policy — blast radius, SPOF detection, compliance boundaries, change impact, resiliency scoring"
+  author: Illumio
+  license: Apache-2.0
