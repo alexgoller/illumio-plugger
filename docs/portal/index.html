@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 19 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 20 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -110,7 +110,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">19</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">20</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -212,7 +212,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (19)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (20)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -450,6 +450,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Instant workload quarantine via webhook. Isolate compromised workloads, EDR/SOAR integration, auto-release TTL, full audit trail.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install workload-isolator</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- VEN Fleet Manager -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d1 cursor-pointer" data-plugin="ven-fleet-manager" data-categories="operations" onclick="showDocs('ven-fleet-manager')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">VEN Fleet Manager</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Fleet-level VEN visibility — enforcement progression pipeline, compatibility check tracking, version distribution, batch progression to visibility.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install ven-fleet-manager</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
         </div>
@@ -2017,13 +2033,90 @@ plugger install app-dependency-intel
 | GET | \`/api/resiliency\` | Per-app resiliency scores |
 | GET | \`/api/graph\` | Dependency graph data (D3-ready JSON) |
 | POST | \`/api/scan\` | Trigger immediate analysis |`
+},
+"ven-fleet-manager": {
+    title: "VEN Fleet Manager",
+    mode: "daemon",
+    tags: ["operations"],
+    readme: `# VEN Fleet Manager
+
+Fleet-level VEN visibility for Illumio PCE. Tracks the enforcement progression pipeline across your entire workload fleet, showing how workloads move from idle through visibility to full enforcement. Includes compatibility check tracking, version distribution, agent health, and upgrade readiness.
+
+## Install
+
+\`\`\`bash
+plugger install ven-fleet-manager
+\`\`\`
+
+## Enforcement Progression Pipeline
+
+The core feature visualizes your fleet\`s journey through Illumio enforcement stages:
+
+| Stage | Description |
+|-------|-------------|
+| **Idle** | VEN installed but not enforcing policy |
+| **Visibility Only** | Reporting traffic flows, no enforcement |
+| **Selective Enforcement** | Enforcing specific rulesets |
+| **Full Enforcement** | All traffic governed by policy |
+
+The pipeline view shows stage counts, movement velocity (workloads/day progressing), and blockers preventing advancement.
+
+## Compatibility Checks
+
+- Tracks VEN/OS compatibility matrix across the fleet
+- Flags workloads with incompatible VEN versions before upgrades
+- Shows end-of-support VEN versions and recommended upgrade targets
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`SCAN_INTERVAL\` | \`600\` | Seconds between fleet scans |
+| \`BATCH_SIZE\` | \`500\` | Workloads per batch for progression API calls |
+| \`HEALTH_THRESHOLD\` | \`90\` | Fleet health score threshold for alerts |
+
+## Fleet Health Score
+
+Composite 0-100 score based on:
+- **Enforcement coverage** (40%) — percentage of workloads in visibility or higher
+- **Agent health** (25%) — online agents with recent heartbeats
+- **Version currency** (20%) — percentage on latest or N-1 VEN version
+- **Compatibility** (15%) — workloads passing compatibility checks
+
+## Batch Progression API
+
+Move groups of workloads to the next enforcement stage:
+
+\`\`\`bash
+# Preview what would be progressed
+curl http://localhost:8080/api/progression/preview?from=idle&to=visibility_only
+
+# Execute batch progression
+curl -X POST http://localhost:8080/api/progression/execute \\
+  -d \`{"from": "idle", "to": "visibility_only", "filter": {"app": "ordering"}}\`
+\`\`\`
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | \`/\` | Dashboard |
+| GET | \`/healthz\` | Health check |
+| GET | \`/api/fleet\` | Fleet overview (counts, health score) |
+| GET | \`/api/pipeline\` | Enforcement progression pipeline |
+| GET | \`/api/compatibility\` | Compatibility check results |
+| GET | \`/api/versions\` | VEN version distribution |
+| GET | \`/api/health\` | Agent health summary |
+| GET | \`/api/progression/preview\` | Preview batch progression |
+| POST | \`/api/progression/execute\` | Execute batch progression |
+| POST | \`/api/scan\` | Trigger immediate scan |`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];

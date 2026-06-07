@@ -230,6 +230,18 @@
       "tags": ["dependencies", "bcm", "compliance", "resiliency", "blast-radius", "change-impact", "d3js"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/app-dependency-intel"
+    },
+    {
+      "name": "ven-fleet-manager",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-ven-fleet-manager:latest",
+      "description": "Fleet-level VEN visibility — enforcement progression, compatibility checks, version distribution, agent health, upgrade readiness",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["ven", "fleet", "agent", "enforcement", "upgrade", "health", "operations"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ven-fleet-manager"
     }
   ]
 }

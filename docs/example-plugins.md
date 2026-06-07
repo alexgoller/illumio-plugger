@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with eighteen plugins that demonstrate different capabilities and are useful out of the box. Sixteen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
+Plugger ships with nineteen plugins that demonstrate different capabilities and are useful out of the box. Seventeen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -556,6 +556,36 @@ plugger install infoblox-ipam-sync
 - Auto-create EA definitions on Infoblox
 - Metadata tracking (IllumioManaged, IllumioSyncTime)
 - Dashboard with match visualization and change preview
+
+---
+
+## VEN Fleet Manager
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+Fleet-level VEN visibility for Illumio PCE. Tracks the enforcement progression pipeline across your entire workload fleet, showing how workloads move from idle through visibility to full enforcement. Includes compatibility check tracking, version distribution analysis, agent health monitoring, and upgrade readiness assessment.
+
+**Install:**
+```bash
+plugger install ven-fleet-manager
+```
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SCAN_INTERVAL` | `600` | Seconds between fleet scans |
+| `BATCH_SIZE` | `500` | Workloads per batch for progression API calls |
+| `HEALTH_THRESHOLD` | `90` | Fleet health score threshold for alerts |
+
+**Features:**
+- **Enforcement progression pipeline** — visualize workloads moving from idle → visibility → selective → full enforcement with stage counts and velocity
+- **Compatibility checks** — track VEN/OS compatibility status, flag incompatible agents before upgrades
+- **Version distribution** — breakdown of VEN versions across the fleet, identify stragglers
+- **Agent health** — offline agents, stale heartbeats, suspended VENs
+- **Upgrade readiness** — per-version upgrade eligibility, batch progression API for moving workloads through stages
+- **Fleet health score** — 0-100 composite score based on enforcement coverage, agent health, version currency, and compatibility
+- **Batch progression API** — move groups of workloads to the next enforcement stage via the dashboard
 
 ---
 
