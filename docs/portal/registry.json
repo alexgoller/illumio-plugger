@@ -206,6 +206,18 @@
       "tags": ["policy", "workflow", "approval", "automation", "notifications"],
       "author": "Alex Goller",
       "homepage": "https://github.com/alexgoller/illumio-policy-gitops"
+    },
+    {
+      "name": "workload-isolator",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-workload-isolator:latest",
+      "description": "Instant workload quarantine via webhook — isolate compromised workloads, EDR/SOAR integration, auto-release TTL, audit trail",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["security", "isolation", "quarantine", "edr", "soar", "incident-response", "webhook"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/workload-isolator"
     }
   ]
 }
