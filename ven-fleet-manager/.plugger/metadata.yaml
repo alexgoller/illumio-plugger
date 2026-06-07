@@ -1,0 +1,48 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: VEN Fleet Manager dashboard
+    type: ui
+    path: /
+
+config:
+  - name: SCAN_INTERVAL
+    description: Seconds between fleet scans
+    required: false
+    type: int
+    default: "3600"
+  - name: OFFLINE_THRESHOLD_HOURS
+    description: Hours offline to flag as concerning
+    required: false
+    type: int
+    default: "24"
+  - name: STALE_HEARTBEAT_HOURS
+    description: Hours since heartbeat to flag as stale
+    required: false
+    type: int
+    default: "48"
+  - name: TARGET_VEN_VERSION
+    description: Target VEN version for upgrade readiness (empty = auto-detect latest)
+    required: false
+    type: string
+    default: ""
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent data (fleet snapshots for trending)
+    required: false
+
+info:
+  title: VEN Fleet Manager
+  version: "0.1.0"
+  description: "Fleet-level VEN visibility — version distribution, enforcement progression, compatibility checks, coverage gaps, agent health, upgrade readiness"
+  author: Illumio
+  license: Apache-2.0
