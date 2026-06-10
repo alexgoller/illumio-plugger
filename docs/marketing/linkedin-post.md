@@ -16,7 +16,9 @@ A few things worth calling out:
 
 **Policy GitOps** — policy-as-code with Git. CODEOWNERS enforces multi-team review for cross-scope rules. Security pipeline checks for any-to-any, insecure protocols. Traffic evidence proves each rule is needed. Provision on merge.
 
-20 plugins total, covering monitoring, AI analysis, integrations (Palo Alto, Infoblox, ZTNA, CMDB), and operations.
+20 plugins total, covering monitoring, AI analysis, integrations (Palo Alto, Infoblox, ZTNA, CMDB), and operations. Templates in Go, Python, Shell, and JavaScript.
+
+Want to build your own? There's a built-in Claude Code skill — point Claude at your plugger repo, describe what you need, and it scaffolds the full plugin with PCE connectivity, dashboard, and Docker container. From idea to running plugin in minutes.
 
 Open source, community-driven. Would love to hear what you'd want to see next.
 

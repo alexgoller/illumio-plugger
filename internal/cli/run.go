@@ -189,15 +189,22 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 					restartCtx, restartCancel := context.WithTimeout(context.Background(), 2*time.Minute)
 					restarted := 0
 					for name, sched := range schedulers {
-						slog.Info("restarting plugin", "plugin", name)
-						if stopErr := sched.Stop(restartCtx); stopErr != nil {
-							slog.Warn("error stopping plugin for reload", "plugin", name, "error", stopErr)
-						}
-						if startErr := sched.Start(restartCtx); startErr != nil {
-							slog.Error("error restarting plugin", "plugin", name, "error", startErr)
-						} else {
-							restarted++
-						}
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									slog.Error("panic restarting plugin", "plugin", name, "panic", r)
+								}
+							}()
+							slog.Info("restarting plugin", "plugin", name)
+							if stopErr := sched.Stop(restartCtx); stopErr != nil {
+								slog.Warn("error stopping plugin for reload", "plugin", name, "error", stopErr)
+							}
+							if startErr := sched.Start(restartCtx); startErr != nil {
+								slog.Error("error restarting plugin", "plugin", name, "error", startErr)
+							} else {
+								restarted++
+							}
+						}()
 					}
 					restartCancel()
 
