@@ -45,6 +45,11 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
+			// Write PID file immediately so reload works
+			pidFile := filepath.Join(app.Config.Plugger.DataDir, "plugger.pid")
+			os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", os.Getpid())), 0644)
+			defer os.Remove(pidFile)
+
 			// Reconcile stored state vs actual containers
 			slog.Info("reconciling plugin state...")
 			if err := reconcileState(ctx, deps); err != nil {
@@ -154,11 +159,6 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 					}
 				}()
 			}
-
-			// Write PID file for reload command
-			pidFile := filepath.Join(app.Config.Plugger.DataDir, "plugger.pid")
-			os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", os.Getpid())), 0644)
-			defer os.Remove(pidFile)
 
 			// Wait for shutdown or reload signal
 			sigCh := make(chan os.Signal, 1)
