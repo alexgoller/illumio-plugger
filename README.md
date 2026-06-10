@@ -1,34 +1,162 @@
-# Plugger — Illumio Plugin Framework
+# Plugger — Plugin Framework for Illumio PCE
 
-Plugger manages Illumio PCE plugins running as Docker containers. It handles the full plugin lifecycle — install, scheduling, health checks, auto-restart, credential injection, web dashboard, plugin registry, and event-driven automation.
+[![Plugins](https://img.shields.io/badge/plugins-20-blue)](https://alexgoller.github.io/illumio-plugger/)
+[![Languages](https://img.shields.io/badge/templates-Go%20%7C%20Python%20%7C%20Shell%20%7C%20JavaScript-green)](docs/plugin-development.md)
+[![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
+[![Portal](https://img.shields.io/badge/portal-live-brightgreen)](https://alexgoller.github.io/illumio-plugger/)
 
-## Key Features
+Plugger is a Go CLI that manages Illumio PCE extensions as Docker containers — install, schedule, health-check, auto-restart, and expose them through a unified web dashboard. No patch cycles. No custom integrations hardwired into your environment. Just `plugger install <name> && plugger run`.
 
-- **`plugger run`** — production orchestrator: starts all plugins, auto-restarts on crash, cron scheduling, health checks, embedded dashboard
-- **Three scheduling modes** — daemon (24/7), cron (periodic), event-driven (webhook-triggered ephemeral containers)
-- **Web dashboard** — plugin tiles, start/stop/restart, live logs, config editing, dark/light/auto theme
-- **Reverse proxy** — all plugin UIs consolidated under one port with URL/JS rewriting
-- **Plugin registry** — search, install by name, check for updates, custom repos
-- **Install from anywhere** — local file, URL, container image, or registry name
-- **AI-assisted policy** — blocked traffic analysis, tiered rule generation, LLM-powered recommendations, one-click provisioning
-- **Event-driven automation** — webhook endpoint triggers plugins on PCE events, traffic alerts, or any external source
-- **Plugin scaffolding** — `plugger create -t go|shell|python` with Illumio SDK support
-- **Runtime abstraction** — Docker today, Kubernetes ready (same interface)
+> Community project by [Alex Goller](https://github.com/alexgoller), Illumio Solutions Architect. Not an official Illumio product.
+
+---
 
 ## Quick Start
 
 ```bash
-make build                                    # Build
-plugger init                                  # Initialize config
-vim ~/.plugger/config.yaml                    # Set PCE connection
-plugger search                                # Browse available plugins
-plugger install pce-health-monitor            # Install from registry
-plugger run                                   # Start everything
+# 1. Build
+git clone https://github.com/alexgoller/illumio-plugger
+cd illumio-plugger && make build
+
+# 2. Initialize — writes ~/.plugger/config.yaml with PCE connection details
+plugger init
+
+# 3. Install a plugin and start everything
+plugger install ai-security-report
+plugger run
 ```
 
-Dashboard: `http://localhost:8800` | Registry: `http://localhost:8800/registry`
+Dashboard opens at `http://localhost:8800`. Registry browser at `http://localhost:8800/registry`.
 
-Plugin Portal: [alexgoller.github.io/illumio-plugger](https://alexgoller.github.io/illumio-plugger/)
+---
+
+## Plugin Highlights
+
+### AI Security Report
+Connects to your PCE, analyzes workload posture across 10 security dimensions, maps findings to NIST CSF and PCI-DSS controls, and produces a scored HTML report with a remediation roadmap. No manual data gathering — point it at your PCE and read the output.
+
+```bash
+plugger install ai-security-report && plugger run
+# Report appears at http://localhost:8800/ai-security-report
+```
+
+### Workload Isolator
+Exposes a webhook endpoint. When CrowdStrike, Splunk SOAR, or any EDR signals a compromise, it flips the workload into selective enforcement, cutting lateral movement in seconds. Optional TTL auto-releases after investigation.
+
+```bash
+plugger install workload-isolator
+# POST /isolate {"hostname": "web-prod-07"} → quarantined
+```
+
+### Policy Resolver
+Translates Illumio's label-based policy into concrete IP-level firewall rules your network team can read. Useful for audits, firewall migration projects, and proving to a skeptical network engineer that your segmentation policy actually does what you think it does.
+
+### App Dependency Intelligence
+Analyzes PCE traffic flows to build an application dependency graph. Surfaces blast radius (what breaks if this service goes down), single points of failure, compliance boundary crossings, and resiliency scores. Built on D3.js — the visualization is interactive.
+
+---
+
+## All 20 Plugins
+
+### Monitoring & Visibility
+
+| Plugin | Description | Mode |
+|--------|-------------|------|
+| [pce-health-monitor](pce-health-monitor/) | Real-time PCE health dashboard — endpoint checks, CPU/memory/disk | Daemon + UI |
+| [traffic-reporter](traffic-reporter/) | Interactive traffic flow analysis — top talkers, blocked flows, Sankey diagram | Daemon + UI |
+| [policy-diff](policy-diff/) | Git-like policy change tracker — field-level diffs, user attribution, audit trail | Daemon + UI |
+| [pce-events](pce-events/) | Real-time PCE event fan-out — Slack, Teams, PagerDuty, Email, 15+ outputs | Daemon + UI |
+| [ven-fleet-manager](ven-fleet-manager/) | VEN fleet visibility — enforcement progress, compatibility, version distribution, upgrade readiness | Daemon + UI |
+| [stale-workloads](stale-workloads/) | Find offline, unresponsive, and traffic-silent workloads — with optional cleanup | Daemon + UI |
+
+### AI & Security Analysis
+
+| Plugin | Description | Mode |
+|--------|-------------|------|
+| [ai-security-report](ai-security-report/) | AI-powered security posture scoring across 10 categories — NIST/PCI mapping, heatmap, roadmap | Daemon + UI |
+| [ai-assisted-rules](ai-assisted-rules/) | Policy advisor — blocked traffic analysis, tiered rule generation, label gap detection, LLM recommendations | Daemon + UI |
+| [pce-posture-report](pce-posture-report/) | Enforcement coverage, label coverage, policy rules scoring — HTML+JSON output | Cron |
+| [app-dependency-intel](app-dependency-intel/) | Application dependency graph — blast radius, SPOF detection, resiliency scoring, D3.js visualization | Daemon + UI |
+
+### Policy Management
+
+| Plugin | Description | Mode |
+|--------|-------------|------|
+| [policy-resolver](policy-resolver/) | Resolve label-based policy to IP-level firewall rules — JSON export, searchable dashboard | Daemon + UI |
+| [rule-scheduler](rule-scheduler/) | Time-based rule scheduling — business hours, maintenance windows, weekend lockdowns | Daemon + UI |
+| [workload-isolator](workload-isolator/) | Webhook-triggered workload quarantine — EDR/SOAR integration, TTL auto-release, audit trail | Daemon + UI |
+| [policy-gitops](policy-gitops/) | Policy-as-code — sync rulesets/IP lists/services as YAML to Git with drift detection ([standalone repo](https://github.com/alexgoller/illumio-policy-gitops)) | Daemon + UI |
+| [policy-workflow](policy-workflow/) | Approval workflow engine — multi-stage pipelines, Slack/ServiceNow integration, audit log | Daemon + UI |
+
+### Integrations
+
+| Plugin | Description | Mode |
+|--------|-------------|------|
+| [palo-alto-dag-sync](palo-alto-dag-sync/) | Sync Illumio labels to Palo Alto Dynamic Address Groups via PAN-OS XML API | Daemon + UI |
+| [ztna-sync](ztna-sync/) | Sync workloads to ZTNA apps — Zscaler ZPA, Netskope NPA, Cloudflare Access, Cisco Secure Access | Daemon + UI |
+| [infoblox-ipam-sync](infoblox-ipam-sync/) | Bi-directional sync between Illumio labels and Infoblox extensible attributes | Daemon + UI |
+| [remedy-cmdb-sync](remedy-cmdb-sync/) | Sync BMC Helix/Remedy CMDB CIs to Illumio labels — analytics mode for feasibility testing | Daemon + UI |
+| [ad-label-sync](ad-label-sync/) | Discover AD computers via LDAP, map OU/group/location attributes to Illumio labels | Daemon + UI |
+
+---
+
+## Plugin Registry
+
+```bash
+plugger search                          # List all available plugins
+plugger search monitoring               # Filter by keyword
+plugger install pce-health-monitor      # Install from registry
+plugger outdated                        # Check for updates
+plugger upgrade traffic-reporter        # Pull latest, restart
+plugger repo add myco https://internal.example.com/registry.json  # Custom registry
+```
+
+The web dashboard at `http://localhost:8800/registry` lets you browse, filter, and install with one click.
+
+Custom registries: host a `registry.json` at any URL using the same format as the [official registry](https://alexgoller.github.io/illumio-plugger/registry.json).
+
+---
+
+## Building Plugins
+
+Scaffold a new plugin in any supported language:
+
+```bash
+plugger create -t python my-plugin     # Python (most existing plugins)
+plugger create -t go my-plugin         # Go with Illumio SDK
+plugger create -t shell my-plugin      # Shell script
+```
+
+Each template includes a `plugin.yaml` manifest, health endpoint, Illumio credential injection, and a working Dockerfile. See [Plugin Development](docs/plugin-development.md).
+
+---
+
+## How It Works
+
+Plugger runs each plugin as a Docker container with a declarative manifest:
+
+```yaml
+# plugin.yaml
+apiVersion: plugger/v1
+name: my-plugin
+schedule:
+  mode: daemon          # daemon | cron | event
+env:
+  - name: POLL_INTERVAL
+    default: "3600"
+health:
+  endpoint: /healthz
+  port: 8080
+```
+
+`plugger run` reads all installed manifests, starts containers, injects PCE credentials, proxies plugin UIs under a single port, streams logs, and restarts failed containers with exponential backoff.
+
+**Three scheduling modes:**
+- `daemon` — runs continuously, auto-restart on crash
+- `cron` — runs on a schedule (e.g., nightly reports)
+- `event` — ephemeral container triggered by webhook (incident response, PCE events)
+
+---
 
 ## Documentation
 
@@ -37,115 +165,16 @@ Plugin Portal: [alexgoller.github.io/illumio-plugger](https://alexgoller.github.
 | [Getting Started](docs/getting-started.md) | First-time setup walkthrough |
 | [Installation & Configuration](docs/installation.md) | Prerequisites, config options, Docker socket, networking |
 | [CLI Reference](docs/cli-reference.md) | All commands and flags |
-| [Plugin Development](docs/plugin-development.md) | Building plugins: manifests, metadata, templates, health checks |
+| [Plugin Development](docs/plugin-development.md) | Manifests, templates, health checks, publishing |
 | [Operations Guide](docs/operations.md) | Production deployment, monitoring, troubleshooting |
-| [Event-Driven Architecture](docs/events.md) | Webhook triggers, pce-events integration, authentication |
-| [Example Plugins](docs/example-plugins.md) | Six ready-to-use plugins |
+| [Event-Driven Architecture](docs/events.md) | Webhook triggers, pce-events integration, auth |
 
-## Plugins
+**Plugin Portal:** [alexgoller.github.io/illumio-plugger](https://alexgoller.github.io/illumio-plugger/)
 
-| Plugin | Description | Type |
-|--------|-------------|------|
-| [pce-health-monitor](pce-health-monitor/) | PCE health dashboard with endpoint checks | Daemon + UI |
-| [traffic-reporter](traffic-reporter/) | Interactive traffic flow analysis with Chart.js — top talkers, blocked flows, Sankey diagram | Daemon + UI |
-| [policy-diff](policy-diff/) | Git-like policy change tracker — field-level diffs, history snapshots, user attribution | Daemon + UI |
-| [pce-posture-report](pce-posture-report/) | Security posture scoring — enforcement, labels, policy coverage, HTML+JSON reports | Cron |
-| [pce-events](pce-events/) | Real-time PCE event monitoring — Slack, Teams, PagerDuty, 15+ output plugins | Daemon + UI |
-| [ai-assisted-rules](ai-assisted-rules/) | Policy advisor — tiered rule generation, AI analysis, infrastructure detection, label gaps, auto-provisioning | Daemon + UI |
-| [stale-workloads](stale-workloads/) | Discover offline, unresponsive, and trafficless workloads with optional cleanup | Daemon + UI |
-| [palo-alto-dag-sync](palo-alto-dag-sync/) | Sync Illumio labels to Palo Alto Dynamic Address Groups via PAN-OS XML API | Daemon + UI |
-| [ad-label-sync](ad-label-sync/) | Discover AD computers via LDAP, map attributes to Illumio labels — analytics mode | Daemon + UI |
-| [rule-scheduler](rule-scheduler/) | Time-based rule/ruleset scheduling — business hours, maintenance windows, weekend lockdowns | Daemon + UI |
+**Policy-as-Code (standalone):** [illumio-policy-gitops](https://github.com/alexgoller/illumio-policy-gitops)
 
-Install any plugin from the registry:
-```bash
-plugger install pce-health-monitor
-plugger install traffic-reporter
-plugger install ai-assisted-rules
-```
-
-## Plugin Registry
-
-Browse and install plugins from the CLI or the web dashboard.
-
-```bash
-plugger search                          # List all available plugins
-plugger search monitoring               # Search by keyword
-plugger install pce-health-monitor      # Install by name from registry
-plugger outdated                        # Check for updates
-plugger upgrade traffic-reporter        # Pull latest, restart
-plugger repo list                       # Show configured registries
-plugger repo add myco https://internal.example.com/registry.json
-```
-
-**Dashboard**: `http://localhost:8800/registry` — browse plugins, filter by mode/tags, one-click install.
-
-**Custom registries**: host a `registry.json` at any URL with the same format as the [official registry](https://alexgoller.github.io/illumio-plugger/registry.json).
-
-## AI-Assisted Rules
-
-The `ai-assisted-rules` plugin analyzes blocked traffic and generates PCE-ready policy suggestions:
-
-- **Application Policy view** — per-app cards showing intra-scope, extra-scope incoming/outgoing, and IP traffic
-- **Three security tiers** — Basic Ringfencing (all↔all), Application Tiered (role→role), High Security (role→role + specific services)
-- **Infrastructure detection** — consolidates monitoring, syslog, NTP, jump hosts into broad rules
-- **Risky service flagging** — FTP, telnet, RDP, SMB auto-flagged into FOR REVIEW rulesets
-- **Extra-scope rules** — proper Illumio extra-scope format with unscoped consumers
-- **AI analysis** (optional) — Anthropic/OpenAI/Ollama powered recommendations with risk assessment
-- **Label gap detection** — finds workloads missing roles, suggests labels from traffic patterns + AI
-- **One-click provisioning** — creates draft rulesets on the PCE
-
-## Architecture
-
-```
-cmd/plugger/                     — CLI entry point
-internal/
-├── cli/                         — Cobra commands (init, run, create, install, search, upgrade, ...)
-├── config/                      — Global config, manifest, metadata types
-├── container/                   — Runtime interface + Docker implementation
-├── dashboard/                   — Web UI, reverse proxy, registry browser, event webhook
-├── health/                      — HTTP health checker with restart callbacks
-├── lifecycle/                   — Shared start/stop/restart logic
-├── registry/                    — Plugin registry: fetch, search, update checks, repo management
-├── scheduler/
-│   ├── daemon.go                — Auto-restart with exponential backoff
-│   ├── cron.go                  — Cron scheduling (robfig/cron)
-│   └── event.go                 — Webhook-triggered ephemeral containers
-├── plugin/                      — Plugin type, state machine, JSON store
-└── logging/                     — Structured logging (slog)
-plugin-templates/                — Scaffolding templates (Go, Shell, Python)
-docs/                            — Documentation
-docs/portal/                     — GitHub Pages: plugin portal + registry.json
-```
-
-## Project Status
-
-### Complete
-- Full CLI: init, create, install, uninstall, start, stop, restart, list, status, logs, run, dashboard, version
-- Plugin registry: search, install by name, outdated, upgrade, repo add/remove, web browser
-- `plugger run` orchestrator with auto-restart, reconciliation, graceful shutdown
-- Daemon scheduling with exponential backoff (1s → 5m, max 5 retries)
-- Cron scheduling with robfig/cron
-- Event-driven scheduling via webhook with Bearer token auth
-- HTTP health checks with restart-on-failure
-- Web dashboard with tiles, detail pages, log streaming (SSE), config editing
-- Dark/light/auto theme toggle (follows system preference)
-- Reverse proxy with URL/redirect/JS rewriting for plugin UIs
-- Plugin registry with GitHub Pages hosting and custom repo support
-- Install from local file, URL, container image, or registry name
-- In-container metadata discovery (ports, config, volumes)
-- Plugin scaffolding (Go, Shell, Python with Illumio SDK)
-- Docker runtime with port mapping, volume mounts, network isolation
-- Docker socket configurable in config
-- CI pipelines: Go build/test, multi-arch plugin images (GHCR), GitHub Pages deployment
-- 10 plugins (8 verified against live PCE, 1 AD integration, 1 rule scheduler)
-- AI-assisted policy with tiered generation, infrastructure detection, label gaps
-
-### Planned
-- Kubernetes runtime
-- API key auto-creation and rotation
-- Multi-PCE support
+---
 
 ## License
 
-Proprietary — Illumio, Inc.
+Apache 2.0
