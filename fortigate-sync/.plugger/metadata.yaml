@@ -1,0 +1,76 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: FortiGate Sync dashboard
+    type: ui
+    path: /
+
+config:
+  - name: FG_HOST
+    description: FortiGate hostname or IP
+    required: true
+    type: string
+    default: ""
+  - name: FG_RSSO_PORT
+    description: FortiGate RADIUS accounting port
+    required: false
+    type: int
+    default: "1813"
+  - name: FG_RSSO_SECRET
+    description: RSSO shared secret (must match FortiGate connector config)
+    required: true
+    type: secret
+  - name: FG_API_TOKEN
+    description: FortiGate REST API token (for address object sync, optional)
+    required: false
+    type: secret
+  - name: FG_VDOM
+    description: FortiGate VDOM name
+    required: false
+    type: string
+    default: "root"
+  - name: SYNC_MODE
+    description: "rsso (RADIUS SSO only), objects (REST API address objects), or both"
+    required: false
+    type: string
+    default: "rsso"
+  - name: SYNC_INTERVAL
+    description: Seconds between sync cycles
+    required: false
+    type: int
+    default: "300"
+  - name: LABEL_GROUPS
+    description: "JSON array of label-to-group mappings, e.g. [{\"labels\":{\"env\":\"prod\"},\"group\":\"ILLUMIO_PROD\"}]"
+    required: false
+    type: string
+    default: ""
+  - name: DEFAULT_RSSO_GROUP
+    description: Default RSSO group name when no label group mapping matches
+    required: false
+    type: string
+    default: "ILLUMIO_WORKLOADS"
+  - name: ADDRESS_PREFIX
+    description: Prefix for FortiGate address objects (REST API mode)
+    required: false
+    type: string
+    default: "illumio-"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent state (sync records)
+    required: false
+
+info:
+  title: FortiGate Sync
+  version: "0.1.0"
+  description: "Sync Illumio workloads to FortiGate — RSSO auth table and/or REST API address objects. Based on illumio-to-fortigate-sync by ruckle-o."
+  author: Illumio
+  license: Apache-2.0

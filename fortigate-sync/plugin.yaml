@@ -1,0 +1,40 @@
+apiVersion: plugger/v1
+name: fortigate-sync
+version: 0.1.0
+image: plugger-fortigate-sync:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: FG_HOST
+    required: true
+  - name: FG_RSSO_SECRET
+    required: true
+    secret: true
+  - name: FG_API_TOKEN
+    required: false
+    secret: true
+  - name: SYNC_MODE
+    required: false
+    default: "rsso"
+  - name: SYNC_INTERVAL
+    required: false
+    default: "300"
+  - name: DEFAULT_RSSO_GROUP
+    required: false
+    default: "ILLUMIO_WORKLOADS"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 128m
+  cpuLimit: "0.25"
