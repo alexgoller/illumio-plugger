@@ -242,6 +242,18 @@
       "tags": ["ven", "fleet", "agent", "enforcement", "upgrade", "health", "operations"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ven-fleet-manager"
+    },
+    {
+      "name": "fortigate-sync",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-fortigate-sync:latest",
+      "description": "Sync Illumio workloads to FortiGate — RSSO auth table and/or REST API address objects. Based on illumio-to-fortigate-sync by ruckle-o.",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["fortigate", "fortinet", "firewall", "rsso", "radius", "integration", "sync"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/fortigate-sync"
     }
   ]
 }

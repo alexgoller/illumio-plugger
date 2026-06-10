@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with nineteen plugins that demonstrate different capabilities and are useful out of the box. Seventeen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
+Plugger ships with twenty plugins that demonstrate different capabilities and are useful out of the box. Eighteen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -586,6 +586,46 @@ plugger install ven-fleet-manager
 - **Upgrade readiness** — per-version upgrade eligibility, batch progression API for moving workloads through stages
 - **Fleet health score** — 0-100 composite score based on enforcement coverage, agent health, version currency, and compatibility
 - **Batch progression API** — move groups of workloads to the next enforcement stage via the dashboard
+
+---
+
+## FortiGate Sync
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK) | **UI:** Yes
+
+> Based on [illumio-to-fortigate-sync](https://github.com/ruckle-o/illumio-to-fortigate-sync) by ruckle-o.
+
+Sync Illumio workloads to FortiGate firewalls using two complementary methods: RSSO (RADIUS Single Sign-On) auth table updates and/or REST API address object management. Maps Illumio labels to FortiGate user groups and address objects for dynamic firewall policy.
+
+**Install:**
+```bash
+plugger install fortigate-sync
+```
+
+**Modes:**
+- **RSSO** — Sends RADIUS accounting packets to populate the FortiGate RSSO auth table with workload IP-to-group mappings. FortiGate identity-based policies then match traffic by group.
+- **REST API** — Creates and maintains address objects and address groups on FortiGate via the REST API, keyed by Illumio labels.
+- **Both** — Runs RSSO and REST API sync simultaneously.
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FORTIGATE_HOST` | _(required)_ | FortiGate hostname or IP |
+| `FORTIGATE_API_KEY` | _(required for REST)_ | FortiGate REST API key |
+| `FORTIGATE_VDOM` | `root` | FortiGate VDOM |
+| `SYNC_MODE` | `rsso` | `rsso`, `rest`, or `both` |
+| `RSSO_SECRET` | _(required for RSSO)_ | RADIUS shared secret |
+| `RSSO_PORT` | `1813` | RADIUS accounting port |
+| `LABEL_GROUP_MAP` | _(built-in)_ | JSON mapping of Illumio labels to FortiGate groups |
+| `SCAN_INTERVAL` | `300` | Seconds between sync cycles |
+
+**Features:**
+- Dual sync modes (RSSO + REST API) for maximum flexibility
+- Label-to-group mapping with configurable rules
+- Multi-group support per workload
+- Dashboard with sync status, group distribution, and workload table
+- Dry-run mode for safe preview before connecting to FortiGate
 
 ---
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 20 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 21 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -110,7 +110,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">20</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">21</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -212,7 +212,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (20)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (21)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -514,6 +514,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Dependency intelligence beyond policy — blast radius, SPOF detection, compliance boundaries, change impact analysis, D3.js dependency graph.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install app-dependency-intel</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- FortiGate Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d3 cursor-pointer" data-plugin="fortigate-sync" data-categories="integration" onclick="showDocs('fortigate-sync')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">FortiGate Sync</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Sync Illumio workloads to FortiGate via RSSO auth table and/or REST API address objects. Multi-group support, based on illumio-to-fortigate-sync by ruckle-o.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install fortigate-sync</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
         </div>
@@ -2110,13 +2126,92 @@ curl -X POST http://localhost:8080/api/progression/execute \\
 | GET | \`/api/progression/preview\` | Preview batch progression |
 | POST | \`/api/progression/execute\` | Execute batch progression |
 | POST | \`/api/scan\` | Trigger immediate scan |`
+},
+"fortigate-sync": {
+    title: "FortiGate Sync",
+    mode: "daemon",
+    tags: ["integration","firewall"],
+    readme: `# FortiGate Sync
+
+Sync Illumio workloads to FortiGate firewalls via RSSO (RADIUS Single Sign-On) auth table updates and/or REST API address object management. Maps Illumio labels to FortiGate user groups and address objects for dynamic firewall policy.
+
+> Based on [illumio-to-fortigate-sync](https://github.com/ruckle-o/illumio-to-fortigate-sync) by **ruckle-o**.
+
+## Install
+
+\`\`\`bash
+plugger install fortigate-sync
+\`\`\`
+
+## Sync Modes
+
+### RSSO Mode
+
+Sends RADIUS accounting packets (\`Accounting-Request\`) to the FortiGate RSSO agent. Each workload IP is mapped to a user group derived from its Illumio labels. FortiGate identity-based policies then match traffic by group membership.
+
+**Requires:** FortiGate RSSO agent configured with a matching RADIUS shared secret and listening port.
+
+### REST API Mode
+
+Creates and maintains address objects and address groups on FortiGate via the \`/api/v2/cmdb/firewall/address\` and \`/api/v2/cmdb/firewall/addrgrp\` REST endpoints. Objects are keyed by Illumio label values (e.g., \`illumio-app-ordering\`).
+
+**Requires:** FortiGate REST API key with read/write access to firewall objects.
+
+### Both
+
+Runs RSSO and REST API sync simultaneously for environments that use both identity-based and address-based policies.
+
+## Label-to-Group Mapping
+
+Configure which Illumio labels map to FortiGate groups via \`LABEL_GROUP_MAP\`. Default mapping uses \`app\` and \`env\` labels:
+
+\`\`\`json
+{"app": "illumio-app-{value}", "env": "illumio-env-{value}"}
+\`\`\`
+
+A workload with labels \`app=ordering, env=prod\` would be placed into groups \`illumio-app-ordering\` and \`illumio-env-prod\`.
+
+## FortiGate Setup
+
+**For RSSO mode:**
+1. Enable RSSO on FortiGate: \`config user radius\` with \`rsso: enable\`
+2. Configure RADIUS accounting listener on the specified port
+3. Set the shared secret to match \`RSSO_SECRET\`
+4. Create RSSO user groups matching your label mapping
+5. Reference those groups in identity-based firewall policies
+
+**For REST API mode:**
+1. Create an API admin user on FortiGate with read/write access to \`firewall.address\` and \`firewall.addrgrp\`
+2. Generate an API key and set it as \`FORTIGATE_API_KEY\`
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`FORTIGATE_HOST\` | _(required)_ | FortiGate hostname or IP |
+| \`FORTIGATE_API_KEY\` | _(required for REST)_ | FortiGate REST API key |
+| \`FORTIGATE_VDOM\` | \`root\` | FortiGate VDOM |
+| \`SYNC_MODE\` | \`rsso\` | \`rsso\`, \`rest\`, or \`both\` |
+| \`RSSO_SECRET\` | _(required for RSSO)_ | RADIUS shared secret |
+| \`RSSO_PORT\` | \`1813\` | RADIUS accounting port |
+| \`LABEL_GROUP_MAP\` | _(built-in)_ | JSON mapping of Illumio labels to FortiGate groups |
+| \`SCAN_INTERVAL\` | \`300\` | Seconds between sync cycles |
+
+## Features
+
+- Dual sync modes (RSSO auth table + REST API address objects)
+- Configurable label-to-group mapping with template patterns
+- Multi-group support — each workload can belong to multiple groups
+- Dry-run mode without \`FORTIGATE_HOST\` for safe preview
+- Dashboard with sync status, group distribution, and workload table
+- Credit: based on illumio-to-fortigate-sync by ruckle-o`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];
