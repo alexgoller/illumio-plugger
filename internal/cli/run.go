@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -154,13 +155,63 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 				}()
 			}
 
-			// Wait for shutdown signal
-			sigCh := make(chan os.Signal, 1)
-			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+			// Write PID file for reload command
+			pidFile := filepath.Join(app.Config.Plugger.DataDir, "plugger.pid")
+			os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", os.Getpid())), 0644)
+			defer os.Remove(pidFile)
 
-			sig := <-sigCh
-			slog.Info("received shutdown signal", "signal", sig)
-			fmt.Println("\nShutting down...")
+			// Wait for shutdown or reload signal
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
+		waitLoop:
+			for {
+				sig := <-sigCh
+
+				if sig == syscall.SIGHUP {
+					// Reload: re-read config, restart all plugins
+					slog.Info("received SIGHUP — reloading config and restarting plugins")
+					fmt.Println("\nReloading...")
+
+					newCfg, reloadErr := config.Load(cfgFile)
+					if reloadErr != nil {
+						slog.Error("failed to reload config", "error", reloadErr)
+						fmt.Printf("Reload failed: %v (keeping current config)\n", reloadErr)
+						continue
+					}
+
+					// Update app config
+					app.Config = newCfg
+					deps.Config = newCfg
+
+					// Restart all running plugins (they get new env vars from updated config)
+					slog.Info("restarting all plugins with new config...")
+					restartCtx, restartCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+					restarted := 0
+					for name, sched := range schedulers {
+						slog.Info("restarting plugin", "plugin", name)
+						if stopErr := sched.Stop(restartCtx); stopErr != nil {
+							slog.Warn("error stopping plugin for reload", "plugin", name, "error", stopErr)
+						}
+						if startErr := sched.Start(restartCtx); startErr != nil {
+							slog.Error("error restarting plugin", "plugin", name, "error", startErr)
+						} else {
+							restarted++
+						}
+					}
+					restartCancel()
+
+					slog.Info("reload complete", "plugins_restarted", restarted)
+					fmt.Printf("Reloaded: %d plugin(s) restarted with new config\n", restarted)
+					fmt.Printf("PCE: %s:%d (org %d)\n", newCfg.PCE.Host, newCfg.PCE.Port, newCfg.PCE.OrgID)
+					continue
+				}
+
+				// SIGINT/SIGTERM — shutdown
+				slog.Info("received shutdown signal", "signal", sig)
+				fmt.Println("\nShutting down...")
+				break waitLoop
+			}
 
 			cancel()
 
