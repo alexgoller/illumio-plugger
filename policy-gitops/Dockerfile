@@ -10,6 +10,7 @@ RUN useradd -m -u 1000 plugin
 
 COPY main.py /app/main.py
 COPY .plugger/metadata.yaml /.plugger/metadata.yaml
+COPY plugin.yaml /.plugger/plugin.yaml
 
 # Persistent data: git clone target, state
 RUN mkdir -p /data/repo && chown -R plugin:plugin /data

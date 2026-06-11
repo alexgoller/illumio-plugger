@@ -7,6 +7,7 @@ RUN useradd -m -u 1000 plugin
 
 COPY main.py /app/main.py
 COPY .plugger/metadata.yaml /.plugger/metadata.yaml
+COPY plugin.yaml /.plugger/plugin.yaml
 
 RUN mkdir -p /data && chown plugin:plugin /data
 
