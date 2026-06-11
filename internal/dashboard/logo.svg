@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <style>
+      .s{stroke:#041a2f;stroke-width:6;stroke-linejoin:miter;stroke-linecap:square}
+    </style>
+  </defs>
+
+  <!-- Top orange cap -->
+  <polygon class="s" fill="#ff6500" points="270,396 504,254 738,396 660,442 504,348 348,442"/>
+
+  <!-- Left white face -->
+  <polygon class="s" fill="#ffffff" points="270,396 348,442 392,487 392,808 270,739"/>
+
+  <!-- Lower-left orange accent -->
+  <polygon class="s" fill="#ff6500" points="270,683 392,754 392,808 270,739"/>
+
+  <!-- Right white side face -->
+  <polygon class="s" fill="#ffffff" points="660,442 738,396 738,739 660,694"/>
+
+  <!-- Main dark P body -->
+  <polygon class="s" fill="#041a2f" points="348,442 504,348 660,442 660,587 534,661 534,808 392,808 392,487"/>
+
+  <!-- P counter -->
+  <polygon fill="#ffffff" points="470,504 572,446 618,475 618,526 470,611"/>
+
+  <!-- Lower-right white fill of P -->
+  <polygon fill="#ffffff" points="534,661 660,587 660,694 534,808"/>
+</svg>

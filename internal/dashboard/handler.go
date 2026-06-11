@@ -47,6 +47,7 @@ func (h *Handler) Routes() *http.ServeMux {
 
 	// Static assets
 	mux.HandleFunc("GET /logo.png", h.handleLogo)
+	mux.HandleFunc("GET /logo.svg", h.handleLogoSVG)
 
 	// HTML pages
 	mux.HandleFunc("GET /{$}", h.handleIndex)
