@@ -86,6 +86,10 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.plugin }}
           cache-to: type=gha,scope=${{ matrix.plugin }},mode=max
 
+  # NOTE: GHCR packages default to private. After the first CI build,
+  # go to https://github.com/alexgoller?tab=packages and set each
+  # package to public (Package Settings → Danger Zone → Change visibility).
+
   # ------------------------------------------------------------------
   # Build the Go CLI binary for multiple OS/arch combinations
   # ------------------------------------------------------------------
