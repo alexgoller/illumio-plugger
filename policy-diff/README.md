@@ -6,21 +6,19 @@ and firewall settings, showing field-level diffs with user attribution.
 
 ## Install
 
-```
+```bash
 plugger install policy-diff
 ```
 
 ## Configuration
 
 | Variable | Default | Description |
-|---|---|---|
-| `POLL_INTERVAL` | `300` | Seconds between policy checks |
+|----------|---------|-------------|
+| `POLL_INTERVAL` | `3600` | Seconds between policy comparisons |
+| `EVENT_LOOKBACK_HOURS` | `72` | Hours of audit events to fetch for user attribution |
 | `PCE_TLS_SKIP_VERIFY` | `true` | Skip TLS certificate verification |
-| `PCE_HOST` | — | PCE hostname (set globally by plugger) |
-| `PCE_PORT` | `8443` | PCE API port |
-| `PCE_API_KEY` | — | PCE API key |
-| `PCE_API_SECRET` | — | PCE API secret |
-| `PCE_ORG_ID` | `1` | PCE organization ID |
+
+Snapshots and event history are persisted to the `/data` volume.
 
 ## Features
 
@@ -29,6 +27,14 @@ plugger install policy-diff
 - Snapshot history with content hashing for change detection
 - User attribution via PCE audit events
 - Added/modified/deleted/unchanged summary counts
-- Interactive timeline UI with diff detail
-- Persistent snapshot storage in `/data`
+- Interactive timeline UI with diff detail view
+- Persistent snapshot storage across restarts
 - Uses `illumio` Python SDK for PCE connectivity
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Interactive policy diff dashboard with timeline |
+| GET | `/healthz` | Health check |
+| GET | `/api/diff` | Full diff state as JSON (current diffs, snapshot history, audit events) |
