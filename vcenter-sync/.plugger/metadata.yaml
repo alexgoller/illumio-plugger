@@ -1,0 +1,82 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: vCenter Sync dashboard
+    type: ui
+    path: /
+
+config:
+  - name: VCENTER_HOST
+    description: vCenter Server hostname or IP
+    required: true
+    type: string
+    default: ""
+  - name: VCENTER_USER
+    description: vCenter username (e.g., administrator@vsphere.local)
+    required: true
+    type: string
+    default: ""
+  - name: VCENTER_PASSWORD
+    description: vCenter password
+    required: true
+    type: secret
+  - name: VCENTER_SSL_VERIFY
+    description: Verify vCenter TLS certificate
+    required: false
+    type: bool
+    default: "false"
+  - name: MODE
+    description: "analytics (preview), vcenter-to-illumio (import VMs as workloads + labels), illumio-to-vcenter (push labels as tags)"
+    required: false
+    type: string
+    default: "analytics"
+  - name: SYNC_INTERVAL
+    description: Seconds between sync cycles
+    required: false
+    type: int
+    default: "3600"
+  - name: TAG_MAPPING
+    description: "JSON: vCenter tag category → Illumio label key"
+    required: false
+    type: string
+    default: ""
+  - name: DEFAULT_TAG_MAPPING
+    description: "Use default mapping (Application→app, Environment→env, Role→role, Location→loc)"
+    required: false
+    type: bool
+    default: "true"
+  - name: CREATE_UNMANAGED
+    description: "Create unmanaged workloads in Illumio for VMs without VEN agents"
+    required: false
+    type: bool
+    default: "true"
+  - name: FOLDER_TO_LABEL
+    description: "Map vCenter folder hierarchy to Illumio labels (e.g., folder path → app or env)"
+    required: false
+    type: bool
+    default: "false"
+  - name: VM_FILTER
+    description: "Filter VMs by name pattern (regex), empty = all VMs"
+    required: false
+    type: string
+    default: ""
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent state
+    required: false
+
+info:
+  title: vCenter Sync
+  version: "0.1.0"
+  description: "Bi-directional sync between VMware vCenter and Illumio — import VMs as unmanaged workloads with labels from tags, or push Illumio labels as vCenter tags"
+  author: Illumio
+  license: Apache-2.0

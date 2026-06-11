@@ -1,0 +1,36 @@
+apiVersion: plugger/v1
+name: vcenter-sync
+version: 0.1.0
+image: plugger-vcenter-sync:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: VCENTER_HOST
+    required: true
+  - name: VCENTER_USER
+    required: true
+  - name: VCENTER_PASSWORD
+    required: true
+    secret: true
+  - name: MODE
+    required: false
+    default: "analytics"
+  - name: SYNC_INTERVAL
+    required: false
+    default: "3600"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"
