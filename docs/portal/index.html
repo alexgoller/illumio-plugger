@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 21 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 22 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -111,7 +111,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">21</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">22</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Languages</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">3</div><div class="text-xs text-gray-400 mt-1">Schedule Modes</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -213,7 +213,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (21)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (22)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -531,6 +531,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Sync Illumio workloads to FortiGate via RSSO auth table and/or REST API address objects. Multi-group support, based on illumio-to-fortigate-sync by ruckle-o.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install fortigate-sync</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
+            </div>
+        </div>
+
+        <!-- vCenter Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d4 cursor-pointer" data-plugin="vcenter-sync" data-categories="integration" onclick="showDocs('vcenter-sync')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">vCenter Sync</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">untested</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Import VMware VMs as unmanaged workloads with labels from vCenter tags and folder hierarchy. Push Illumio labels back as vCenter tags. Analytics + sync modes.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install vcenter-sync</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs →</span>
             </div>
         </div>
@@ -2206,13 +2222,91 @@ A workload with labels \`app=ordering, env=prod\` would be placed into groups \`
 - Dry-run mode without \`FORTIGATE_HOST\` for safe preview
 - Dashboard with sync status, group distribution, and workload table
 - Credit: based on illumio-to-fortigate-sync by ruckle-o`
+},
+"vcenter-sync": {
+    title: "vCenter Sync",
+    mode: "daemon",
+    tags: ["integration","vmware"],
+    readme: `# vCenter Sync
+
+> **Status: Untested** — This plugin has not been validated against a live VMware vCenter instance. Use analytics mode first.
+
+Bi-directional sync between VMware vCenter and Illumio PCE. Discovers VMs via pyVmomi, reads vCenter tags and folder hierarchy, and creates unmanaged workloads in Illumio with labels derived from the tag-to-label mapping. Optionally pushes Illumio labels back as vCenter tags.
+
+## Install
+
+\`\`\`bash
+plugger install vcenter-sync
+\`\`\`
+
+## Why
+
+VMware is the most common hypervisor in enterprise. Thousands of VMs that may not run VEN agents still need Illumio policy. vCenter already has organizational metadata (tags, folders) that maps naturally to Illumio labels.
+
+## Modes
+
+| Mode | Direction | What It Does |
+|------|-----------|-------------|
+| \`analytics\` (default) | Read-only | Discovers VMs, shows tag mapping, previews what would sync |
+| \`vcenter-to-illumio\` | vCenter to PCE | Creates unmanaged workloads + applies labels from tags/folders |
+| \`illumio-to-vcenter\` | PCE to vCenter | Pushes Illumio labels as vCenter tags |
+| \`bidirectional\` | Both | Import + export in one cycle |
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`VCENTER_HOST\` | _(required)_ | vCenter Server hostname or IP |
+| \`VCENTER_USER\` | _(required)_ | Username (e.g., \`administrator@vsphere.local\`) |
+| \`VCENTER_PASSWORD\` | _(required)_ | Password |
+| \`VCENTER_SSL_VERIFY\` | \`false\` | Verify vCenter TLS certificate |
+| \`MODE\` | \`analytics\` | \`analytics\`, \`vcenter-to-illumio\`, \`illumio-to-vcenter\`, \`bidirectional\` |
+| \`SYNC_INTERVAL\` | \`3600\` | Seconds between sync cycles |
+| \`TAG_MAPPING\` | _(default)_ | JSON: vCenter tag category to Illumio label key |
+| \`CREATE_UNMANAGED\` | \`true\` | Create unmanaged workloads for VMs without VEN |
+| \`FOLDER_TO_LABEL\` | \`false\` | Derive labels from VM folder hierarchy |
+| \`VM_FILTER\` | _(empty)_ | Regex filter on VM names |
+
+## Tag-to-Label Mapping
+
+Default mapping (vCenter tag category to Illumio label key):
+
+| vCenter Tag Category | Illumio Label Key |
+|---------------------|-------------------|
+| Application | \`app\` |
+| Environment | \`env\` |
+| Role | \`role\` |
+| Location | \`loc\` |
+
+Override with \`TAG_MAPPING\` JSON:
+\`\`\`bash
+TAG_MAPPING=\`{"Business Unit": "app", "Tier": "role", "Site": "loc", "Stage": "env"}\`
+\`\`\`
+
+## Folder-to-Label Mapping
+
+When \`FOLDER_TO_LABEL=true\`, derive labels from VM folder path. First folder level maps to \`env\`, second level maps to \`role\`.
+
+## Features
+
+- VM discovery via pyVmomi across all datacenters
+- Tag reading via vSphere REST API (categories + tags + associations)
+- Configurable tag category to label key mapping
+- Folder hierarchy to label derivation
+- Match engine: vCenter VMs to Illumio workloads by IP/hostname
+- Create unmanaged workloads for unmatched VMs
+- Update labels on matched workloads when tags change
+- Push Illumio labels back as vCenter tags
+- VM name regex filter
+- Dashboard with VM inventory, tag mapping, sync results
+- Analytics mode for safe preview before enabling sync`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];

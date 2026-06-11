@@ -254,6 +254,18 @@
       "tags": ["fortigate", "fortinet", "firewall", "rsso", "radius", "integration", "sync"],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/fortigate-sync"
+    },
+    {
+      "name": "vcenter-sync",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-vcenter-sync:latest",
+      "description": "Bi-directional VMware vCenter sync — import VMs as unmanaged workloads with labels from tags/folders, push labels back as vCenter tags (untested)",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["vmware", "vcenter", "vsphere", "labels", "unmanaged-workloads", "integration", "sync"],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/vcenter-sync"
     }
   ]
 }

@@ -15,7 +15,7 @@ env:
 
 jobs:
   # ------------------------------------------------------------------
-  # Build and push Docker images for all 18 in-repo plugins
+  # Build and push Docker images for all 19 in-repo plugins
   # (policy-gitops and policy-workflow are built from their own repo)
   # ------------------------------------------------------------------
   docker:
@@ -43,6 +43,7 @@ jobs:
           - app-dependency-intel
           - ven-fleet-manager
           - fortigate-sync
+          - vcenter-sync
 
     steps:
       - name: Checkout

@@ -1,6 +1,6 @@
 # Example Plugins
 
-Plugger ships with twenty plugins that demonstrate different capabilities and are useful out of the box. Eighteen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
+Plugger ships with twenty-one plugins that demonstrate different capabilities and are useful out of the box. Nineteen are built from this repository and available from the [plugin registry](https://alexgoller.github.io/illumio-plugger/). Two additional plugins (Policy GitOps and Policy Workflow) live in a dedicated repository. All can be installed with `plugger install <name>`.
 
 ## PCE Health Monitor
 
@@ -626,6 +626,59 @@ plugger install fortigate-sync
 - Multi-group support per workload
 - Dashboard with sync status, group distribution, and workload table
 - Dry-run mode for safe preview before connecting to FortiGate
+
+---
+
+## vCenter Sync
+
+**Type:** Daemon (24/7) | **Language:** Python (Illumio SDK + pyVmomi) | **UI:** Yes
+
+> **Status: Untested** — This plugin has not been validated against a live VMware vCenter instance.
+
+Bi-directional sync between VMware vCenter and Illumio PCE. Discovers VMs via pyVmomi, reads vCenter tags and folder hierarchy, and creates unmanaged workloads in Illumio with labels derived from the tag-to-label mapping. Optionally pushes Illumio labels back as vCenter tags.
+
+**Install:**
+```bash
+plugger install vcenter-sync
+```
+
+**Modes:**
+- **analytics** (default) — Read-only. Discovers VMs, shows tag mapping, previews what would sync. No changes are made.
+- **vcenter-to-illumio** — Creates unmanaged workloads on the PCE and applies labels from vCenter tags/folders.
+- **illumio-to-vcenter** — Pushes Illumio labels back as vCenter tags.
+- **bidirectional** — Import and export in one cycle.
+
+**Config:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VCENTER_HOST` | _(required)_ | vCenter Server hostname or IP |
+| `VCENTER_USER` | _(required)_ | Username (e.g., `administrator@vsphere.local`) |
+| `VCENTER_PASSWORD` | _(required)_ | Password |
+| `VCENTER_SSL_VERIFY` | `false` | Verify vCenter TLS certificate |
+| `MODE` | `analytics` | `analytics`, `vcenter-to-illumio`, `illumio-to-vcenter`, `bidirectional` |
+| `SYNC_INTERVAL` | `3600` | Seconds between sync cycles |
+| `TAG_MAPPING` | _(default)_ | JSON: vCenter tag category to Illumio label key |
+| `CREATE_UNMANAGED` | `true` | Create unmanaged workloads for VMs without VEN |
+| `FOLDER_TO_LABEL` | `false` | Derive labels from VM folder hierarchy |
+| `VM_FILTER` | _(empty)_ | Regex filter on VM names |
+
+**Tag-to-label mapping (defaults):**
+- Application tag category maps to `app` label
+- Environment tag category maps to `env` label
+- Role tag category maps to `role` label
+- Location tag category maps to `loc` label
+
+**Features:**
+- VM discovery via pyVmomi across all datacenters
+- Tag reading via vSphere REST API (categories + tags + associations)
+- Folder hierarchy to label derivation (first level = env, second = role)
+- Match engine: vCenter VMs to Illumio workloads by IP/hostname
+- Create unmanaged workloads for unmatched VMs
+- Push Illumio labels back as vCenter tags
+- VM name regex filter
+- Dashboard with VM inventory, tag mapping, and sync results
+- Analytics mode for safe preview before enabling sync
 
 ---
 
