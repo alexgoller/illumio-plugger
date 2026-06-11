@@ -1,9 +1,17 @@
-# Plugger — Plugin Framework for Illumio PCE
+<p align="center">
+  <img src="illumio-plugger-logo.png" alt="Plugger Logo" width="180">
+</p>
 
-[![Plugins](https://img.shields.io/badge/plugins-20-blue)](https://alexgoller.github.io/illumio-plugger/)
+<h1 align="center">Plugger — Plugin Framework for Illumio PCE</h1>
+
+<p align="center">
+
+[![Plugins](https://img.shields.io/badge/plugins-21-blue)](https://alexgoller.github.io/illumio-plugger/)
 [![Languages](https://img.shields.io/badge/templates-Go%20%7C%20Python%20%7C%20Shell%20%7C%20JavaScript-green)](docs/plugin-development.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
 [![Portal](https://img.shields.io/badge/portal-live-brightgreen)](https://alexgoller.github.io/illumio-plugger/)
+
+</p>
 
 Plugger is a Go CLI that manages Illumio PCE extensions as Docker containers — install, schedule, health-check, auto-restart, and expose them through a unified web dashboard. No patch cycles. No custom integrations hardwired into your environment. Just `plugger install <name> && plugger run`.
 

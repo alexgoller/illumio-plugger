@@ -45,6 +45,9 @@ func (h *Handler) SetEventRegistry(r *EventRegistry) {
 func (h *Handler) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
+	// Static assets
+	mux.HandleFunc("GET /logo.png", h.handleLogo)
+
 	// HTML pages
 	mux.HandleFunc("GET /{$}", h.handleIndex)
 	mux.HandleFunc("GET /plugins/{name}", h.handlePluginDetail)
