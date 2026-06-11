@@ -6,11 +6,15 @@ on:
       - '*/plugin.yaml'
       - '*/.plugger/metadata.yaml'
       - '*/Dockerfile'
+      - 'docs/portal/registry.json'
+      - '.github/workflows/build.yml'
   pull_request:
     paths:
       - '*/plugin.yaml'
       - '*/.plugger/metadata.yaml'
       - '*/Dockerfile'
+      - 'docs/portal/registry.json'
+      - '.github/workflows/build.yml'
 
 jobs:
   validate:
@@ -29,3 +33,6 @@ jobs:
 
       - name: Validate plugin.yaml and metadata.yaml
         run: python3 .github/scripts/validate-manifests.py
+
+      - name: Validate registry.json and CI build matrix
+        run: python3 .github/scripts/validate-registry.py
