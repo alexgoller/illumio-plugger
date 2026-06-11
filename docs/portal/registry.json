@@ -186,7 +186,7 @@
     {
       "name": "policy-gitops",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-policy-gitops:latest",
+      "image": "ghcr.io/alexgoller/illumio-policy-gitops:latest",
       "description": "Git-based policy management — sync rulesets, IP lists, services, label groups as YAML between Git and PCE with drift detection (external repo)",
       "mode": "daemon",
       "has_ui": true,
@@ -198,7 +198,7 @@
     {
       "name": "policy-workflow",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-policy-workflow:latest",
+      "image": "ghcr.io/alexgoller/illumio-policy-workflow:latest",
       "description": "Approval-based policy workflow engine — multi-stage pipelines, Slack/Teams notifications, audit logging (external repo)",
       "mode": "daemon",
       "has_ui": true,
