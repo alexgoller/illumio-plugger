@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/illumio/plugger/internal/config"
@@ -99,6 +100,11 @@ func StartPlugin(ctx context.Context, d *Deps, p *plugin.Plugin) error {
 		}
 	}
 
+	// Auto-generate pce-events config.yaml from plugger's PCE credentials
+	if p.Name == "pce-events" && d.Config.PCE.Host != "" {
+		generatePCEEventsConfig(d, p)
+	}
+
 	containerID, err := d.Runtime.Create(ctx, ct.CreateOpts{
 		Name:    p.ContainerName(),
 		Image:   p.Manifest.Image,
@@ -172,6 +178,58 @@ func RestartPlugin(ctx context.Context, d *Deps, p *plugin.Plugin) error {
 		_ = d.Runtime.Remove(ctx, p.ContainerID)
 	}
 	return StartPlugin(ctx, d, p)
+}
+
+// generatePCEEventsConfig writes a config.yaml for the pce-events plugin
+// if one doesn't already exist, using plugger's PCE credentials.
+func generatePCEEventsConfig(d *Deps, p *plugin.Plugin) {
+	configDir := filepath.Join(d.Config.Plugger.DataDir, "volumes", p.Name, "config")
+	configPath := filepath.Join(configDir, "config.yaml")
+
+	if _, err := os.Stat(configPath); err == nil {
+		slog.Debug("pce-events config already exists", "path", configPath)
+		return
+	}
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		slog.Warn("failed to create pce-events config dir", "error", err)
+		return
+	}
+
+	pceAddr := d.Config.PCE.Host
+	if d.Config.PCE.Port != 0 && d.Config.PCE.Port != 443 {
+		pceAddr += ":" + strconv.Itoa(d.Config.PCE.Port)
+	}
+
+	configContent := fmt.Sprintf(`config:
+  pce: %s
+  pce_api_user: %s
+  pce_api_secret: %s
+  pce_org: %d
+  pce_poll_interval: 60
+  httpd: true
+  httpd_listener_address: 0.0.0.0
+  httpd_listener_port: 8443
+  httpd_username: ''
+  httpd_password: ''
+  default_template: default.html
+  throttle_default: ''
+  plugin_config:
+    PCEStdout:
+      prepend: ''
+watchers:
+  .*:
+  - status: '*'
+    plugin: PCEStdout
+    extra_data:
+      template: default.html
+`, pceAddr, d.Config.PCE.APIKey, d.Config.PCE.APISecret, d.Config.PCE.OrgID)
+
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
+		slog.Warn("failed to write pce-events config", "error", err)
+		return
+	}
+	slog.Info("auto-generated pce-events config from plugger PCE credentials", "path", configPath)
 }
 
 // ParseMemory converts strings like "256m", "1g" to bytes.

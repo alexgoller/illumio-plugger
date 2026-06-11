@@ -41,5 +41,5 @@ health:
   retries: 3
 
 resources:
-  memoryLimit: 256m
+  memoryLimit: 512m
   cpuLimit: "0.5"
