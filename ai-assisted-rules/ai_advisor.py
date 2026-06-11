@@ -78,6 +78,123 @@ Respond with ONLY a JSON object (no markdown, no code fences):
 }}"""
 
 
+DENY_PATTERN_PROMPT = """Analyze this deny layer pattern and provide a risk narrative.
+
+## Deny Pattern
+- **Name**: {name}
+- **Port**: {port}/{proto}
+- **Description**: {description}
+- **Risk level**: {risk}
+- **Safe to block**: {safe_to_block}
+
+## Traffic Evidence
+- **Cross-scope flows detected**: {cross_scope_flows}
+- **Total connections**: {total_connections}
+- **Affected pairs**: {affected_pairs}
+
+## Instructions
+Respond with ONLY a JSON object:
+{{
+    "narrative": "2-4 sentence risk narrative explaining why this pattern matters and what the traffic evidence means",
+    "urgency": "immediate" or "soon" or "planned",
+    "recommendation": "A specific recommendation for this environment based on the evidence"
+}}"""
+
+
+TIGHTENING_PROMPT = """Analyze this rule for potential tightening from all-services to specific services.
+
+## Current Rule
+- **Scope**: {app_env}
+- **Rule type**: {rule_type}
+- **Current policy**: Allow ALL services between workloads in scope
+
+## Observed Traffic (last {days_observed} days)
+{observed_services}
+
+## Instructions
+Based on the observed services, recommend whether this rule should be tightened to only allow observed services.
+Respond with ONLY a JSON object:
+{{
+    "recommendation": "tighten" or "keep" or "monitor",
+    "confidence": 0.0 to 1.0,
+    "reasoning": "2-3 sentence explanation",
+    "suggested_services": ["list of services to allow if tightening"]
+}}"""
+
+
+CLASSIFY_FLOW_PROMPT = """Classify this blocked traffic flow.
+
+## Blocked Flow Details
+- **Source**: {src_group}
+- **Destination**: {dst_group}
+- **Services**: {services}
+- **Connections**: {total_connections}
+- **Host count**: {host_count}
+
+## Instructions
+Classify this blocked traffic into one of these categories:
+- security_concern: Cross-environment or suspicious traffic that should remain blocked
+- change_driven: Legitimate traffic that needs a new rule (application change, new deployment)
+- governance: Expected block from deny rules (lateral movement prevention working as intended)
+- noise: Low-volume, transient, or scanner traffic that can be ignored
+
+Respond with ONLY a JSON object:
+{{
+    "classification": "security_concern" or "change_driven" or "governance" or "noise",
+    "confidence": 0.0 to 1.0,
+    "reasoning": "1-2 sentence explanation"
+}}"""
+
+
+BREACH_RADIUS_PROMPT = """Analyze this breach radius simulation result and provide a security narrative.
+
+## Breach Radius Simulation
+- **Target (compromised)**: {target}
+- **Total reachable groups**: {total_reachable}
+- **Maximum hop depth**: {max_depth}
+
+## Reachable Groups
+{reachable_detail}
+
+## Instructions
+Write a security narrative about what this breach radius means. Consider:
+- Is the blast radius too large? What would a reasonable target be?
+- Which reachable groups are most concerning?
+- What actions could reduce the radius?
+
+Respond with ONLY a JSON object:
+{{
+    "severity": "critical" or "high" or "medium" or "low",
+    "narrative": "3-5 sentence security assessment",
+    "top_risks": ["list of the 2-3 most concerning reachable groups and why"],
+    "reduction_actions": ["2-3 specific actions to reduce breach radius"]
+}}"""
+
+
+MATURITY_COACH_PROMPT = """Coach the security team on improving their segmentation maturity.
+
+## Current Maturity Scores
+- **Overall**: {overall}% ({stage})
+- **Discovery**: {discovery}% (workloads found and traffic analyzed)
+- **Classification**: {classification}% (labels assigned)
+- **First Policy**: {first_policy}% (rules provisioned)
+- **Deny Layer**: {deny_layer}% (lateral movement blocked)
+- **Tightening**: {tightening}% (rules specificity, L1→L2→L3)
+- **Coverage**: {coverage}% (enforcement mode progression)
+
+## Instructions
+Provide specific, actionable coaching for the next steps. Focus on the weakest areas first.
+
+Respond with ONLY a JSON object:
+{{
+    "priority_area": "the single most impactful area to improve",
+    "next_steps": ["3-5 specific, actionable steps ordered by priority"],
+    "quick_wins": ["1-2 things that can be done today"],
+    "target_stage": "the next maturity stage to aim for",
+    "estimated_effort": "low" or "medium" or "high"
+}}"""
+
+
 class AIAdvisor:
     """Unified LLM interface supporting Anthropic, OpenAI, and Ollama."""
 
@@ -263,6 +380,139 @@ Respond with ONLY a JSON object:
             return result
         except Exception as e:
             log.error("AI label suggestion failed: %s", e)
+            return {"error": str(e)}
+
+    def analyze_deny_pattern(self, pattern, traffic_evidence):
+        """AI narrative for a deny layer pattern."""
+        if not self.enabled:
+            return {"error": "AI not configured"}
+
+        affected_str = ", ".join(
+            f"{p['src']} -> {p['dst']} ({p['connections']} conns)"
+            for p in traffic_evidence.get("affected_pairs", [])[:5]
+        ) or "none"
+
+        prompt = DENY_PATTERN_PROMPT.format(
+            name=pattern.get("name", ""),
+            port=pattern.get("port", "?"),
+            proto=pattern.get("proto", "?"),
+            description=pattern.get("description", ""),
+            risk=pattern.get("risk", "unknown"),
+            safe_to_block=pattern.get("safe_to_block", ""),
+            cross_scope_flows=traffic_evidence.get("cross_scope_flows", 0),
+            total_connections=traffic_evidence.get("total_connections", 0),
+            affected_pairs=affected_str,
+        )
+
+        try:
+            response_text = self._call_llm(prompt)
+            return self._parse_response(response_text)
+        except Exception as e:
+            log.error("AI deny pattern analysis failed: %s", e)
+            return {"error": str(e)}
+
+    def recommend_tightening(self, rule, observed_services, days_observed):
+        """AI recommendation for L1 to L2 tightening."""
+        if not self.enabled:
+            return {"error": "AI not configured"}
+
+        svc_lines = []
+        for svc in observed_services:
+            name = svc.get("name", "")
+            port = svc.get("port", "?")
+            proto = svc.get("proto", "?")
+            conns = svc.get("connections", 0)
+            label = f"{name} ({port}/{proto})" if name else f"{port}/{proto}"
+            svc_lines.append(f"  - {label}: {conns:,} connections")
+
+        prompt = TIGHTENING_PROMPT.format(
+            app_env=rule.get("app_env", "unknown"),
+            rule_type=rule.get("description", "intra-scope"),
+            days_observed=days_observed,
+            observed_services="\n".join(svc_lines) or "  (none observed)",
+        )
+
+        try:
+            response_text = self._call_llm(prompt)
+            return self._parse_response(response_text)
+        except Exception as e:
+            log.error("AI tightening recommendation failed: %s", e)
+            return {"error": str(e)}
+
+    def classify_blocked_flow(self, flow_data):
+        """AI classification of a blocked traffic flow."""
+        if not self.enabled:
+            return {"error": "AI not configured"}
+
+        services_str = ", ".join(
+            s[0] if isinstance(s, (list, tuple)) else str(s)
+            for s in flow_data.get("services", [])[:10]
+        )
+
+        prompt = CLASSIFY_FLOW_PROMPT.format(
+            src_group=flow_data.get("src_group", "unknown"),
+            dst_group=flow_data.get("dst_group", "unknown"),
+            services=services_str or "unknown",
+            total_connections=flow_data.get("total_connections", 0),
+            host_count=flow_data.get("host_count", 0),
+        )
+
+        try:
+            response_text = self._call_llm(prompt)
+            return self._parse_response(response_text)
+        except Exception as e:
+            log.error("AI flow classification failed: %s", e)
+            return {"error": str(e)}
+
+    def narrate_breach_radius(self, breach_data):
+        """AI narrative for breach radius simulation."""
+        if not self.enabled:
+            return {"error": "AI not configured"}
+
+        reachable = breach_data.get("reachable", {})
+        detail_lines = []
+        for group, info in sorted(reachable.items(), key=lambda x: x[1]["hop"]):
+            svcs = ", ".join(info.get("services", [])[:3]) or "various"
+            detail_lines.append(
+                f"  - Hop {info['hop']}: {group} via {svcs} ({info.get('connections', 0):,} connections)"
+            )
+
+        prompt = BREACH_RADIUS_PROMPT.format(
+            target=breach_data.get("target", "unknown"),
+            total_reachable=breach_data.get("total_reachable", 0),
+            max_depth=breach_data.get("max_depth", 0),
+            reachable_detail="\n".join(detail_lines[:15]) or "  (none reachable)",
+        )
+
+        try:
+            response_text = self._call_llm(prompt)
+            return self._parse_response(response_text)
+        except Exception as e:
+            log.error("AI breach radius narrative failed: %s", e)
+            return {"error": str(e)}
+
+    def coach_maturity(self, maturity_data):
+        """AI coaching for maturity improvement."""
+        if not self.enabled:
+            return {"error": "AI not configured"}
+
+        scores = maturity_data.get("scores", {})
+        prompt = MATURITY_COACH_PROMPT.format(
+            overall=maturity_data.get("overall", 0),
+            stage=maturity_data.get("stage", "Unknown"),
+            discovery=scores.get("discovery", 0),
+            classification=scores.get("classification", 0),
+            first_policy=scores.get("first_policy", 0),
+            deny_layer=scores.get("deny_layer", 0),
+            tightening=scores.get("tightening", 0),
+            coverage=scores.get("coverage", 0),
+        )
+
+        try:
+            response_text = self._call_llm(prompt)
+            return self._parse_response(response_text)
+        except Exception as e:
+            log.error("AI maturity coaching failed: %s", e)
             return {"error": str(e)}
 
     def _parse_response(self, text):

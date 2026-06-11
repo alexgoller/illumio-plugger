@@ -50,6 +50,14 @@ report_state = {
     "stale_summary": {},
     # Label cache
     "label_count": 0,
+    # Deny layer
+    "deny_layer": [],          # deny catalog recommendations
+    # Maturity
+    "maturity": {},            # maturity scores
+    # Breach radius
+    "breach_radius": {},       # last breach radius result
+    # Traffic classification
+    "traffic_classification": {},  # blocked traffic classification counts
 }
 
 label_cache = {}  # href -> {"key": "...", "value": "..."}
@@ -660,6 +668,10 @@ INFRA_SERVICES = {
 # Minimum fan-out/fan-in to be considered infrastructure
 INFRA_THRESHOLD = 4
 
+# Blocked traffic classification thresholds
+MIN_FLOWS = int(os.environ.get("MIN_FLOWS", "10"))
+MIN_WINDOWS = int(os.environ.get("MIN_WINDOWS", "2"))
+
 
 def detect_infrastructure(blocked_pairs):
     """Detect infrastructure apps and build consolidated infra rulesets.
@@ -876,6 +888,239 @@ def detect_infrastructure(blocked_pairs):
 
     infra_rules.sort(key=lambda x: -x["total_connections"])
     return infra_rules, infra_apps
+
+
+# ============================================================
+# Deny Layer Catalog
+# ============================================================
+
+DENY_CATALOG = [
+    {"id": "DENY-001", "name": "Cross-scope SMB", "port": 445, "proto": 6,
+     "description": "SMB/CIFS — #1 ransomware propagation vector",
+     "risk": "critical", "safe_to_block": "Almost always safe cross-scope"},
+    {"id": "DENY-002", "name": "Cross-scope RDP", "port": 3389, "proto": 6,
+     "description": "Remote Desktop — lateral movement vector",
+     "risk": "high", "safe_to_block": "Safe unless cross-scope RDP is intentional"},
+    {"id": "DENY-003", "name": "Cross-scope WinRM", "port": 5985, "proto": 6,
+     "description": "Windows Remote Management — PowerShell remoting",
+     "risk": "high", "safe_to_block": "Safe unless cross-scope management is needed"},
+    {"id": "DENY-004", "name": "Cross-scope VNC", "port": 5900, "proto": 6,
+     "description": "VNC remote access — often unencrypted",
+     "risk": "high", "safe_to_block": "Almost always safe to block cross-scope"},
+    {"id": "DENY-005", "name": "Cross-scope Telnet", "port": 23, "proto": 6,
+     "description": "Telnet — cleartext credentials",
+     "risk": "critical", "safe_to_block": "Always safe to block"},
+    {"id": "DENY-006", "name": "Cross-scope FTP", "port": 21, "proto": 6,
+     "description": "FTP — cleartext file transfer",
+     "risk": "critical", "safe_to_block": "Always safe — use SFTP instead"},
+    {"id": "DENY-007", "name": "Cross-scope rsh/rlogin", "port": 514, "proto": 6,
+     "description": "Remote shell — insecure legacy protocol",
+     "risk": "critical", "safe_to_block": "Always safe to block"},
+]
+
+
+def analyze_deny_layer(blocked_pairs):
+    """Analyze traffic for each deny catalog pattern. Returns list of deny recommendations
+    with actual traffic evidence (how many cross-scope flows use this port)."""
+    deny_recommendations = []
+    for pattern in DENY_CATALOG:
+        cross_scope_flows = 0
+        total_connections = 0
+        affected_pairs = []
+
+        target_svc = f"{pattern['port']}/{pattern['proto']}"
+
+        for pair in blocked_pairs:
+            src_g = pair["src_group"]
+            dst_g = pair["dst_group"]
+
+            # Only cross-scope (different app|env)
+            if src_g == dst_g:
+                continue
+
+            for svc_str, count in pair.get("services", []):
+                if svc_str == target_svc:
+                    cross_scope_flows += 1
+                    total_connections += count
+                    affected_pairs.append({
+                        "src": src_g,
+                        "dst": dst_g,
+                        "connections": count,
+                    })
+
+        deny_recommendations.append({
+            **pattern,
+            "cross_scope_flows": cross_scope_flows,
+            "total_connections": total_connections,
+            "affected_pairs": affected_pairs[:10],
+            "enabled": False,
+        })
+    return deny_recommendations
+
+
+def classify_blocked_traffic(blocked_pairs, deny_catalog_ports):
+    """Classify blocked traffic flows into categories."""
+    # Environment tiers for cross-env detection
+    env_tiers = {"production": 0, "prod": 0, "staging": 1, "stage": 1,
+                 "development": 2, "dev": 2, "test": 3, "qa": 3, "sandbox": 4}
+
+    for pair in blocked_pairs:
+        src = pair["src_group"]
+        dst = pair["dst_group"]
+        services = pair.get("services", [])
+
+        if src == dst:
+            pair["classification"] = "intra_scope"
+            pair["classification_label"] = "Intra-scope (policy gap)"
+        elif any(int(svc_str.split("/")[0]) in deny_catalog_ports
+                 for svc_str, _ in services
+                 if "/" in svc_str and svc_str.split("/")[0].isdigit()):
+            pair["classification"] = "governance_expected"
+            pair["classification_label"] = "Governance (deny rule working)"
+        else:
+            # Check cross-env
+            src_env = src.split("|")[1].lower() if "|" in src else ""
+            dst_env = dst.split("|")[1].lower() if "|" in dst else ""
+            src_tier = env_tiers.get(src_env, -1)
+            dst_tier = env_tiers.get(dst_env, -1)
+            is_cross_env = (src_tier >= 0 and dst_tier >= 0 and src_tier != dst_tier)
+
+            if is_cross_env:
+                pair["classification"] = "security_concern"
+                pair["classification_label"] = "Security concern"
+            elif pair["total_connections"] < MIN_FLOWS:
+                pair["classification"] = "noise"
+                pair["classification_label"] = "Noise (below threshold)"
+            else:
+                pair["classification"] = "change_driven"
+                pair["classification_label"] = "Change-driven (needs rule)"
+
+    # Build classification counts
+    counts = {}
+    for pair in blocked_pairs:
+        cls = pair.get("classification", "unknown")
+        counts[cls] = counts.get(cls, 0) + 1
+
+    return blocked_pairs, counts
+
+
+def compute_maturity(report_state_snap, workloads):
+    """Compute segmentation maturity score (0-100) with 6 stages."""
+    scores = {}
+
+    # Stage 1: Discovery (workloads found, traffic analyzed)
+    scores["discovery"] = min(100, len(workloads) * 2)  # cap at 50+ workloads
+
+    # Stage 2: Classification (labels assigned)
+    labeled = sum(1 for w in workloads
+                  if isinstance(w, dict)
+                  and any(l.get("key") == "app" for l in w.get("labels", []) if isinstance(l, dict))
+                  and any(l.get("key") == "env" for l in w.get("labels", []) if isinstance(l, dict)))
+    scores["classification"] = round(labeled / max(len(workloads), 1) * 100)
+
+    # Stage 3: First Policy (rules provisioned)
+    auto_rules = report_state_snap.get("auto_rules", [])
+    scores["first_policy"] = 100 if len(auto_rules) > 0 else 0
+
+    # Stage 4: Deny Layer (lateral movement blocked)
+    deny_layer = report_state_snap.get("deny_layer", [])
+    deny_enabled = sum(1 for d in deny_layer if d.get("enabled"))
+    scores["deny_layer"] = min(100, deny_enabled * 15)
+
+    # Stage 5: Tightening (how many rules use L2/L3 vs L1)
+    # Heuristic: if role_tiers exist in auto_rules, they are tightenable
+    tightenable = len(auto_rules)
+    has_roles = sum(1 for r in auto_rules
+                    if r.get("role_tiers") and any(
+                        t["src_role"] != "unknown" for t in r["role_tiers"]))
+    scores["tightening"] = round(has_roles / max(tightenable, 1) * 100)
+
+    # Stage 6: Coverage (enforcement mode distribution)
+    full = sum(1 for w in workloads
+               if isinstance(w, dict) and w.get("enforcement_mode") == "full")
+    scores["coverage"] = round(full / max(len(workloads), 1) * 100)
+
+    # Overall weighted score
+    weights = {"discovery": 10, "classification": 20, "first_policy": 20,
+               "deny_layer": 15, "tightening": 15, "coverage": 20}
+    overall = sum(scores.get(k, 0) * weights[k] for k in weights) / 100
+
+    # Stage label
+    if overall >= 90:
+        stage = "Hardened"
+    elif overall >= 75:
+        stage = "Enforced"
+    elif overall >= 60:
+        stage = "Protected"
+    elif overall >= 40:
+        stage = "Progressing"
+    elif overall >= 20:
+        stage = "Discovering"
+    else:
+        stage = "Starting"
+
+    return {"scores": scores, "overall": round(overall), "stage": stage, "weights": weights}
+
+
+def compute_breach_radius(target_group, blocked_pairs, auto_rules, inter_rules):
+    """Walk the policy graph outbound from a target app|env to find reachable workloads.
+
+    Uses blocked_pairs and suggested rules to build an adjacency of what traffic
+    exists (allowed or blocked) and how far an attacker could move."""
+    reachable = {}
+    visited = set()
+    queue = [(target_group, 0)]
+
+    # Build adjacency from blocked_pairs (shows existing communication patterns)
+    adjacency = defaultdict(list)
+    for pair in blocked_pairs:
+        sg = pair["src_group"]
+        dg = pair["dst_group"]
+        if sg != dg:
+            adjacency[sg].append(pair)
+
+    # Also include suggested rule connections (auto_rules are intra-scope, inter_rules are cross)
+    for rule in inter_rules:
+        sg = rule.get("src_group", "")
+        dg = rule.get("dst_group", "")
+        if sg and dg and sg != dg:
+            adjacency[sg].append({
+                "src_group": sg,
+                "dst_group": dg,
+                "services": rule.get("services", []),
+                "total_connections": rule.get("total_connections", 0),
+            })
+
+    while queue:
+        current, depth = queue.pop(0)
+        if current in visited or depth > 5:
+            continue
+        visited.add(current)
+
+        for pair in adjacency.get(current, []):
+            dst = pair["dst_group"]
+            if dst in visited:
+                continue
+            svcs = pair.get("services", [])
+            svc_names = []
+            for s in svcs[:5]:
+                if isinstance(s, dict):
+                    svc_names.append(s.get("name") or f"{s.get('port', '?')}/{s.get('proto', '?')}")
+                elif isinstance(s, (list, tuple)) and len(s) >= 1:
+                    svc_names.append(str(s[0]))
+            reachable[dst] = {
+                "hop": depth + 1,
+                "services": svc_names,
+                "connections": pair.get("total_connections", 0),
+            }
+            queue.append((dst, depth + 1))
+
+    return {
+        "target": target_group,
+        "total_reachable": len(reachable),
+        "max_depth": max((r["hop"] for r in reachable.values()), default=0),
+        "reachable": reachable,
+    }
 
 
 def build_inter_scope_suggestions(pce, blocked_pairs):
@@ -1260,6 +1505,22 @@ def run_check(pce):
         # Build app-centric view: merge intra + inter + IP traffic per app
         app_policies = build_app_policies(auto_rules, inter_rules, blocked_pairs, infra_apps)
 
+        # Deny layer analysis
+        deny_layer = analyze_deny_layer(blocked_pairs)
+
+        # Classify blocked traffic
+        deny_catalog_ports = {p["port"] for p in DENY_CATALOG}
+        blocked_pairs, traffic_classification = classify_blocked_traffic(blocked_pairs, deny_catalog_ports)
+
+        # Fetch workloads for maturity computation
+        workloads = []
+        try:
+            wl_resp = pce.get("/workloads")
+            if wl_resp.status_code == 200:
+                workloads = wl_resp.json()
+        except Exception as e:
+            log.warning("Failed to fetch workloads for maturity: %s", e)
+
         with state_lock:
             report_state["last_check"] = datetime.now(timezone.utc).isoformat()
             report_state["check_count"] += 1
@@ -1275,14 +1536,21 @@ def run_check(pce):
             report_state["label_summary"] = label_summary
             report_state["stale_summary"] = stale_summary
             report_state["label_count"] = len(label_cache)
+            report_state["deny_layer"] = deny_layer
+            report_state["traffic_classification"] = traffic_classification
             report_state["error"] = None
+
+            # Maturity needs snapshot of current state
+            maturity = compute_maturity(report_state, workloads)
+            report_state["maturity"] = maturity
 
         missing_role = label_summary.get("missing_role", 0)
         suggestions = label_summary.get("suggestions_made", 0)
-        log.info("Check #%d: %d blocked pairs (%d connections), %d app policies, %d infra, %d label gaps",
+        log.info("Check #%d: %d blocked pairs (%d connections), %d app policies, %d infra, %d label gaps, maturity=%s (%d%%)",
                  report_state["check_count"], len(blocked_pairs),
                  blocked_summary["total_blocked_connections"],
-                 len(app_policies), len(infra_rules), missing_role)
+                 len(app_policies), len(infra_rules), missing_role,
+                 maturity.get("stage", "?"), maturity.get("overall", 0))
 
     except Exception as e:
         log.exception("Analysis failed")
@@ -1349,6 +1617,9 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
         <button onclick="showTab('blocked')" id="tab-blocked" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Blocked Traffic</button>
         <button onclick="showTab('chart')" id="tab-chart" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Charts</button>
         <button onclick="showTab('stale')" id="tab-stale" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Stale Rules</button>
+        <button onclick="showTab('deny')" id="tab-deny" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Deny Layer</button>
+        <button onclick="showTab('maturity')" id="tab-maturity" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Maturity</button>
+        <button onclick="showTab('breach')" id="tab-breach" class="pb-3 text-sm font-medium tab-inactive cursor-pointer">Breach Radius</button>
     </div>
 
     <div id="panel-apps"></div>
@@ -1363,6 +1634,9 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
             <div class="bg-dark-800 rounded-xl border border-gray-700 p-6"><h2 class="text-lg font-semibold text-white mb-4">Blocked Services</h2><div style="height:350px;"><canvas id="chart-services"></canvas></div></div>
         </div>
     </div>
+    <div id="panel-deny" style="display:none;"></div>
+    <div id="panel-maturity" style="display:none;"></div>
+    <div id="panel-breach" style="display:none;"></div>
 
     <div class="text-center text-xs text-gray-600 mt-8">
         <span id="footer"></span> &middot; <a id="api-link" href="/api/report" class="text-blue-500 hover:text-blue-400">JSON API</a>
@@ -1371,7 +1645,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { 700:
 
 <script>
 const BASE = (() => { const m = window.location.pathname.match(/^(\/plugins\/[^/]+\/ui)/); return m ? m[1] : ''; })();
-const tabs = ['apps','infra','labels','blocked','chart','stale'];
+const tabs = ['apps','infra','labels','blocked','chart','stale','deny','maturity','breach'];
 let chartBlocked, chartServices;
 
 function showTab(name) {
@@ -1726,7 +2000,156 @@ function update(data) {
     chartServices.data.datasets[0].data = topSvcs.map(s => s[1]);
     chartServices.update('none');
 
-    document.getElementById('footer').textContent = `Check #${data.check_count} · ${data.last_check ? new Date(data.last_check).toLocaleTimeString() : 'never'} · ${data.label_count} labels cached`;
+    // Deny Layer
+    const denyLayer = data.deny_layer || [];
+    document.getElementById('panel-deny').innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                <h2 class="text-lg font-semibold text-white">Deny Layer Catalog (${denyLayer.length} patterns)</h2>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">Lateral movement patterns to block cross-scope. Enable deny rules to reduce breach radius.</p>
+        ${denyLayer.length ? `
+        <div class="bg-dark-800 rounded-xl border border-gray-700 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead><tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
+                    <th class="px-4 py-3">ID</th><th class="px-4 py-3">Pattern</th><th class="px-4 py-3">Port</th>
+                    <th class="px-4 py-3">Risk</th><th class="px-4 py-3">Cross-scope Flows</th>
+                    <th class="px-4 py-3 text-right">Connections</th><th class="px-4 py-3">Safe to Block</th>
+                </tr></thead>
+                <tbody>${denyLayer.map(d => {
+                    const riskColor = d.risk === 'critical' ? 'red' : 'yellow';
+                    return `
+                    <tr class="border-b border-gray-700/30 hover:bg-dark-700/30">
+                        <td class="px-4 py-2.5"><code class="text-xs text-gray-400">${d.id}</code></td>
+                        <td class="px-4 py-2.5">
+                            <div class="text-white text-xs font-medium">${d.name}</div>
+                            <div class="text-[10px] text-gray-500">${d.description}</div>
+                        </td>
+                        <td class="px-4 py-2.5"><code class="text-xs text-gray-300">${d.port}/tcp</code></td>
+                        <td class="px-4 py-2.5"><span class="px-1.5 py-0.5 rounded text-[10px] bg-${riskColor}-900/50 text-${riskColor}-400">${d.risk}</span></td>
+                        <td class="px-4 py-2.5 text-xs ${d.cross_scope_flows > 0 ? 'text-red-400' : 'text-gray-600'}">${d.cross_scope_flows} flow${d.cross_scope_flows !== 1 ? 's' : ''}</td>
+                        <td class="px-4 py-2.5 text-right font-mono text-xs ${d.total_connections > 0 ? 'text-red-400' : 'text-gray-600'}">${formatNum(d.total_connections)}</td>
+                        <td class="px-4 py-2.5 text-xs text-gray-400">${d.safe_to_block}</td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>
+        </div>
+        ${denyLayer.some(d => d.cross_scope_flows > 0) ? `
+        <div class="mt-4 bg-dark-800 rounded-xl border border-red-900/30 p-4">
+            <h3 class="text-sm font-semibold text-red-400 mb-2">Affected Pairs</h3>
+            <div class="space-y-1 text-xs">
+            ${denyLayer.filter(d => d.cross_scope_flows > 0).map(d => `
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-400 w-24">${d.name}:</span>
+                    ${d.affected_pairs.slice(0,3).map(p => `<span class="px-1.5 py-0.5 bg-dark-700 rounded text-gray-300">${p.src} &rarr; ${p.dst} (${formatNum(p.connections)})</span>`).join('')}
+                    ${d.affected_pairs.length > 3 ? `<span class="text-gray-600">+${d.affected_pairs.length - 3} more</span>` : ''}
+                </div>
+            `).join('')}
+            </div>
+        </div>` : ''}
+        ` : '<div class="bg-dark-800 rounded-xl border border-green-900/30 p-12 text-center"><div class="text-xl font-semibold text-green-400">Deny Catalog Empty</div></div>'}
+    `;
+
+    // Maturity Model
+    const maturity = data.maturity || {};
+    const mScores = maturity.scores || {};
+    const mStages = [
+        {key:'discovery', label:'Discovery', color:'blue'},
+        {key:'classification', label:'Classification', color:'cyan'},
+        {key:'first_policy', label:'First Policy', color:'emerald'},
+        {key:'deny_layer', label:'Deny Layer', color:'red'},
+        {key:'tightening', label:'Tightening', color:'purple'},
+        {key:'coverage', label:'Coverage', color:'orange'},
+    ];
+    const overallColor = (maturity.overall||0) >= 75 ? 'emerald' : (maturity.overall||0) >= 40 ? 'yellow' : 'red';
+    document.getElementById('panel-maturity').innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <h2 class="text-lg font-semibold text-white">Segmentation Maturity</h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-3xl font-bold text-${overallColor}-400">${maturity.overall || 0}%</span>
+                <span class="px-3 py-1 rounded-lg text-sm font-bold bg-${overallColor}-900/40 text-${overallColor}-400">${maturity.stage || 'Unknown'}</span>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            ${mStages.map(s => {
+                const score = mScores[s.key] || 0;
+                const weight = (maturity.weights || {})[s.key] || 0;
+                return `
+                <div class="bg-dark-800 rounded-xl border border-gray-700 p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-300">${s.label}</span>
+                        <span class="text-xs text-gray-500">w:${weight}%</span>
+                    </div>
+                    <div class="text-2xl font-bold text-${s.color}-400 mb-2">${score}%</div>
+                    <div class="w-full bg-dark-900 rounded-full h-2">
+                        <div class="bg-${s.color}-500 h-2 rounded-full transition-all" style="width:${score}%"></div>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-4">
+            <h3 class="text-sm font-semibold text-white mb-2">Stage Thresholds</h3>
+            <div class="flex gap-2 flex-wrap text-xs">
+                ${['Starting (<20%)', 'Discovering (20%)', 'Progressing (40%)', 'Protected (60%)', 'Enforced (75%)', 'Hardened (90%)'].map((s, i) => {
+                    const thresholds = [0, 20, 40, 60, 75, 90];
+                    const active = (maturity.overall||0) >= thresholds[i] && ((maturity.overall||0) < (thresholds[i+1]||101));
+                    return `<span class="px-2 py-1 rounded ${active ? 'bg-emerald-900/50 text-emerald-400 font-semibold' : 'bg-dark-700 text-gray-500'}">${s}</span>`;
+                }).join('')}
+            </div>
+        </div>
+    `;
+
+    // Breach Radius
+    const breach = data.breach_radius || {};
+    const breachReachable = breach.reachable || {};
+    const breachGroups = Object.entries(breachReachable).sort((a,b) => a[1].hop - b[1].hop);
+    document.getElementById('panel-breach').innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <h2 class="text-lg font-semibold text-white">Breach Radius Simulation</h2>
+            </div>
+        </div>
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-4 mb-4">
+            <div class="flex items-center gap-3 mb-3">
+                <label class="text-sm text-gray-400">Target app|env:</label>
+                <input type="text" id="breach-target" placeholder="e.g. MyApp|Production" class="bg-dark-900 border border-gray-600 rounded px-3 py-1.5 text-sm text-white w-64 focus:border-blue-500 focus:outline-none">
+                <button onclick="runBreachRadius()" class="px-4 py-1.5 text-sm rounded bg-orange-700 hover:bg-orange-600 text-white transition-colors">Simulate</button>
+            </div>
+            ${breach.target ? `
+            <div class="flex items-center gap-4 text-sm">
+                <span class="text-gray-400">Target: <code class="text-orange-400">${breach.target}</code></span>
+                <span class="text-gray-400">Reachable: <span class="text-orange-400 font-bold">${breach.total_reachable || 0}</span> groups</span>
+                <span class="text-gray-400">Max depth: <span class="text-orange-400 font-bold">${breach.max_depth || 0}</span> hops</span>
+            </div>` : '<div class="text-xs text-gray-500">Enter a target app|env and click Simulate to compute blast radius.</div>'}
+        </div>
+        ${breachGroups.length ? `
+        <div class="bg-dark-800 rounded-xl border border-gray-700 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead><tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
+                    <th class="px-4 py-3">Hop</th><th class="px-4 py-3">Reachable Group</th>
+                    <th class="px-4 py-3">Services</th><th class="px-4 py-3 text-right">Connections</th>
+                </tr></thead>
+                <tbody>${breachGroups.map(([group, info]) => {
+                    const hopColor = info.hop <= 1 ? 'red' : info.hop <= 2 ? 'orange' : info.hop <= 3 ? 'yellow' : 'gray';
+                    return `
+                    <tr class="border-b border-gray-700/30 hover:bg-dark-700/30">
+                        <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded text-xs font-bold bg-${hopColor}-900/50 text-${hopColor}-400">${info.hop}</span></td>
+                        <td class="px-4 py-2.5"><code class="text-xs text-gray-300">${group}</code></td>
+                        <td class="px-4 py-2.5"><span class="text-xs text-gray-400">${(info.services||[]).join(', ') || 'N/A'}</span></td>
+                        <td class="px-4 py-2.5 text-right font-mono text-xs text-gray-400">${formatNum(info.connections)}</td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>
+        </div>` : ''}
+    `;
+
+    document.getElementById('footer').textContent = `Check #${data.check_count} · ${data.last_check ? new Date(data.last_check).toLocaleTimeString() : 'never'} · ${data.label_count} labels cached` + (maturity.stage ? ` · Maturity: ${maturity.stage} (${maturity.overall}%)` : '');
 }
 
 async function fetchData() {
@@ -1895,6 +2318,20 @@ async function provisionInfra(index) {
     } catch(e) { alert('Failed: ' + e); }
 }
 
+async function runBreachRadius() {
+    const target = document.getElementById('breach-target').value.trim();
+    if (!target) { alert('Enter a target app|env (e.g. MyApp|Production)'); return; }
+    try {
+        const resp = await fetch('/api/breach-radius', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({target: target})
+        });
+        const result = await resp.json();
+        if (result.error) { alert('Error: ' + result.error); return; }
+        await fetchData();
+    } catch(e) { alert('Breach radius failed: ' + e); }
+}
+
 initCharts();
 document.getElementById('api-link').href = '/api/report';
 fetchData();
@@ -1943,6 +2380,14 @@ class ReportHandler(BaseHTTPRequestHandler):
             self.send_json(200, data)
         elif self.path == "/api/ai/config":
             self.send_json(200, ai_advisor.get_config() if ai_advisor else {"enabled": False})
+        elif self.path == "/api/deny-layer":
+            with state_lock:
+                data = report_state.get("deny_layer", [])
+            self.send_json(200, data)
+        elif self.path == "/api/maturity":
+            with state_lock:
+                data = report_state.get("maturity", {})
+            self.send_json(200, data)
         elif self.path == "/":
             body = DASHBOARD_HTML.encode()
             self.send_response(200)
@@ -1962,6 +2407,8 @@ class ReportHandler(BaseHTTPRequestHandler):
             self.handle_ai_suggest_label(body)
         elif self.path == "/api/labels/apply":
             self.handle_apply_label(body)
+        elif self.path == "/api/breach-radius":
+            self.handle_breach_radius(body)
         elif self.path.startswith("/api/provision/"):
             self.handle_provision(body)
         else:
@@ -2193,6 +2640,31 @@ class ReportHandler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": f"Failed to update workload: HTTP {update_resp.status_code}"})
         except Exception as e:
             self.send_json(400, {"error": f"Failed to apply label: {e}"})
+
+    def handle_breach_radius(self, body):
+        """Compute breach radius for a target app|env."""
+        try:
+            req = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            self.send_json(400, {"error": "Invalid JSON"})
+            return
+
+        target = req.get("target", "")
+        if not target:
+            self.send_json(400, {"error": "target is required (app|env)"})
+            return
+
+        with state_lock:
+            blocked_pairs = report_state.get("blocked_pairs", [])
+            auto_rules = report_state.get("auto_rules", [])
+            inter_rules = report_state.get("inter_rules", [])
+
+        result = compute_breach_radius(target, blocked_pairs, auto_rules, inter_rules)
+
+        with state_lock:
+            report_state["breach_radius"] = result
+
+        self.send_json(200, result)
 
     def send_json(self, code, data):
         body = json.dumps(data, indent=2, default=str).encode()
