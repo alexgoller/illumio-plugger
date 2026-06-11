@@ -83,6 +83,7 @@ volumes:
 
 info:
   title: Policy Workflow
+  version: "0.2.0"
   description: Approval workflow for Illumio PCE policy changes with risk classification, multi-team routing, and provisioning gates
   author: Illumio
   license: Apache-2.0

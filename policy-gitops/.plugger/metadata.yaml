@@ -60,6 +60,7 @@ volumes:
 
 info:
   title: Policy GitOps
+  version: "0.2.0"
   description: Export Illumio policy to Git as YAML, enforce change review via PRs, detect drift, and provision approved changes back to the PCE
   author: Illumio
   license: Apache-2.0

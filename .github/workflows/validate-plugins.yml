@@ -1,0 +1,31 @@
+name: Validate Plugin Manifests
+
+on:
+  push:
+    paths:
+      - '*/plugin.yaml'
+      - '*/.plugger/metadata.yaml'
+      - '*/Dockerfile'
+  pull_request:
+    paths:
+      - '*/plugin.yaml'
+      - '*/.plugger/metadata.yaml'
+      - '*/Dockerfile'
+
+jobs:
+  validate:
+    name: Validate all plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate plugin.yaml and metadata.yaml
+        run: python3 .github/scripts/validate-manifests.py
