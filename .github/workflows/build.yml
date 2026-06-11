@@ -42,6 +42,7 @@ jobs:
           - infoblox-ipam-sync
           - app-dependency-intel
           - ven-fleet-manager
+          - workload-isolator
           - fortigate-sync
           - vcenter-sync
 
