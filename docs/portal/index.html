@@ -62,6 +62,9 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 .cat-pill { cursor:pointer;transition:all 0.15s; }
 .cat-pill:hover { background:rgba(137,180,250,0.15); }
 .cat-pill.active { background:rgba(137,180,250,0.2);color:#89b4fa;border-color:rgba(137,180,250,0.4); }
+.mat-pill { cursor:pointer;transition:all 0.15s; }
+.mat-pill:hover { background:rgba(137,180,250,0.15); }
+.mat-pill.active { background:rgba(137,180,250,0.2);color:#89b4fa;border-color:rgba(137,180,250,0.4); }
 </style>
 </head>
 <body class="bg-dark-900 text-gray-200 min-h-screen">
@@ -221,10 +224,19 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         <button onclick="filterPlugins('operations')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="operations">Operations</button>
     </div>
 
+    <!-- Maturity filters -->
+    <div class="flex flex-wrap gap-2 justify-center mb-8">
+        <button onclick="filterMaturity('all')" class="mat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="all">All Maturity</button>
+        <button onclick="filterMaturity('production')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="production">Production</button>
+        <button onclick="filterMaturity('prototype')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="prototype">Prototype</button>
+        <button onclick="filterMaturity('preview')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="preview">Preview</button>
+        <button onclick="filterMaturity('example')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="example">Example</button>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="plugin-grid">
 
         <!-- AI Security Report (flagship) -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in cursor-pointer" data-plugin="ai-security-report" data-categories="ai,policy" onclick="showDocs('ai-security-report')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in cursor-pointer" data-plugin="ai-security-report" data-categories="ai,policy" data-maturity="prototype" onclick="showDocs('ai-security-report')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">AI Security Report</h3>
                 <div class="flex gap-1">
@@ -240,7 +252,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- AI Assisted Rules -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d1 cursor-pointer" data-plugin="ai-assisted-rules" data-categories="ai,policy" onclick="showDocs('ai-assisted-rules')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d1 cursor-pointer" data-plugin="ai-assisted-rules" data-categories="ai,policy" data-maturity="prototype" onclick="showDocs('ai-assisted-rules')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">AI Assisted Rules</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30">AI</span>
@@ -253,7 +265,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- PCE Health Monitor -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d2 cursor-pointer" data-plugin="pce-health-monitor" data-categories="monitoring" onclick="showDocs('pce-health-monitor')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d2 cursor-pointer" data-plugin="pce-health-monitor" data-categories="monitoring" data-maturity="example" onclick="showDocs('pce-health-monitor')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">PCE Health Monitor</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
@@ -266,7 +278,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Traffic Reporter -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3 cursor-pointer" data-plugin="traffic-reporter" data-categories="monitoring" onclick="showDocs('traffic-reporter')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3 cursor-pointer" data-plugin="traffic-reporter" data-categories="monitoring" data-maturity="production" onclick="showDocs('traffic-reporter')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Traffic Reporter</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
@@ -279,7 +291,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Policy Diff -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4 cursor-pointer" data-plugin="policy-diff" data-categories="policy" onclick="showDocs('policy-diff')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4 cursor-pointer" data-plugin="policy-diff" data-categories="policy" data-maturity="production" onclick="showDocs('policy-diff')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Policy Diff</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
@@ -292,7 +304,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Policy Resolver -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="policy-resolver" data-categories="policy" onclick="showDocs('policy-resolver')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="policy-resolver" data-categories="policy" data-maturity="production" onclick="showDocs('policy-resolver')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Policy Resolver</h3>
                 <div class="flex gap-1">
@@ -308,7 +320,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- PCE Events -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="pce-events" data-categories="monitoring,integration" onclick="showDocs('pce-events')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="pce-events" data-categories="monitoring,integration" data-maturity="production" onclick="showDocs('pce-events')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">PCE Events</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
@@ -321,7 +333,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- PCE Posture Report -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="pce-posture-report" data-categories="policy" onclick="showDocs('pce-posture-report')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="pce-posture-report" data-categories="policy" data-maturity="production" onclick="showDocs('pce-posture-report')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">PCE Posture Report</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">cron</span>
@@ -334,7 +346,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Stale Workloads -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d1 cursor-pointer" data-plugin="stale-workloads" data-categories="operations" onclick="showDocs('stale-workloads')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d1 cursor-pointer" data-plugin="stale-workloads" data-categories="operations" data-maturity="preview" onclick="showDocs('stale-workloads')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Stale Workloads</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
@@ -347,7 +359,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Rule Scheduler -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d2 cursor-pointer" data-plugin="rule-scheduler" data-categories="operations" onclick="showDocs('rule-scheduler')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d2 cursor-pointer" data-plugin="rule-scheduler" data-categories="operations" data-maturity="production" onclick="showDocs('rule-scheduler')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Rule Scheduler</h3>
                 <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
@@ -360,7 +372,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Palo Alto DAG Sync -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3 cursor-pointer" data-plugin="palo-alto-dag-sync" data-categories="integration" onclick="showDocs('palo-alto-dag-sync')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d3 cursor-pointer" data-plugin="palo-alto-dag-sync" data-categories="integration" data-maturity="production" onclick="showDocs('palo-alto-dag-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Palo Alto DAG Sync</h3>
                 <div class="flex gap-1">
@@ -376,7 +388,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- AD Label Sync -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4 cursor-pointer" data-plugin="ad-label-sync" data-categories="integration" onclick="showDocs('ad-label-sync')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d4 cursor-pointer" data-plugin="ad-label-sync" data-categories="integration" data-maturity="production" onclick="showDocs('ad-label-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">AD Label Sync</h3>
                 <div class="flex gap-1">
@@ -392,7 +404,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Remedy CMDB Sync -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="remedy-cmdb-sync" data-categories="integration" onclick="showDocs('remedy-cmdb-sync')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="remedy-cmdb-sync" data-categories="integration" data-maturity="production" onclick="showDocs('remedy-cmdb-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Remedy CMDB Sync</h3>
                 <div class="flex gap-1">
@@ -408,7 +420,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- ZTNA Sync -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="ztna-sync" data-categories="integration" onclick="showDocs('ztna-sync')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d5 cursor-pointer" data-plugin="ztna-sync" data-categories="integration" data-maturity="production" onclick="showDocs('ztna-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">ZTNA Sync</h3>
                 <div class="flex gap-1">
@@ -424,7 +436,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Infoblox IPAM Sync -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d6 cursor-pointer" data-plugin="infoblox-ipam-sync" data-categories="integration" onclick="showDocs('infoblox-ipam-sync')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d6 cursor-pointer" data-plugin="infoblox-ipam-sync" data-categories="integration" data-maturity="production" onclick="showDocs('infoblox-ipam-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Infoblox IPAM Sync</h3>
                 <div class="flex gap-1">
@@ -440,7 +452,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Workload Isolator -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in cursor-pointer" data-plugin="workload-isolator" data-categories="operations" onclick="showDocs('workload-isolator')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in cursor-pointer" data-plugin="workload-isolator" data-categories="operations" data-maturity="example" onclick="showDocs('workload-isolator')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Workload Isolator</h3>
                 <div class="flex gap-1">
@@ -456,7 +468,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- VEN Fleet Manager -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d1 cursor-pointer" data-plugin="ven-fleet-manager" data-categories="operations" onclick="showDocs('ven-fleet-manager')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d1 cursor-pointer" data-plugin="ven-fleet-manager" data-categories="operations" data-maturity="production" onclick="showDocs('ven-fleet-manager')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">VEN Fleet Manager</h3>
                 <div class="flex gap-1">
@@ -472,7 +484,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Policy GitOps (external repo) -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="policy-gitops" data-categories="policy,operations" onclick="showDocs('policy-gitops')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="policy-gitops" data-categories="policy,operations" data-maturity="production" onclick="showDocs('policy-gitops')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Policy GitOps</h3>
                 <div class="flex gap-1">
@@ -488,7 +500,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Policy Workflow (external repo) -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d1 cursor-pointer" data-plugin="policy-workflow" data-categories="policy,operations" onclick="showDocs('policy-workflow')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in fade-d1 cursor-pointer" data-plugin="policy-workflow" data-categories="policy,operations" data-maturity="example" onclick="showDocs('policy-workflow')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Policy Workflow</h3>
                 <div class="flex gap-1">
@@ -504,7 +516,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- App Dependency Intel -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d2 cursor-pointer" data-plugin="app-dependency-intel" data-categories="monitoring,policy" onclick="showDocs('app-dependency-intel')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d2 cursor-pointer" data-plugin="app-dependency-intel" data-categories="monitoring,policy" data-maturity="production" onclick="showDocs('app-dependency-intel')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">App Dependency Intel</h3>
                 <div class="flex gap-1">
@@ -520,7 +532,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- FortiGate Sync -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d3 cursor-pointer" data-plugin="fortigate-sync" data-categories="integration" onclick="showDocs('fortigate-sync')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d3 cursor-pointer" data-plugin="fortigate-sync" data-categories="integration" data-maturity="production" onclick="showDocs('fortigate-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">FortiGate Sync</h3>
                 <div class="flex gap-1">
@@ -536,7 +548,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- vCenter Sync -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d4 cursor-pointer" data-plugin="vcenter-sync" data-categories="integration" onclick="showDocs('vcenter-sync')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d4 cursor-pointer" data-plugin="vcenter-sync" data-categories="integration" data-maturity="production" onclick="showDocs('vcenter-sync')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">vCenter Sync</h3>
                 <div class="flex gap-1">
@@ -2368,19 +2380,36 @@ function closeDocs() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDocs(); });
 
+// Active filter state
+let _activeCat = 'all';
+let _activeMat = 'all';
+
+function applyFilters() {
+    document.querySelectorAll('#plugin-grid > .card').forEach(card => {
+        const cats = (card.dataset.categories || '').split(',');
+        const mat = card.dataset.maturity || '';
+        const catMatch = _activeCat === 'all' || cats.includes(_activeCat);
+        const matMatch = _activeMat === 'all' || mat === _activeMat;
+        card.style.display = (catMatch && matMatch) ? '' : 'none';
+    });
+}
+
 // Plugin category filter
 function filterPlugins(cat) {
+    _activeCat = cat;
     document.querySelectorAll('.cat-pill').forEach(b => {
         b.classList.toggle('active', b.dataset.cat === cat);
     });
-    document.querySelectorAll('#plugin-grid > .card').forEach(card => {
-        if (cat === 'all') {
-            card.style.display = '';
-            return;
-        }
-        const cats = (card.dataset.categories || '').split(',');
-        card.style.display = cats.includes(cat) ? '' : 'none';
+    applyFilters();
+}
+
+// Plugin maturity filter
+function filterMaturity(mat) {
+    _activeMat = mat;
+    document.querySelectorAll('.mat-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.mat === mat);
     });
+    applyFilters();
 }
 
 // Handle hash navigation
@@ -2394,8 +2423,48 @@ function handleHash() {
 
 window.addEventListener('hashchange', handleHash);
 
+// Inject maturity badges into plugin cards
+function injectMaturityBadges() {
+    const colors = {
+        production: { bg: 'bg-green-500/15', text: 'text-green-300', border: 'border-green-500/30' },
+        prototype: { bg: 'bg-amber-500/15', text: 'text-amber-300', border: 'border-amber-500/30' },
+        preview:   { bg: 'bg-blue-500/15',  text: 'text-blue-300',  border: 'border-blue-500/30' },
+        example:   { bg: 'bg-gray-500/15',  text: 'text-gray-400',  border: 'border-gray-500/30' }
+    };
+    document.querySelectorAll('#plugin-grid > .card[data-maturity]').forEach(card => {
+        const maturity = card.dataset.maturity;
+        const c = colors[maturity];
+        if (!c) return;
+        const label = maturity.charAt(0).toUpperCase() + maturity.slice(1);
+        const badge = document.createElement('span');
+        badge.className = `text-xs px-2 py-0.5 rounded ${c.bg} ${c.text} border ${c.border}`;
+        badge.textContent = label;
+        // Find the header row (first .flex.items-center.justify-between inside the card)
+        const headerRow = card.querySelector('.flex.items-center.justify-between');
+        if (!headerRow) return;
+        // Find or create the badge container (div.flex.gap-1) next to h3
+        let badgeContainer = headerRow.querySelector('div.flex.gap-1');
+        if (!badgeContainer) {
+            // If only a single span badge exists (no wrapping div), wrap it
+            const existingBadge = headerRow.querySelector('span');
+            if (existingBadge && existingBadge.parentElement === headerRow) {
+                badgeContainer = document.createElement('div');
+                badgeContainer.className = 'flex gap-1';
+                headerRow.replaceChild(badgeContainer, existingBadge);
+                badgeContainer.appendChild(existingBadge);
+            } else {
+                badgeContainer = document.createElement('div');
+                badgeContainer.className = 'flex gap-1';
+                headerRow.appendChild(badgeContainer);
+            }
+        }
+        badgeContainer.appendChild(badge);
+    });
+}
+
 // Init
 renderDocsAccordion();
+injectMaturityBadges();
 handleHash();
 </script>
 
