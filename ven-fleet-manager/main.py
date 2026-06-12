@@ -600,7 +600,10 @@ VALID_PROGRESSIONS = {
 FILTER_MAP = {
     "idle_compat_pass": lambda fleet: fleet["progression"]["idle_compat_pass"],
     "idle_compat_fail": lambda fleet: fleet["progression"]["idle_compat_fail"],
-    "idle_compat_unknown": lambda fleet: fleet["progression"]["idle_compat_unknown"],
+    "idle_compat_unknown": lambda fleet: (
+        fleet["progression"]["idle_compat_pass"] +
+        fleet["progression"]["idle_compat_unknown"]
+    ),
     "idle_all": lambda fleet: (
         fleet["progression"]["idle_compat_pass"] +
         fleet["progression"]["idle_compat_fail"] +
@@ -838,15 +841,22 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
     <div class="bg-dark-900 rounded-xl border border-gray-700 p-5">
       <h3 class="text-sm font-semibold text-gray-400 mb-3">Quick Actions</h3>
       <div class="space-y-3" id="quick-actions">
-        <button onclick="batchProgress('idle_compat_pass','visibility_only')" class="w-full text-left px-4 py-3 rounded-lg bg-dark-700 hover:bg-dark-800 border border-gray-600 transition">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm font-medium text-green-400">Progress idle (compat pass) to Visibility</div>
-              <div class="text-xs text-gray-500 mt-0.5">Move workloads that passed compatibility checks</div>
-            </div>
+        <div class="px-4 py-3 rounded-lg bg-dark-700 border border-gray-600">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-sm font-medium text-green-400">Move idle workloads to Visibility</div>
             <span id="qa-idle-pass-count" class="text-lg font-bold text-green-400">--</span>
           </div>
-        </button>
+          <div class="flex items-center gap-2">
+            <select id="idle-progress-mode" class="flex-1 bg-dark-900 text-sm border border-gray-600 rounded px-3 py-1.5 text-gray-300">
+              <option value="idle_compat_pass">Only compatible (compat pass)</option>
+              <option value="idle_compat_unknown">No known issues (pass + unknown)</option>
+              <option value="idle_all">Force all (despite compat issues)</option>
+            </select>
+            <button onclick="idleToVisibility(false)" class="px-3 py-1.5 text-sm rounded bg-dark-900 border border-gray-600 hover:bg-dark-800 text-gray-300 transition">Preview</button>
+            <button onclick="idleToVisibility(true)" class="px-3 py-1.5 text-sm rounded bg-green-800 hover:bg-green-700 text-white transition">Apply</button>
+          </div>
+          <div id="idle-preview" class="mt-2 text-xs text-gray-500 hidden"></div>
+        </div>
         <button onclick="batchProgress('visibility_ready','selective')" class="w-full text-left px-4 py-3 rounded-lg bg-dark-700 hover:bg-dark-800 border border-gray-600 transition">
           <div class="flex items-center justify-between">
             <div>
@@ -1146,7 +1156,18 @@ function renderAll(data){
   document.getElementById('stat-ready').textContent=formatNum(ready);
 
   // Quick action counts
-  document.getElementById('qa-idle-pass-count').textContent=(f.progression.idle_compat_pass||[]).length;
+  updateIdleCount(f);
+  document.getElementById('idle-progress-mode').onchange=function(){updateIdleCount(f);};
+  function updateIdleCount(f){
+    const mode=document.getElementById('idle-progress-mode').value;
+    const p=f.progression;
+    let c=0;
+    if(mode==='idle_compat_pass')c=(p.idle_compat_pass||[]).length;
+    else if(mode==='idle_compat_unknown')c=(p.idle_compat_pass||[]).length+(p.idle_compat_unknown||[]).length;
+    else c=(p.idle_compat_pass||[]).length+(p.idle_compat_fail||[]).length+(p.idle_compat_unknown||[]).length;
+    document.getElementById('qa-idle-pass-count').textContent=c;
+    document.getElementById('idle-preview').classList.add('hidden');
+  }
   document.getElementById('qa-vis-ready-count').textContent=(f.progression.visibility_ready||[]).length;
   document.getElementById('qa-vis-full-count').textContent=(f.progression.visibility_ready||[]).length;
 
@@ -1391,10 +1412,52 @@ function renderCoverageTab(f){
   document.getElementById('unlabeled-info').innerHTML=`<span class="text-gray-500">Unlabeled workloads:</span> <span class="font-semibold text-white">${cov.unlabeled||0}</span>`;
 }
 
+// Idle to visibility with mode selection
+async function idleToVisibility(apply){
+  const mode=document.getElementById('idle-progress-mode').value;
+  const preview=document.getElementById('idle-preview');
+  try{
+    const resp=await fetch(BASE+'/api/progress',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({filter:mode,to_mode:'visibility_only',dry_run:!apply,max_batch:200})
+    });
+    const result=await resp.json();
+    if(result.error){alert('Error: '+result.error);return;}
+    if(!apply){
+      preview.classList.remove('hidden');
+      const modeLabel={idle_compat_pass:'compat pass only',idle_compat_unknown:'pass + unknown (no known failures)',idle_all:'ALL idle (including compat failures)'}[mode]||mode;
+      let html='<div class="font-medium text-gray-400 mb-1">Preview ('+modeLabel+'): '+result.would_progress+' would move, '+result.would_skip+' skipped</div>';
+      if(result.eligible&&result.eligible.length){
+        html+='<div class="max-h-32 overflow-y-auto mt-1"><table class="w-full"><tbody>';
+        result.eligible.forEach(w=>{html+='<tr class="border-b border-gray-700/30"><td class="py-0.5 text-gray-300">'+w.hostname+'</td><td class="py-0.5 text-gray-500">'+w.from+' → '+w.to+'</td></tr>';});
+        html+='</tbody></table></div>';
+      }
+      if(result.skipped&&result.skipped.length){
+        html+='<div class="mt-1 text-yellow-500">Skipped: '+result.skipped.map(s=>s.hostname+' ('+s.reason+')').join(', ')+'</div>';
+      }
+      preview.innerHTML=html;
+    }else{
+      const modeLabel={idle_compat_pass:'compat pass only',idle_compat_unknown:'pass + unknown',idle_all:'ALL (forced)'}[mode]||mode;
+      if(!confirm('Move '+result.would_progress+' workload(s) to Visibility Only?\nMode: '+modeLabel+'\n\nThis will modify enforcement mode on your PCE.'))return;
+      const applyResp=await fetch(BASE+'/api/progress',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({filter:mode,to_mode:'visibility_only',dry_run:false,max_batch:200})
+      });
+      const applyResult=await applyResp.json();
+      if(applyResult.error){alert('Error: '+applyResult.error);return;}
+      alert('Progressed: '+applyResult.progressed+'\nFailed: '+applyResult.failed+'\nSkipped: '+applyResult.skipped);
+      preview.classList.add('hidden');
+      fetchData();
+    }
+  }catch(e){alert('Request failed: '+e);}
+}
+
 // Batch progress
 async function batchProgress(filter,toMode){
-  const count=filter==='idle_compat_pass'?(fleetData.fleet.progression.idle_compat_pass||[]).length
-    :(fleetData.fleet.progression.visibility_ready||[]).length;
+  const p=fleetData.fleet.progression;
+  const counts={idle_compat_pass:(p.idle_compat_pass||[]).length,
+    visibility_ready:(p.visibility_ready||[]).length};
+  const count=counts[filter]||0;
   if(!count){alert('No workloads match this filter.');return;}
   const label={visibility_only:'Visibility Only',selective:'Selective',full:'Full'}[toMode]||toMode;
   if(!confirm('Progress '+count+' workload(s) to '+label+'?\n\nThis will modify enforcement mode on your PCE.'))return;
