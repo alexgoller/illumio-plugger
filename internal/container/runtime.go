@@ -81,6 +81,7 @@ type ContainerInfo struct {
 	Running bool
 	Labels  map[string]string
 	Ports   map[int]int // containerPort -> hostPort (from actual bindings)
+	Env     []string    // KEY=VALUE pairs
 }
 
 // LogOpts configures log retrieval.

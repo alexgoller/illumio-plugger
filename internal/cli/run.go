@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -279,10 +280,18 @@ func reconcileState(ctx context.Context, deps *lifecycle.Deps) error {
 			p.State = plugin.StateStopped
 			p.ContainerID = ""
 			deps.Store.Put(p)
-		} else if p.State != plugin.StateRunning && exists && running {
-			// Container running but store doesn't know
-			slog.Info("reconcile: container running, updating state", "plugin", p.Name)
-			// We'll let the scheduler handle this on next start
+		} else if exists && running {
+			if p.State != plugin.StateRunning {
+				slog.Info("reconcile: container running, updating state", "plugin", p.Name)
+			}
+			// Check if container has stale PCE credentials
+			if p.ContainerID != "" && hasStaleCredentials(ctx, deps, p) {
+				slog.Info("reconcile: restarting plugin (PCE credentials changed)", "plugin", p.Name)
+				_ = lifecycle.StopPlugin(ctx, deps, p)
+				if err := lifecycle.StartPlugin(ctx, deps, p); err != nil {
+					slog.Error("reconcile: failed to restart plugin", "plugin", p.Name, "error", err)
+				}
+			}
 		}
 
 		// Clean up stale stopped containers
@@ -293,6 +302,31 @@ func reconcileState(ctx context.Context, deps *lifecycle.Deps) error {
 	}
 
 	return nil
+}
+
+// hasStaleCredentials checks if a running container has different PCE
+// credentials than the current config. Returns true if a restart is needed.
+func hasStaleCredentials(ctx context.Context, deps *lifecycle.Deps, p *plugin.Plugin) bool {
+	info, err := deps.Runtime.Inspect(ctx, p.ContainerID)
+	if err != nil {
+		return false
+	}
+
+	envMap := make(map[string]string)
+	for _, e := range info.Env {
+		if k, v, ok := strings.Cut(e, "="); ok {
+			envMap[k] = v
+		}
+	}
+
+	cfg := deps.Config.PCE
+	if envMap["PCE_API_KEY"] != cfg.APIKey || envMap["PCE_API_SECRET"] != cfg.APISecret {
+		return true
+	}
+	if envMap["PCE_HOST"] != cfg.Host {
+		return true
+	}
+	return false
 }
 
 // setupHealthChecker creates and starts a health checker for a daemon plugin if configured.

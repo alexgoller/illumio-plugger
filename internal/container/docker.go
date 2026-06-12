@@ -163,6 +163,7 @@ func (d *DockerRuntime) Inspect(ctx context.Context, id string) (*ContainerInfo,
 		Running: c.State.Running,
 		Labels:  c.Config.Labels,
 		Ports:   ports,
+		Env:     c.Config.Env,
 	}, nil
 }
 
