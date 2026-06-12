@@ -3,10 +3,12 @@ package plugin
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
+	"syscall"
 )
 
 // Store provides persistent storage for plugin state backed by a JSON file.
@@ -33,12 +35,52 @@ func (s *Store) load() (map[string]*Plugin, error) {
 
 	var plugins map[string]*Plugin
 	if err := json.Unmarshal(data, &plugins); err != nil {
-		return nil, fmt.Errorf("parsing plugin store: %w", err)
+		// Try to recover from corrupt JSON by loading the backup
+		slog.Warn("plugin store corrupt, attempting recovery from backup", "error", err)
+		backup := s.path + ".bak"
+		bakData, bakErr := os.ReadFile(backup)
+		if bakErr != nil {
+			return nil, fmt.Errorf("parsing plugin store (no backup available): %w", err)
+		}
+		if bakErr := json.Unmarshal(bakData, &plugins); bakErr != nil {
+			return nil, fmt.Errorf("parsing plugin store (backup also corrupt): %w", err)
+		}
+		slog.Info("recovered plugin store from backup", "plugins", len(plugins))
+		// Restore the good backup as the primary
+		_ = s.atomicWrite(s.path, bakData)
 	}
 	if plugins == nil {
 		plugins = make(map[string]*Plugin)
 	}
 	return plugins, nil
+}
+
+// atomicWrite writes data to path using write-fsync-rename for crash safety.
+func (s *Store) atomicWrite(path string, data []byte) error {
+	tmp := path + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return fmt.Errorf("writing temp file: %w", err)
+	}
+
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return fmt.Errorf("syncing temp file: %w", err)
+	}
+	f.Close()
+
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("renaming temp file: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) save(plugins map[string]*Plugin) error {
@@ -47,13 +89,27 @@ func (s *Store) save(plugins map[string]*Plugin) error {
 		return fmt.Errorf("marshaling plugin store: %w", err)
 	}
 
-	// Atomic write: write to temp file, then rename
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		return fmt.Errorf("writing plugin store: %w", err)
+	// Keep a backup of the last known-good state before overwriting
+	if existing, err := os.ReadFile(s.path); err == nil {
+		_ = s.atomicWrite(s.path+".bak", existing)
 	}
-	if err := os.Rename(tmp, s.path); err != nil {
-		return fmt.Errorf("renaming plugin store: %w", err)
+
+	// Acquire a file lock to protect against concurrent plugger instances
+	lockPath := s.path + ".lock"
+	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("creating lock file: %w", err)
+	}
+	defer lockFile.Close()
+	defer os.Remove(lockPath)
+
+	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("acquiring store lock: %w", err)
+	}
+	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
+
+	if err := s.atomicWrite(s.path, data); err != nil {
+		return fmt.Errorf("writing plugin store: %w", err)
 	}
 	return nil
 }
