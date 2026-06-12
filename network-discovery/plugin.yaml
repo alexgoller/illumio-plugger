@@ -1,0 +1,47 @@
+apiVersion: plugger/v1
+name: network-discovery
+version: 0.1.0
+image: plugger-network-discovery:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: POLL_INTERVAL
+    required: false
+    default: "3600"
+  - name: LOOKBACK_HOURS
+    required: false
+    default: "24"
+  - name: MAX_RESULTS
+    required: false
+    default: "10000"
+  - name: INTERNAL_SUBNETS
+    required: false
+    default: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+  - name: DNS_SERVER
+    required: false
+    default: ""
+  - name: DNS_TIMEOUT
+    required: false
+    default: "5"
+  - name: MODE
+    required: false
+    default: "dry-run"
+  - name: HOSTNAME_LABEL_RULES
+    required: false
+    default: ""
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

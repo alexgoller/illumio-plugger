@@ -45,6 +45,7 @@ jobs:
           - workload-isolator
           - fortigate-sync
           - vcenter-sync
+          - network-discovery
 
     steps:
       - name: Checkout

@@ -443,6 +443,26 @@
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/vcenter-sync",
       "maturity": "production"
+    },
+    {
+      "name": "network-discovery",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-network-discovery:latest",
+      "description": "Scan traffic flows for unknown IPs, reverse-DNS resolve them, and create unmanaged workloads with hostname-based label inference",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": [
+        "traffic",
+        "dns",
+        "discovery",
+        "unmanaged-workloads",
+        "automation",
+        "labels"
+      ],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/network-discovery",
+      "maturity": "preview"
     }
   ]
 }

@@ -1,0 +1,69 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Network discovery dashboard
+    type: ui
+    path: /
+
+config:
+  - name: POLL_INTERVAL
+    description: Seconds between traffic scan cycles
+    required: false
+    type: int
+    default: "3600"
+  - name: LOOKBACK_HOURS
+    description: Hours of traffic history to scan for unknown IPs
+    required: false
+    type: int
+    default: "24"
+  - name: MAX_RESULTS
+    description: Maximum number of flows to retrieve per scan
+    required: false
+    type: int
+    default: "10000"
+  - name: INTERNAL_SUBNETS
+    description: "Comma-separated CIDRs for internal networks (IPs outside are skipped)"
+    required: false
+    type: string
+    default: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+  - name: DNS_SERVER
+    description: "Custom DNS server for reverse lookups (empty = system DNS)"
+    required: false
+    type: string
+    default: ""
+  - name: DNS_TIMEOUT
+    description: DNS lookup timeout in seconds
+    required: false
+    type: int
+    default: "5"
+  - name: MODE
+    description: "dry-run (preview only) or auto-create (create unmanaged workloads)"
+    required: false
+    type: string
+    default: "dry-run"
+  - name: HOSTNAME_LABEL_RULES
+    description: "JSON array of {pattern, labels} for hostname-based label inference"
+    required: false
+    type: string
+    default: ""
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Persistent state for discovered IPs and creation history
+    required: false
+
+info:
+  title: Network Discovery
+  version: "0.1.0"
+  description: "Scan traffic flows for unknown IPs, reverse-DNS resolve them, and create unmanaged workloads with optional hostname-based label inference"
+  author: Illumio
+  license: Apache-2.0
+  homepage: https://github.com/alexgoller/illumio-plugger/tree/main/network-discovery
