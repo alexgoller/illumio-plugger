@@ -189,7 +189,7 @@ In HTML: `<a href="${url}" target="_blank" class="text-blue-400 hover:underline"
 
 ### Poll Intervals
 
-Default poll intervals must be >= 3600s (1 hour) to avoid overloading the PCE. Only health checks and event listeners should poll more frequently. This was a real production issue — aggressive polling overwhelmed the PCE API.
+Be reasonable with poll intervals — the PCE is a shared platform serving many consumers. Default to 3600s (1 hour) for most plugins. Shorter intervals are fine when justified (e.g., event listeners, active incident response), but don't poll aggressively without a good reason. Multiple plugins each polling at 30s adds up fast.
 
 ### Dashboard UI Pattern
 
