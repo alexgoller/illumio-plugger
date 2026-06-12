@@ -2118,7 +2118,9 @@ function update(data) {
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-4 mb-4">
             <div class="flex items-center gap-3 mb-3">
                 <label class="text-sm text-gray-400">Target app|env:</label>
-                <input type="text" id="breach-target" placeholder="e.g. MyApp|Production" class="bg-dark-900 border border-gray-600 rounded px-3 py-1.5 text-sm text-white w-64 focus:border-blue-500 focus:outline-none">
+                <select id="breach-target" class="bg-dark-900 border border-gray-600 rounded px-3 py-1.5 text-sm text-white w-72 focus:border-blue-500 focus:outline-none">
+                    <option value="">Select an application group...</option>
+                </select>
                 <button onclick="runBreachRadius()" class="px-4 py-1.5 text-sm rounded bg-orange-700 hover:bg-orange-600 text-white transition-colors">Simulate</button>
             </div>
             ${breach.target ? `
@@ -2318,9 +2320,31 @@ async function provisionInfra(index) {
     } catch(e) { alert('Failed: ' + e); }
 }
 
+async function loadAppGroups() {
+    try {
+        const data = await (await fetch('/api/app-groups')).json();
+        const sel = document.getElementById('breach-target');
+        const prev = sel.value;
+        sel.innerHTML = '<option value="">Select an application group...</option>';
+        if (data.labeled.length) {
+            const og = document.createElement('optgroup');
+            og.label = 'Applications (' + data.labeled.length + ')';
+            data.labeled.forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; og.appendChild(o); });
+            sel.appendChild(og);
+        }
+        if (data.unlabeled.length) {
+            const og = document.createElement('optgroup');
+            og.label = 'IP Addresses (' + data.unlabeled.length + ')';
+            data.unlabeled.forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; og.appendChild(o); });
+            sel.appendChild(og);
+        }
+        if (prev) sel.value = prev;
+    } catch(e) { console.error('Failed to load app groups:', e); }
+}
+
 async function runBreachRadius() {
-    const target = document.getElementById('breach-target').value.trim();
-    if (!target) { alert('Enter a target app|env (e.g. MyApp|Production)'); return; }
+    const target = document.getElementById('breach-target').value;
+    if (!target) { alert('Select a target application group'); return; }
     try {
         const resp = await fetch('/api/breach-radius', {
             method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2335,7 +2359,8 @@ async function runBreachRadius() {
 initCharts();
 document.getElementById('api-link').href = '/api/report';
 fetchData();
-setInterval(fetchData, 30000);
+loadAppGroups();
+setInterval(() => { fetchData(); loadAppGroups(); }, 30000);
 </script>
 </body></html>"""
 
@@ -2388,6 +2413,16 @@ class ReportHandler(BaseHTTPRequestHandler):
             with state_lock:
                 data = report_state.get("maturity", {})
             self.send_json(200, data)
+        elif self.path == "/api/app-groups":
+            with state_lock:
+                blocked_pairs = report_state.get("blocked_pairs", [])
+            groups = set()
+            for pair in blocked_pairs:
+                groups.add(pair["src_group"])
+                groups.add(pair["dst_group"])
+            labeled = sorted(g for g in groups if "|" in g)
+            unlabeled = sorted(g for g in groups if "|" not in g)
+            self.send_json(200, {"labeled": labeled, "unlabeled": unlabeled})
         elif self.path == "/":
             body = DASHBOARD_HTML.encode()
             self.send_response(200)
