@@ -9,6 +9,7 @@ PCE connection details are injected as environment variables:
 import json
 import logging
 import os
+import re
 import signal
 import sys
 import time
@@ -36,6 +37,15 @@ def get_pce() -> PolicyComputeEngine:
     )
     pce.set_tls_settings(verify=False)
     return pce
+
+
+def pce_console_url(href):
+    """Convert a PCE API HREF to a clickable console URL."""
+    pce_host = os.environ.get("PCE_HOST", "localhost")
+    m = re.match(r'.*/orgs/\d+/(.*)', href)
+    path = m.group(1) if m else href.lstrip('/')
+    path = path.replace('sec_policy/draft/', '').replace('sec_policy/active/', '')
+    return f"https://{pce_host}/#/{path}"
 
 
 # ============================================================
