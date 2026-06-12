@@ -58,6 +58,8 @@ report_state = {
     "breach_radius": {},       # last breach radius result
     # Traffic classification
     "traffic_classification": {},  # blocked traffic classification counts
+    # App groups from workloads
+    "app_groups": [],              # sorted app|env tuples from PCE workloads
 }
 
 label_cache = {}  # href -> {"key": "...", "value": "..."}
@@ -1521,6 +1523,23 @@ def run_check(pce):
         except Exception as e:
             log.warning("Failed to fetch workloads for maturity: %s", e)
 
+        # Build app|env tuples from workloads
+        app_groups = set()
+        for wl in workloads:
+            lm = {}
+            for lbl in (wl.get("labels") or []):
+                href = lbl.get("href", "")
+                if href:
+                    k, v = resolve_label(href)
+                    if k:
+                        lm[k] = v
+            app = lm.get("app", "")
+            env = lm.get("env", "")
+            if app and env:
+                app_groups.add(f"{app}|{env}")
+            elif app:
+                app_groups.add(app)
+
         with state_lock:
             report_state["last_check"] = datetime.now(timezone.utc).isoformat()
             report_state["check_count"] += 1
@@ -1538,6 +1557,7 @@ def run_check(pce):
             report_state["label_count"] = len(label_cache)
             report_state["deny_layer"] = deny_layer
             report_state["traffic_classification"] = traffic_classification
+            report_state["app_groups"] = sorted(app_groups)
             report_state["error"] = None
 
             # Maturity needs snapshot of current state
@@ -2322,22 +2342,15 @@ async function provisionInfra(index) {
 
 async function loadAppGroups() {
     try {
-        const data = await (await fetch('/api/app-groups')).json();
+        const groups = await (await fetch('/api/app-groups')).json();
         const sel = document.getElementById('breach-target');
         const prev = sel.value;
         sel.innerHTML = '<option value="">Select an application group...</option>';
-        if (data.labeled.length) {
-            const og = document.createElement('optgroup');
-            og.label = 'Applications (' + data.labeled.length + ')';
-            data.labeled.forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; og.appendChild(o); });
-            sel.appendChild(og);
-        }
-        if (data.unlabeled.length) {
-            const og = document.createElement('optgroup');
-            og.label = 'IP Addresses (' + data.unlabeled.length + ')';
-            data.unlabeled.forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; og.appendChild(o); });
-            sel.appendChild(og);
-        }
+        groups.forEach(g => {
+            const o = document.createElement('option');
+            o.value = g; o.textContent = g;
+            sel.appendChild(o);
+        });
         if (prev) sel.value = prev;
     } catch(e) { console.error('Failed to load app groups:', e); }
 }
@@ -2415,14 +2428,8 @@ class ReportHandler(BaseHTTPRequestHandler):
             self.send_json(200, data)
         elif self.path == "/api/app-groups":
             with state_lock:
-                blocked_pairs = report_state.get("blocked_pairs", [])
-            groups = set()
-            for pair in blocked_pairs:
-                groups.add(pair["src_group"])
-                groups.add(pair["dst_group"])
-            labeled = sorted(g for g in groups if "|" in g)
-            unlabeled = sorted(g for g in groups if "|" not in g)
-            self.send_json(200, {"labeled": labeled, "unlabeled": unlabeled})
+                groups = report_state.get("app_groups", [])
+            self.send_json(200, groups)
         elif self.path == "/":
             body = DASHBOARD_HTML.encode()
             self.send_response(200)
