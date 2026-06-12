@@ -134,14 +134,22 @@ def main():
             warnings += 1
 
     # Check 6: Registry entry completeness
-    required_fields = ["name", "version", "image", "description", "mode", "has_ui", "language", "tags", "homepage"]
+    required_fields = ["name", "version", "image", "description", "mode", "has_ui", "language", "tags", "homepage", "maturity"]
     for name, entry in registry_by_name.items():
         missing = [f for f in required_fields if f not in entry]
         if missing:
             print(f"⚠️  {name}: registry entry missing fields: {', '.join(missing)}")
             warnings += 1
 
-    # Check 7: Registry version matches plugin.yaml version
+    # Check 7: Maturity values are valid
+    valid_maturity = {"example", "preview", "prototype", "production"}
+    for name, entry in registry_by_name.items():
+        m = entry.get("maturity", "")
+        if m and m not in valid_maturity:
+            print(f"❌ {name}: invalid maturity '{m}' (must be one of {valid_maturity})")
+            errors += 1
+
+    # Check 8: Registry version matches plugin.yaml version
     for plugin in plugins:
         plugin_yaml_path = os.path.join(REPO_ROOT, plugin, "plugin.yaml")
         try:

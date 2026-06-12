@@ -11,81 +11,129 @@
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["monitoring", "health", "dashboard"],
+      "tags": [
+        "monitoring",
+        "health",
+        "dashboard"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/pce-health-monitor"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/pce-health-monitor",
+      "maturity": "example"
     },
     {
       "name": "traffic-reporter",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-traffic-reporter:latest",
-      "description": "Interactive traffic flow analysis with Chart.js — top talkers, blocked flows, policy decisions",
+      "description": "Interactive traffic flow analysis with Chart.js \u2014 top talkers, blocked flows, policy decisions",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["traffic", "explorer", "visualization", "dashboard"],
+      "tags": [
+        "traffic",
+        "explorer",
+        "visualization",
+        "dashboard"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/traffic-reporter"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/traffic-reporter",
+      "maturity": "production"
     },
     {
       "name": "policy-diff",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-policy-diff:latest",
-      "description": "Git-like policy change tracker — field-level diffs, history snapshots, user attribution, audit trail",
+      "description": "Git-like policy change tracker \u2014 field-level diffs, history snapshots, user attribution, audit trail",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["policy", "diff", "audit", "compliance", "dashboard"],
+      "tags": [
+        "policy",
+        "diff",
+        "audit",
+        "compliance",
+        "dashboard"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-diff"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-diff",
+      "maturity": "production"
     },
     {
       "name": "pce-posture-report",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-pce-posture-report:latest",
-      "description": "Security posture scoring — enforcement coverage, label coverage, policy rules, HTML+JSON reports",
+      "description": "Security posture scoring \u2014 enforcement coverage, label coverage, policy rules, HTML+JSON reports",
       "mode": "cron",
       "has_ui": false,
       "language": "python",
-      "tags": ["compliance", "reporting", "posture", "scoring"],
+      "tags": [
+        "compliance",
+        "reporting",
+        "posture",
+        "scoring"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/pce-posture-report"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/pce-posture-report",
+      "maturity": "production"
     },
     {
       "name": "pce-events",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-pce-events:latest",
-      "description": "Real-time PCE event monitoring — Slack, Teams, PagerDuty, Email, webhooks, 15+ output plugins",
+      "description": "Real-time PCE event monitoring \u2014 Slack, Teams, PagerDuty, Email, webhooks, 15+ output plugins",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["events", "notifications", "slack", "teams", "pagerduty", "alerting"],
+      "tags": [
+        "events",
+        "notifications",
+        "slack",
+        "teams",
+        "pagerduty",
+        "alerting"
+      ],
       "author": "Alex Goller",
-      "homepage": "https://github.com/alexgoller/illumio-pretty-cool-events"
+      "homepage": "https://github.com/alexgoller/illumio-pretty-cool-events",
+      "maturity": "production"
     },
     {
       "name": "ai-assisted-rules",
       "version": "0.2.0",
       "image": "ghcr.io/alexgoller/plugger-ai-assisted-rules:latest",
-      "description": "AI-powered policy advisor — blocked traffic analysis, tiered rule suggestions, auto-provisioning, label gap detection",
+      "description": "AI-powered policy advisor \u2014 blocked traffic analysis, tiered rule suggestions, auto-provisioning, label gap detection",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["ai", "policy", "rules", "automation", "llm", "dashboard"],
+      "tags": [
+        "ai",
+        "policy",
+        "rules",
+        "automation",
+        "llm",
+        "dashboard"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ai-assisted-rules"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ai-assisted-rules",
+      "maturity": "prototype"
     },
     {
       "name": "stale-workloads",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-stale-workloads:latest",
-      "description": "Discover offline, unresponsive, and trafficless workloads — with optional cleanup (unpair/delete)",
+      "description": "Discover offline, unresponsive, and trafficless workloads \u2014 with optional cleanup (unpair/delete)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["workloads", "stale", "cleanup", "offline", "hygiene", "dashboard"],
+      "tags": [
+        "workloads",
+        "stale",
+        "cleanup",
+        "offline",
+        "hygiene",
+        "dashboard"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/stale-workloads"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/stale-workloads",
+      "maturity": "preview"
     },
     {
       "name": "palo-alto-dag-sync",
@@ -95,177 +143,306 @@
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["palo-alto", "firewall", "dag", "integration", "sync", "pan-os"],
+      "tags": [
+        "palo-alto",
+        "firewall",
+        "dag",
+        "integration",
+        "sync",
+        "pan-os"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/palo-alto-dag-sync"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/palo-alto-dag-sync",
+      "maturity": "production"
     },
     {
       "name": "ad-label-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-ad-label-sync:latest",
-      "description": "Discover AD computers and map OU, group, location attributes to Illumio labels — analytics mode for feasibility testing (untested)",
+      "description": "Discover AD computers and map OU, group, location attributes to Illumio labels \u2014 analytics mode for feasibility testing (untested)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["active-directory", "ldap", "labels", "sync", "integration", "analytics"],
+      "tags": [
+        "active-directory",
+        "ldap",
+        "labels",
+        "sync",
+        "integration",
+        "analytics"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ad-label-sync"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ad-label-sync",
+      "maturity": "production"
     },
     {
       "name": "rule-scheduler",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-rule-scheduler:latest",
-      "description": "Time-based rule and ruleset scheduling — business hours, maintenance windows, weekend lockdowns",
+      "description": "Time-based rule and ruleset scheduling \u2014 business hours, maintenance windows, weekend lockdowns",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["scheduling", "rules", "time-based", "maintenance", "automation"],
+      "tags": [
+        "scheduling",
+        "rules",
+        "time-based",
+        "maintenance",
+        "automation"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/rule-scheduler"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/rule-scheduler",
+      "maturity": "production"
     },
     {
       "name": "ai-security-report",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-ai-security-report:latest",
-      "description": "Comprehensive AI-powered security posture analysis — 10 categories, scoring, compliance mapping, environment heatmap, remediation roadmap",
+      "description": "Comprehensive AI-powered security posture analysis \u2014 10 categories, scoring, compliance mapping, environment heatmap, remediation roadmap",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["security", "ai", "compliance", "posture", "reporting", "nist", "pci-dss", "dashboard"],
+      "tags": [
+        "security",
+        "ai",
+        "compliance",
+        "posture",
+        "reporting",
+        "nist",
+        "pci-dss",
+        "dashboard"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ai-security-report"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ai-security-report",
+      "maturity": "prototype"
     },
     {
       "name": "remedy-cmdb-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-remedy-cmdb-sync:latest",
-      "description": "Sync BMC Helix/Remedy CMDB CIs to Illumio labels — analytics mode for feasibility testing, sync mode for label application (untested)",
+      "description": "Sync BMC Helix/Remedy CMDB CIs to Illumio labels \u2014 analytics mode for feasibility testing, sync mode for label application (untested)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["cmdb", "remedy", "bmc", "helix", "labels", "sync", "integration"],
+      "tags": [
+        "cmdb",
+        "remedy",
+        "bmc",
+        "helix",
+        "labels",
+        "sync",
+        "integration"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/remedy-cmdb-sync"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/remedy-cmdb-sync",
+      "maturity": "production"
     },
     {
       "name": "policy-resolver",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-policy-resolver:latest",
-      "description": "Resolve Illumio label-based policy into IP-level firewall rules — JSON export, searchable dashboard, allow/deny/override-deny ordering",
+      "description": "Resolve Illumio label-based policy into IP-level firewall rules \u2014 JSON export, searchable dashboard, allow/deny/override-deny ordering",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["policy", "firewall", "resolver", "export", "ip-rules", "migration"],
+      "tags": [
+        "policy",
+        "firewall",
+        "resolver",
+        "export",
+        "ip-rules",
+        "migration"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-resolver"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-resolver",
+      "maturity": "production"
     },
     {
       "name": "ztna-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-ztna-sync:latest",
-      "description": "Sync Illumio workloads to ZTNA applications — Zscaler ZPA, Netskope NPA, Cloudflare Access, Cisco Secure Access (untested)",
+      "description": "Sync Illumio workloads to ZTNA applications \u2014 Zscaler ZPA, Netskope NPA, Cloudflare Access, Cisco Secure Access (untested)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["ztna", "zscaler", "netskope", "cloudflare", "cisco", "zero-trust", "integration", "sync"],
+      "tags": [
+        "ztna",
+        "zscaler",
+        "netskope",
+        "cloudflare",
+        "cisco",
+        "zero-trust",
+        "integration",
+        "sync"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ztna-sync"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ztna-sync",
+      "maturity": "production"
     },
     {
       "name": "infoblox-ipam-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-infoblox-ipam-sync:latest",
-      "description": "Bi-directional sync between Illumio labels and Infoblox extensible attributes — enrich IPAM with segmentation context (untested)",
+      "description": "Bi-directional sync between Illumio labels and Infoblox extensible attributes \u2014 enrich IPAM with segmentation context (untested)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["infoblox", "ipam", "ddi", "labels", "sync", "integration", "extensible-attributes"],
+      "tags": [
+        "infoblox",
+        "ipam",
+        "ddi",
+        "labels",
+        "sync",
+        "integration",
+        "extensible-attributes"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/infoblox-ipam-sync"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/infoblox-ipam-sync",
+      "maturity": "production"
     },
     {
       "name": "policy-gitops",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/illumio-policy-gitops:latest",
-      "description": "Git-based policy management — sync rulesets, IP lists, services, label groups as YAML between Git and PCE with drift detection (external repo)",
+      "description": "Git-based policy management \u2014 sync rulesets, IP lists, services, label groups as YAML between Git and PCE with drift detection (external repo)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["policy", "gitops", "git", "sync", "yaml", "automation"],
+      "tags": [
+        "policy",
+        "gitops",
+        "git",
+        "sync",
+        "yaml",
+        "automation"
+      ],
       "author": "Alex Goller",
-      "homepage": "https://github.com/alexgoller/illumio-policy-gitops"
+      "homepage": "https://github.com/alexgoller/illumio-policy-gitops",
+      "maturity": "production"
     },
     {
       "name": "policy-workflow",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/illumio-policy-workflow:latest",
-      "description": "Approval-based policy workflow engine — multi-stage pipelines, Slack/Teams notifications, audit logging (external repo)",
+      "description": "Approval-based policy workflow engine \u2014 multi-stage pipelines, Slack/Teams notifications, audit logging (external repo)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["policy", "workflow", "approval", "automation", "notifications"],
+      "tags": [
+        "policy",
+        "workflow",
+        "approval",
+        "automation",
+        "notifications"
+      ],
       "author": "Alex Goller",
-      "homepage": "https://github.com/alexgoller/illumio-policy-gitops"
+      "homepage": "https://github.com/alexgoller/illumio-policy-gitops",
+      "maturity": "example"
     },
     {
       "name": "workload-isolator",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-workload-isolator:latest",
-      "description": "Instant workload quarantine via webhook — isolate compromised workloads, EDR/SOAR integration, auto-release TTL, audit trail",
+      "description": "Instant workload quarantine via webhook \u2014 isolate compromised workloads, EDR/SOAR integration, auto-release TTL, audit trail",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["security", "isolation", "quarantine", "edr", "soar", "incident-response", "webhook"],
+      "tags": [
+        "security",
+        "isolation",
+        "quarantine",
+        "edr",
+        "soar",
+        "incident-response",
+        "webhook"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/workload-isolator"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/workload-isolator",
+      "maturity": "example"
     },
     {
       "name": "app-dependency-intel",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-app-dependency-intel:latest",
-      "description": "Dependency analysis beyond policy — blast radius, SPOF detection, compliance boundaries, change impact, resiliency scoring",
+      "description": "Dependency analysis beyond policy \u2014 blast radius, SPOF detection, compliance boundaries, change impact, resiliency scoring",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["dependencies", "bcm", "compliance", "resiliency", "blast-radius", "change-impact", "d3js"],
+      "tags": [
+        "dependencies",
+        "bcm",
+        "compliance",
+        "resiliency",
+        "blast-radius",
+        "change-impact",
+        "d3js"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/app-dependency-intel"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/app-dependency-intel",
+      "maturity": "production"
     },
     {
       "name": "ven-fleet-manager",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-ven-fleet-manager:latest",
-      "description": "Fleet-level VEN visibility — enforcement progression, compatibility checks, version distribution, agent health, upgrade readiness",
+      "description": "Fleet-level VEN visibility \u2014 enforcement progression, compatibility checks, version distribution, agent health, upgrade readiness",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["ven", "fleet", "agent", "enforcement", "upgrade", "health", "operations"],
+      "tags": [
+        "ven",
+        "fleet",
+        "agent",
+        "enforcement",
+        "upgrade",
+        "health",
+        "operations"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ven-fleet-manager"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/ven-fleet-manager",
+      "maturity": "production"
     },
     {
       "name": "fortigate-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-fortigate-sync:latest",
-      "description": "Sync Illumio workloads to FortiGate — RSSO auth table and/or REST API address objects. Based on illumio-to-fortigate-sync by ruckle-o.",
+      "description": "Sync Illumio workloads to FortiGate \u2014 RSSO auth table and/or REST API address objects. Based on illumio-to-fortigate-sync by ruckle-o.",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["fortigate", "fortinet", "firewall", "rsso", "radius", "integration", "sync"],
+      "tags": [
+        "fortigate",
+        "fortinet",
+        "firewall",
+        "rsso",
+        "radius",
+        "integration",
+        "sync"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/fortigate-sync"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/fortigate-sync",
+      "maturity": "production"
     },
     {
       "name": "vcenter-sync",
       "version": "0.1.0",
       "image": "ghcr.io/alexgoller/plugger-vcenter-sync:latest",
-      "description": "Bi-directional VMware vCenter sync — import VMs as unmanaged workloads with labels from tags/folders, push labels back as vCenter tags (untested)",
+      "description": "Bi-directional VMware vCenter sync \u2014 import VMs as unmanaged workloads with labels from tags/folders, push labels back as vCenter tags (untested)",
       "mode": "daemon",
       "has_ui": true,
       "language": "python",
-      "tags": ["vmware", "vcenter", "vsphere", "labels", "unmanaged-workloads", "integration", "sync"],
+      "tags": [
+        "vmware",
+        "vcenter",
+        "vsphere",
+        "labels",
+        "unmanaged-workloads",
+        "integration",
+        "sync"
+      ],
       "author": "Illumio",
-      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/vcenter-sync"
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/vcenter-sync",
+      "maturity": "production"
     }
   ]
 }
