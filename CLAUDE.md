@@ -200,6 +200,47 @@ Plugins with `type: ui` ports use this standard stack:
 - **Charts**: Chart.js via CDN
 - **Health endpoint**: `/healthz` returning `{"status": "healthy"}`
 
+### Portal Website Style Guide
+
+The portal at `docs/portal/index.html` is a single-page static site. All updates must follow these patterns.
+
+**Theme**: Catppuccin Mocha dark, with light mode overrides via `html:not(.dark)` selectors.
+
+**Colors** (Tailwind custom):
+- `bg-dark-900: #11111b` — page background
+- `bg-dark-800: #1e1e2e` — cards, panels
+- `bg-dark-700: #313244` — inputs, secondary surfaces
+- Text: `text-white` for headings, `text-gray-300` for body, `text-gray-400/500` for secondary
+
+**Plugin cards** — each card in `#plugin-grid` needs:
+- `class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer"`
+- `data-plugin="plugin-name"` — matches registry name
+- `data-categories="cat1,cat2"` — for category filter (monitoring, policy, ai, integration, operations)
+- `data-maturity="level"` — for maturity filter (example, preview, prototype, production)
+- `onclick="showDocs('plugin-name')"` — opens docs modal
+- Title badge colors: sky for mode, violet for AI, rose for new, emerald for new, amber for untested
+
+**Maturity badge colors** (injected by JS):
+- production: `bg-green-500/15 text-green-300 border-green-500/30`
+- prototype: `bg-amber-500/15 text-amber-300 border-amber-500/30`
+- preview: `bg-blue-500/15 text-blue-300 border-blue-500/30`
+- example: `bg-gray-500/15 text-gray-400 border-gray-500/30`
+
+**Changelog section** — between Plugins and Docs sections:
+- Each release is a `bg-dark-800 rounded-xl border border-gray-700 p-6` card
+- Version + "latest" badge on the left, date on the right
+- Categories with colored headings: blue for New Plugins, purple for Features, red for Bug Fixes, yellow for Documentation
+- Content as `<ul>` with `<strong>` for the item name and `&mdash;` before the description
+- Keep entries concise — one line per item, no paragraphs
+- Update with every tagged release
+
+**Filters** — two rows of pills:
+- `.cat-pill` for categories, `.mat-pill` for maturity
+- Active state: `bg-rgba(137,180,250,0.2) text-#89b4fa border-rgba(137,180,250,0.4)`
+- Both filters combine (AND logic)
+
+**Nav bar**: horizontal links to `#plugins`, `#changelog`, `#docs`, plus GitHub link and theme toggle.
+
 ### Maturity Levels
 
 Every plugin has a maturity rating in the registry:
