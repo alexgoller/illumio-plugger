@@ -2465,6 +2465,89 @@ When \`FOLDER_TO_LABEL=true\`, derive labels from VM folder path. First folder l
 - VM name regex filter
 - Dashboard with VM inventory, tag mapping, sync results
 - Analytics mode for safe preview before enabling sync`
+},
+"network-discovery": {
+    title: "Network Discovery",
+    mode: "daemon",
+    tags: ["traffic","dns","discovery","unmanaged-workloads","automation"],
+    readme: `# Network Discovery
+
+Scan PCE traffic flows for bare IPs (endpoints without managed workloads), reverse-DNS resolve their hostnames, and create unmanaged workloads in the PCE. Bridges the gap between what Illumio sees in traffic and what exists as workload objects.
+
+## Install
+
+\`\`\`bash
+plugger install network-discovery
+\`\`\`
+
+## How It Works
+
+1. **Traffic scanning** — Queries all traffic flows (allowed, blocked, potentially blocked) and extracts endpoints that appear as bare IPs with no associated workload
+2. **Subnet filtering** — Classifies IPs as internal (within configured CIDRs) or external (public, skipped). Default: RFC1918 ranges
+3. **DNS resolution** — Reverse-DNS resolves each internal IP using system DNS, with optional fallback to a configurable DNS server
+4. **Dedup** — Checks against existing PCE workloads by IP to avoid duplicates. Persists state across restarts
+5. **Workload creation** — Creates unmanaged workloads with the resolved hostname. Groups multiple IPs resolving to the same hostname into a single workload with multiple interfaces
+6. **Label inference** — Optionally matches hostnames against regex patterns to auto-assign labels (app, env, role, loc)
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`POLL_INTERVAL\` | \`3600\` | Seconds between traffic scan cycles |
+| \`LOOKBACK_HOURS\` | \`24\` | Hours of traffic history to scan |
+| \`MAX_RESULTS\` | \`10000\` | Maximum flows per query |
+| \`INTERNAL_SUBNETS\` | \`10.0.0.0/8,172.16.0.0/12,192.168.0.0/16\` | Comma-separated CIDRs for internal networks |
+| \`DNS_SERVER\` | (empty) | Custom DNS server IP (empty = system DNS) |
+| \`DNS_TIMEOUT\` | \`5\` | DNS lookup timeout in seconds |
+| \`MODE\` | \`dry-run\` | \`dry-run\` (preview) or \`auto-create\` (create workloads) |
+| \`HOSTNAME_LABEL_RULES\` | (empty) | JSON array of hostname-to-label regex rules |
+
+## Modes
+
+- **dry-run** (default) — Scans traffic, resolves DNS, shows what would be created. No changes to PCE. Safe for initial deployment.
+- **auto-create** — Automatically creates unmanaged workloads for resolved IPs. Use after validating dry-run results.
+
+## Hostname Label Rules
+
+Configure \`HOSTNAME_LABEL_RULES\` as a JSON array to auto-label discovered workloads:
+
+\`\`\`json
+[
+  {"pattern": "^web-prod-.*", "labels": {"app": "web", "env": "Production", "role": "WEB"}},
+  {"pattern": "^db-.*\\\\.finance\\\\.", "labels": {"app": "database", "env": "Production"}},
+  {"pattern": ".*\\\\.dmz\\\\.", "labels": {"loc": "DMZ"}}
+]
+\`\`\`
+
+Rules are evaluated in order; first match wins.
+
+## Dashboard
+
+Three tabs:
+
+- **Overview** — Discovery funnel chart (Bare IPs → Internal → Resolved → Created → Labeled), subnet breakdown doughnut, DNS performance stats (total/success/failed/timeout/latency/cache hits), scan history line chart
+- **Discovered IPs** — Searchable table with IP, hostname, subnet, status badge, inferred labels, direction (src/dst), services, flow count. Filter by status.
+- **Activity** — Chronological feed of all resolve/create/fail/skip actions
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | \`/api/state\` | Full discovery state (funnel, DNS stats, discovered IPs, activity) |
+| GET | \`/api/export/json\` | Download full state as JSON |
+| POST | \`/api/scan\` | Trigger immediate traffic scan |
+| POST | \`/api/create\` | Create workload for a specific IP (\`{"ip": "10.1.2.3"}\`) |
+| GET | \`/healthz\` | Health check |
+
+## Key Features
+
+- DNS caching with configurable TTL (1h positive, 10m negative)
+- Multi-homed host detection — multiple IPs resolving to the same hostname become one workload
+- Subnet breakdown showing IP distribution across network ranges
+- Persistent state across container restarts (created IPs, DNS cache, scan history)
+- Rate-limited DNS queries to avoid flooding nameservers
+- IPv6 addresses are skipped (PCE workloads are IPv4)
+- Graceful handling of DNS timeouts and resolution failures`
 }
 };
 
