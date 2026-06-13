@@ -79,6 +79,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
     <div class="flex items-center gap-6 text-sm text-gray-400">
         <a href="#features" class="hover:text-white transition-colors">Features</a>
         <a href="#plugins" class="hover:text-white transition-colors">Plugins</a>
+        <a href="#changelog" class="hover:text-white transition-colors">Changelog</a>
         <a href="#docs" class="hover:text-white transition-colors">Docs</a>
         <a href="#quickstart" class="hover:text-white transition-colors">Quick Start</a>
         <a href="https://github.com/alexgoller/illumio-plugger" class="flex items-center gap-1 hover:text-white transition-colors">
@@ -576,6 +577,142 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install network-discovery</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+</section>
+
+<!-- Changelog -->
+<section id="changelog" class="py-20 px-6 border-t border-gray-800">
+<div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl font-bold text-white text-center mb-4">Changelog</h2>
+    <p class="text-gray-400 text-center mb-10">Recent releases and what shipped in each</p>
+
+    <div class="space-y-8">
+
+        <!-- v0.5.0 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg font-bold text-white">v0.5.0</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
+                </div>
+                <span class="text-sm text-gray-500">June 12, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-blue-400 mb-1">New Plugin</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Network Discovery</strong> &mdash; Scans traffic flows for bare IPs without workloads, reverse-DNS resolves hostnames, creates unmanaged workloads. Configurable subnet filtering (RFC1918 default), hostname-based label inference via regex rules, dry-run/auto-create modes. Dashboard with discovery funnel, subnet breakdown, DNS performance stats.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Plugin maturity ratings</strong> &mdash; Four levels (example/preview/prototype/production) for all 23 plugins, with color-coded badges and filter pills on the portal</li>
+                        <li><strong>Breach radius dropdown</strong> &mdash; Replaced free-text input with live app|env tuples from PCE workloads</li>
+                        <li><strong>VEN Fleet Manager</strong> &mdash; Idle-to-visibility switch with three modes: compatible only, no known issues, force all</li>
+                        <li><strong>PCE object linking</strong> &mdash; HREF-to-console URL mapping pattern added to plugin creation guide and Python template</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-red-400 mb-1">Bug Fixes</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Plugin store corruption</strong> &mdash; Added fsync before rename, flock for cross-process locking, auto-recovery from backup</li>
+                        <li><strong>Stale PCE credentials</strong> &mdash; Containers now auto-restart when API keys change in config</li>
+                        <li><strong>pce-events auto-config</strong> &mdash; Generates config.yaml from plugger PCE credentials when none exists</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-yellow-400 mb-1">Documentation</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li>Full plugin creation guide (CLAUDE.md) &mdash; plugin.yaml, metadata.yaml, Dockerfile, PCE connection, poll intervals, dashboard patterns, Illumio policy concepts</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- v0.4.0 / v0.4.1 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-lg font-bold text-white">v0.4.0 &ndash; v0.4.1</span>
+                <span class="text-sm text-gray-500">June 11, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-blue-400 mb-1">New Plugins</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>FortiGate Sync</strong> &mdash; Sync Illumio workloads to FortiGate via RSSO (RADIUS SSO) and/or REST API address objects. Based on illumio-to-fortigate-sync by ruckle-o.</li>
+                        <li><strong>vCenter Sync</strong> &mdash; Bi-directional VMware vCenter sync. Import VMs as unmanaged workloads with labels from tags/folders, push labels back as vCenter tags.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>AI Policy Engine</strong> &mdash; Evolved ai-assisted-rules into full engine: deny layer catalog, breach radius simulation, blocked traffic classification, segmentation maturity model</li>
+                        <li><strong>CI validation</strong> &mdash; Automated checks for plugin.yaml, metadata.yaml, registry.json, Dockerfile consistency, and CI matrix coverage</li>
+                        <li><strong>Plugin manifests in images</strong> &mdash; All Dockerfiles now include plugin.yaml for registry install support</li>
+                        <li><strong>Full plugin documentation</strong> &mdash; README.md for all plugins with configuration, API, and usage details</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-red-400 mb-1">Bug Fixes</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li>Fixed GHCR image names for external plugins (policy-gitops, policy-workflow)</li>
+                        <li>Added missing workload-isolator to CI build matrix</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- v0.3.0 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-lg font-bold text-white">v0.3.0</span>
+                <span class="text-sm text-gray-500">June 10, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-blue-400 mb-1">New Plugins</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>App Dependency Intel</strong> &mdash; Dependency analysis beyond policy: blast radius, SPOF detection, compliance boundaries, change impact, resiliency scoring with D3.js force graph</li>
+                        <li><strong>VEN Fleet Manager</strong> &mdash; Fleet-level VEN visibility with enforcement progression pipeline, compatibility checks, version distribution, and batch operations</li>
+                        <li><strong>Workload Isolator</strong> &mdash; Instant workload quarantine via webhook API. EDR/SOAR integration, auto-release TTL, audit trail</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>API authentication</strong> &mdash; Proxy-level API keys with per-plugin read/write permissions, session cookies, HMAC-signed sessions</li>
+                        <li><strong>Config reload</strong> &mdash; SIGHUP re-reads config and restarts all plugins with new credentials</li>
+                        <li><strong>Plugger logo</strong> &mdash; PNG and SVG logo embedded in dashboard and portal</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- v0.1.0 - v0.2.0 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-lg font-bold text-white">v0.1.0 &ndash; v0.2.0</span>
+                <span class="text-sm text-gray-500">April &ndash; May 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-blue-400 mb-1">Initial Release</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li>Go CLI with Cobra/Viper, Docker SDK container management</li>
+                        <li>Plugin lifecycle: install, start, stop, restart, uninstall, list, search</li>
+                        <li>Web dashboard with htmx + Tailwind, reverse proxy to plugin UIs</li>
+                        <li>Health checks with auto-restart, cron scheduling, daemon mode</li>
+                        <li>Plugin registry with GHCR image distribution</li>
+                        <li>Multi-arch Docker builds (amd64/arm64) via GitHub Actions</li>
+                        <li>15 initial plugins: health monitor, traffic reporter, policy diff, posture report, events, AI rules, stale workloads, PAN-OS DAG sync, AD label sync, rule scheduler, AI security report, Remedy CMDB sync, policy resolver, ZTNA sync, Infoblox IPAM sync</li>
+                        <li>Policy GitOps and Policy Workflow as external repo plugins</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
