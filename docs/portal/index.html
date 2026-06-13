@@ -80,6 +80,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         <a href="#features" class="hover:text-white transition-colors">Features</a>
         <a href="#plugins" class="hover:text-white transition-colors">Plugins</a>
         <a href="#changelog" class="hover:text-white transition-colors">Changelog</a>
+        <a href="#handbook" class="hover:text-white transition-colors">Handbook</a>
         <a href="#docs" class="hover:text-white transition-colors">Docs</a>
         <a href="#quickstart" class="hover:text-white transition-colors">Quick Start</a>
         <a href="https://github.com/alexgoller/illumio-plugger" class="flex items-center gap-1 hover:text-white transition-colors">
@@ -720,6 +721,18 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 </div>
 </section>
 
+<!-- Developer Handbook -->
+<section id="handbook" class="py-20 px-6 border-t border-gray-800">
+<div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl font-bold text-white text-center mb-4">Developer Handbook</h2>
+    <p class="text-gray-300 text-center mb-10">From zero to advanced — a guided journey through building and operating with Plugger.</p>
+
+    <div class="space-y-3" id="handbook-accordion">
+        <!-- Rendered by JS from HANDBOOK_CHAPTERS data -->
+    </div>
+</div>
+</section>
+
 <!-- Product Documentation -->
 <section id="docs" class="py-20 px-6 border-t border-gray-800">
 <div class="max-w-6xl mx-auto">
@@ -878,6 +891,920 @@ Dashboard: http://localhost:8800</pre>
 </div>
 
 <script>
+// Developer Handbook data
+const HANDBOOK_CHAPTERS = {
+"ch1-getting-started": {
+    title: "Chapter 1: Getting Started",
+    icon: "rocket",
+    readme: `# Getting Started
+
+## What is Plugger?
+
+Plugger is a plugin framework for the Illumio Policy Compute Engine (PCE). It lets you extend your PCE with containerized plugins — monitoring dashboards, integration syncs, AI-powered analysis, scheduled reports, and automation tools — all managed through a single CLI and web dashboard.
+
+**The problem it solves:** The Illumio PCE is powerful, but extending it requires custom scripts, manual scheduling, credential management, and separate deployment for each tool. Plugger wraps all of that into a Docker-based plugin system with automatic credential injection, health checks, auto-restart, cron scheduling, and a unified dashboard.
+
+## Prerequisites
+
+| Requirement | Purpose | Notes |
+|-------------|---------|-------|
+| **Docker** | Runs plugins as containers | Docker Desktop, Colima, Rancher Desktop, Podman, or Docker Engine |
+| **Go 1.21+** | Build plugger CLI from source | Optional if using a pre-built release binary |
+| **Illumio PCE** | The PCE you want to extend | API key with read access (write for some plugins) |
+| **PCE API credentials** | Authenticate plugins to the PCE | API key + secret pair from PCE console |
+
+## Install the Plugger CLI
+
+### From a release binary
+
+Download the latest release from GitHub:
+
+\`\`\`bash
+curl -LO https://github.com/alexgoller/illumio-plugger/releases/latest/download/plugger-$(uname -s)-$(uname -m)
+chmod +x plugger-*
+sudo mv plugger-* /usr/local/bin/plugger
+\`\`\`
+
+### Build from source
+
+\`\`\`bash
+git clone https://github.com/alexgoller/illumio-plugger.git
+cd illumio-plugger
+make build
+# Binary is at ./bin/plugger
+export PATH=$PATH:$(pwd)/bin
+\`\`\`
+
+## First Run
+
+Start the plugger server:
+
+\`\`\`bash
+plugger run --addr 0.0.0.0:8800
+\`\`\`
+
+This starts the orchestrator and web dashboard on port 8800. Without any plugins installed it will show an empty dashboard.
+
+## Configure PCE Connection
+
+Run the interactive setup wizard:
+
+\`\`\`bash
+plugger init
+\`\`\`
+
+Or manually create \`~/.plugger/config.yaml\`:
+
+\`\`\`yaml
+pce:
+  host: pce.example.com
+  port: 8443
+  orgId: 1
+  apiKey: api_xxxxxxxxxxxx
+  apiSecret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  tlsSkipVerify: false
+
+plugger:
+  dataDir: ~/.plugger
+  network: plugger-net
+\`\`\`
+
+The wizard auto-detects your Docker socket (Docker Desktop, Colima, Podman), reads credentials from a \`.env\` file if present, and tests PCE connectivity.
+
+## Install Your First Plugin
+
+\`\`\`bash
+plugger install traffic-reporter
+\`\`\`
+
+This pulls the container image from the registry, registers the plugin, and prepares it for launch. Plugger automatically injects your PCE credentials into the container.
+
+## Open the Dashboard
+
+Navigate to \`http://localhost:8800\` in your browser. You will see the traffic-reporter tile. Click **Start** to launch it, then click the plugin tile to open its embedded dashboard.`
+},
+"ch2-working-with-plugins": {
+    title: "Chapter 2: Working with Plugins",
+    icon: "puzzle",
+    readme: `# Working with Plugins
+
+## Browsing the Registry
+
+\`\`\`bash
+plugger search
+\`\`\`
+
+Lists all plugins in the configured registries with name, version, mode, and description. Filter by keyword:
+
+\`\`\`bash
+plugger search ai          # Find AI-powered plugins
+plugger search monitoring  # Find monitoring plugins
+\`\`\`
+
+## Installing Plugins
+
+Install from the registry by name:
+
+\`\`\`bash
+plugger install pce-health-monitor
+\`\`\`
+
+Install from a local manifest file:
+
+\`\`\`bash
+plugger install ./my-plugin/plugin.yaml
+\`\`\`
+
+Install from a container image reference:
+
+\`\`\`bash
+plugger install ghcr.io/alexgoller/plugger-traffic-reporter:latest
+\`\`\`
+
+## Listing Installed Plugins
+
+\`\`\`bash
+plugger list
+# or
+plugger ls
+\`\`\`
+
+Shows all installed plugins with their current status (running, stopped, errored), mode (daemon/cron/event), and uptime.
+
+## Starting, Stopping, and Restarting
+
+\`\`\`bash
+plugger start traffic-reporter    # Start a plugin
+plugger stop traffic-reporter     # Stop a running plugin
+plugger restart traffic-reporter  # Stop + start with a fresh container
+\`\`\`
+
+## Uninstalling
+
+\`\`\`bash
+plugger uninstall traffic-reporter
+\`\`\`
+
+Removes the plugin, its container, and its registration. Volume data under \`~/.plugger/volumes/<name>/\` is preserved by default.
+
+## Plugin Configuration
+
+There are two ways to configure plugins:
+
+1. **Dashboard** — Open the web dashboard at \`http://localhost:8800\`, navigate to \`/config\` or click the gear icon on a plugin tile. Environment variables can be edited and saved.
+2. **Per-plugin API** — Access the plugin configuration at \`/plugins/{name}\` in the dashboard for plugin-specific settings.
+
+Environment variable overrides at install time:
+
+\`\`\`bash
+plugger install pce-health-monitor -e POLL_INTERVAL=60 -e PCE_TLS_SKIP_VERIFY=true
+\`\`\`
+
+## Viewing Logs
+
+From the CLI:
+
+\`\`\`bash
+plugger logs traffic-reporter          # Last 100 lines
+plugger logs traffic-reporter -f       # Follow (stream)
+plugger logs traffic-reporter -n 500   # Last 500 lines
+plugger logs traffic-reporter --since 1h  # Last hour
+\`\`\`
+
+From the dashboard: click a plugin tile, then click the **Logs** tab to see live log output with auto-scroll and search.
+
+## Health Checks and Auto-Restart
+
+Plugins that declare a \`health\` section in their \`plugin.yaml\` are automatically monitored:
+
+\`\`\`yaml
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+\`\`\`
+
+If the health check fails, plugger restarts the container with exponential backoff (1s, 2s, 4s, 8s, 16s). After 5 consecutive failures the plugin is marked as **errored** and requires manual restart. If the container stays healthy for 30+ seconds, the failure counter resets.`
+},
+"ch3-building-your-own-plugin": {
+    title: "Chapter 3: Building Your Own Plugin",
+    icon: "code",
+    readme: `# Building Your Own Plugin
+
+## Choose a Template
+
+Plugger ships with templates in four languages:
+
+\`\`\`bash
+plugger create my-plugin -t python      # Python with Illumio SDK
+plugger create my-plugin -t go          # Go with HTTP server
+plugger create my-plugin -t shell       # Shell with curl + jq
+plugger create my-plugin -t javascript  # Node.js with Express
+\`\`\`
+
+Or start from the template directories:
+
+| Template | Path | Best For |
+|----------|------|----------|
+| Python | \`plugin-templates/python/\` | Rapid development, Illumio SDK |
+| Go | \`plugin-templates/go/\` | Performance, compiled binary |
+| Shell | \`plugin-templates/shell/\` | Lightweight scripts, cURL-based |
+| JavaScript | \`plugin-templates/javascript/\` | Web dashboards, Node.js ecosystem |
+
+## The Three Required Files
+
+Every plugin needs exactly three files:
+
+### 1. \`plugin.yaml\` — Install Manifest
+
+Tells plugger how to install and run the plugin:
+
+\`\`\`yaml
+apiVersion: plugger/v1
+name: my-plugin
+version: 1.0.0
+image: my-plugin:latest
+schedule:
+  mode: daemon       # daemon | cron | event
+  cron: "0 */6 * * *"  # Only for cron mode
+env:
+  - name: MY_SETTING
+    required: false
+    default: "value"
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+resources:
+  memory: 256m
+  cpu: "0.5"
+\`\`\`
+
+### 2. \`.plugger/metadata.yaml\` — Container Metadata
+
+Baked into the Docker image at \`/.plugger/metadata.yaml\`. Auto-discovered at install time:
+
+\`\`\`yaml
+plugger: v1
+ports:
+  - port: 8080
+    type: ui
+    name: dashboard
+    path: /
+config:
+  - name: MY_SETTING
+    description: What this setting controls
+    type: string
+    default: "value"
+volumes:
+  - path: /data
+    description: Persistent storage for reports
+info:
+  title: My Plugin
+  description: A brief description of what it does
+\`\`\`
+
+### 3. \`Dockerfile\` — Container Image
+
+Standard Dockerfile. The key requirement is copying the metadata file:
+
+\`\`\`dockerfile
+FROM python:3.11-slim
+COPY .plugger/metadata.yaml /.plugger/metadata.yaml
+COPY plugin.yaml /plugin.yaml
+COPY main.py /app/main.py
+WORKDIR /app
+RUN pip install illumio
+CMD ["python", "main.py"]
+\`\`\`
+
+## Plugin Modes
+
+| Mode | Behavior | Use Cases |
+|------|----------|-----------|
+| **daemon** | Runs continuously, auto-restart on crash | Monitoring dashboards, API servers, sync agents |
+| **cron** | Runs on schedule, exits when done | Reports, data exports, periodic cleanup |
+| **event** | Ephemeral container per webhook event | Reacting to PCE changes, EDR integration |
+
+## Connecting to the PCE
+
+Every plugin container automatically receives these environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| \`PCE_HOST\` | PCE hostname |
+| \`PCE_PORT\` | PCE port |
+| \`PCE_ORG_ID\` | Organization ID |
+| \`PCE_API_KEY\` | API key |
+| \`PCE_API_SECRET\` | API secret |
+| \`PLUGGER_URL\` | URL of the plugger dashboard |
+| \`PLUGGER_PLUGIN_NAME\` | This plugin's name |
+
+Python example:
+
+\`\`\`python
+import os
+from illumio import PolicyComputeEngine
+
+pce = PolicyComputeEngine(
+    url=os.environ["PCE_HOST"],
+    port=int(os.environ["PCE_PORT"]),
+    org_id=int(os.environ["PCE_ORG_ID"])
+)
+pce.set_credentials(os.environ["PCE_API_KEY"], os.environ["PCE_API_SECRET"])
+\`\`\`
+
+## Adding a Web Dashboard
+
+Declare a UI port in metadata:
+
+\`\`\`yaml
+ports:
+  - port: 8080
+    type: ui
+    name: dashboard
+    path: /
+\`\`\`
+
+The dashboard is accessible at \`http://plugger:8800/plugins/{name}/ui/\` through the reverse proxy. Use Tailwind CSS with dark mode support to match the plugger theme. The recommended pattern:
+
+\`\`\`html
+<html class="dark">
+<head>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen p-6">
+  <!-- Your dashboard content -->
+</body>
+</html>
+\`\`\`
+
+## PCE Object Linking
+
+When displaying PCE objects (workloads, labels, rulesets), always link HREFs to the PCE console:
+
+\`\`\`python
+def href_to_console_url(pce_host, pce_port, href):
+    """Convert an Illumio HREF to a clickable console URL."""
+    # /orgs/1/workloads/abc -> https://pce:8443/app#/workloads/abc
+    parts = href.split("/orgs/")[1].split("/", 1)
+    return f"https://{pce_host}:{pce_port}/app#/{parts[1]}"
+\`\`\`
+
+## Testing Locally
+
+Build and install your plugin locally without pushing to a registry:
+
+\`\`\`bash
+cd my-plugin
+docker build -t my-plugin:latest .
+plugger install ./plugin.yaml
+plugger start my-plugin
+plugger logs my-plugin -f
+\`\`\``
+},
+"ch4-reporting-framework": {
+    title: "Chapter 4: The Reporting Framework",
+    icon: "megaphone",
+    readme: `# The Reporting Framework
+
+## What It Is
+
+The reporting framework is a shared output bus for plugins. Instead of each plugin implementing its own Slack, email, or webhook integration, plugins publish reports to a central endpoint and plugger routes them to the configured output channels.
+
+This means a plugin author writes one \`POST\` call to publish a report, and the operator decides where reports go — Slack, email, webhook, or all three — without modifying the plugin.
+
+## Plugin Side: Publishing Reports
+
+Plugins publish reports with a single HTTP POST:
+
+\`\`\`bash
+curl -X POST "$PLUGGER_URL/api/reports/publish" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "plugin": "my-plugin",
+    "title": "Daily Security Summary",
+    "severity": "info",
+    "tags": ["security", "daily"],
+    "body": "## Summary\n\n- 42 workloads scanned\n- 3 issues found",
+    "data": {"score": 87, "issues": 3}
+  }'
+\`\`\`
+
+The \`body\` field supports Markdown. The \`data\` field is an arbitrary JSON object that output handlers can use for structured processing.
+
+## Config Side: Output Channels
+
+Configure output channels in \`~/.plugger/config.yaml\`:
+
+\`\`\`yaml
+plugger:
+  outputs:
+    - type: slack
+      name: security-alerts
+      webhook_url: https://hooks.slack.com/services/T.../B.../xxx
+      filters:
+        severity: [warning, critical]
+        plugins: [ai-security-report, workload-isolator]
+
+    - type: email
+      name: daily-digest
+      smtp_host: smtp.example.com
+      smtp_port: 587
+      from: plugger@example.com
+      to: [team@example.com]
+      filters:
+        tags: [daily]
+
+    - type: webhook
+      name: siem-feed
+      url: https://siem.example.com/api/events
+      headers:
+        Authorization: "Bearer xxx"
+\`\`\`
+
+## Output Types
+
+| Type | Description | Key Config |
+|------|-------------|------------|
+| **Slack** | Posts to a Slack channel via incoming webhook | \`webhook_url\` |
+| **Email** | Sends email via SMTP | \`smtp_host\`, \`from\`, \`to\` |
+| **Webhook** | POSTs JSON to any HTTP endpoint | \`url\`, \`headers\` |
+
+## Filters: Routing Reports
+
+Each output channel can filter which reports it receives:
+
+| Filter | Description | Example |
+|--------|-------------|---------|
+| \`severity\` | Only forward reports at these severity levels | \`[warning, critical]\` |
+| \`plugins\` | Only forward reports from these plugins | \`[ai-security-report]\` |
+| \`tags\` | Only forward reports with matching tags | \`[security, compliance]\` |
+
+If no filters are set, the output receives all reports.
+
+## Aggregation: Scheduled Digests
+
+For email outputs, you can enable digest mode to batch reports:
+
+\`\`\`yaml
+- type: email
+  name: weekly-digest
+  smtp_host: smtp.example.com
+  from: plugger@example.com
+  to: [manager@example.com]
+  digest:
+    schedule: "0 9 * * 1"   # Monday at 09:00
+    subject: "Weekly Plugger Report Digest"
+\`\`\`
+
+Reports are accumulated and sent as a single email on the configured schedule.
+
+## Test Messages
+
+Verify that output channels work from the dashboard:
+
+1. Open the dashboard at \`http://localhost:8800\`
+2. Navigate to **Settings** > **Outputs**
+3. Click **Send Test** next to any configured output
+
+Or via the API:
+
+\`\`\`bash
+curl -X POST http://localhost:8800/api/reports/test \\
+  -H "Content-Type: application/json" \\
+  -d '{"output": "security-alerts"}'
+\`\`\`
+
+## Adding New Output Types
+
+Implement the \`Output\` interface to add a custom output handler:
+
+\`\`\`go
+type Output interface {
+    Name() string
+    Send(report Report) error
+    TestConnection() error
+}
+\`\`\`
+
+Register it in the output registry and it will be available as a new \`type\` in the config.`
+},
+"ch5-configuration-reference": {
+    title: "Chapter 5: Configuration Reference",
+    icon: "cog",
+    readme: `# Configuration Reference
+
+## Full config.yaml
+
+The global configuration file lives at \`~/.plugger/config.yaml\`. All values can be overridden via environment variables with the \`PLUGGER_\` prefix.
+
+\`\`\`yaml
+# PCE connection
+pce:
+  host: pce.example.com        # PCE hostname (required)
+  port: 8443                    # PCE port (default: 8443)
+  orgId: 1                      # Organization ID (default: 1)
+  apiKey: api_xxx               # PCE API key (required)
+  apiSecret: secret_xxx         # PCE API secret (required)
+  tlsSkipVerify: false          # Skip TLS certificate verification
+
+# Plugger settings
+plugger:
+  dataDir: ~/.plugger           # Data directory for state and volumes
+  network: plugger-net          # Docker network for plugin containers
+  webhookToken: ""              # Token for event webhook endpoint (auto-generated if empty)
+  eventPollInterval: 30         # Seconds between event polls
+
+  # TLS (optional)
+  tls:
+    enabled: false
+    cert: /path/to/cert.pem
+    key: /path/to/key.pem
+
+  # Authentication (optional)
+  auth:
+    enabled: false
+    masterKey: "pk_master_xxx"
+    dashboard:
+      method: key               # Authentication method for dashboard
+      sessionTTL: 86400         # Session duration in seconds (24h)
+    keys:                       # Per-user/team API keys
+      - key: "pk_team_xxx"
+        name: "Team Name"
+        plugins:                # Per-plugin permission map
+          plugin-name: "read"   # read or write
+        dashboard: true         # Allow dashboard access
+
+  # Report outputs (optional)
+  outputs:
+    - type: slack
+      name: alerts
+      webhook_url: https://hooks.slack.com/services/xxx
+      filters:
+        severity: [warning, critical]
+    - type: email
+      name: digest
+      smtp_host: smtp.example.com
+      smtp_port: 587
+      from: plugger@example.com
+      to: [team@example.com]
+    - type: webhook
+      name: siem
+      url: https://siem.example.com/api/events
+      headers:
+        Authorization: "Bearer xxx"
+
+# Logging
+logging:
+  level: info                   # debug | info | warn | error
+  format: text                  # text | json
+\`\`\`
+
+## PCE Section
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| \`host\` | string | _(required)_ | PCE hostname or IP |
+| \`port\` | int | \`8443\` | PCE API port |
+| \`orgId\` | int | \`1\` | Organization ID |
+| \`apiKey\` | string | _(required)_ | API key (starts with \`api_\`) |
+| \`apiSecret\` | string | _(required)_ | API secret |
+| \`tlsSkipVerify\` | bool | \`false\` | Skip TLS certificate verification |
+
+## Plugger Section
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| \`dataDir\` | string | \`~/.plugger\` | Root directory for all plugger data |
+| \`network\` | string | \`plugger-net\` | Docker network name for inter-plugin communication |
+| \`webhookToken\` | string | _(auto)_ | Bearer token for the \`/api/events/trigger\` endpoint |
+| \`eventPollInterval\` | int | \`30\` | Seconds between PCE event polls |
+| \`tls.enabled\` | bool | \`false\` | Enable HTTPS for the dashboard |
+| \`tls.cert\` | string | | Path to TLS certificate file |
+| \`tls.key\` | string | | Path to TLS private key file |
+| \`auth.enabled\` | bool | \`false\` | Enable API key authentication |
+| \`auth.masterKey\` | string | | Master API key with full access |
+| \`auth.dashboard.method\` | string | \`key\` | Dashboard authentication method |
+| \`auth.dashboard.sessionTTL\` | int | \`86400\` | Session cookie TTL in seconds |
+| \`outputs\` | list | \`[]\` | Report output channel configurations |
+
+## Plugin plugin.yaml Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| \`apiVersion\` | string | Yes | Always \`plugger/v1\` |
+| \`name\` | string | Yes | Plugin name (lowercase, hyphens) |
+| \`version\` | string | Yes | Semantic version (e.g., \`1.0.0\`) |
+| \`image\` | string | Yes | Docker image reference |
+| \`schedule.mode\` | string | Yes | \`daemon\`, \`cron\`, or \`event\` |
+| \`schedule.cron\` | string | No | Cron expression (only for cron mode) |
+| \`env[]\` | list | No | Environment variable declarations |
+| \`env[].name\` | string | Yes | Variable name |
+| \`env[].required\` | bool | No | Whether the variable is required |
+| \`env[].default\` | string | No | Default value |
+| \`health.endpoint\` | string | No | HTTP health check path |
+| \`health.port\` | int | No | Port for health checks |
+| \`health.interval\` | string | No | Check interval (e.g., \`30s\`) |
+| \`resources.memory\` | string | No | Memory limit (e.g., \`256m\`) |
+| \`resources.cpu\` | string | No | CPU limit (e.g., \`0.5\`) |
+| \`events.types[]\` | list | No | Event types to subscribe to (event mode) |
+
+## Plugin metadata.yaml Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| \`plugger\` | string | Yes | Always \`v1\` |
+| \`ports[]\` | list | No | Port declarations |
+| \`ports[].port\` | int | Yes | Container port number |
+| \`ports[].type\` | string | Yes | \`ui\` (proxied) or \`api\` (internal) |
+| \`ports[].name\` | string | No | Human-readable port name |
+| \`ports[].path\` | string | No | URL path prefix for UI proxy |
+| \`config[]\` | list | No | Configuration variable metadata |
+| \`config[].name\` | string | Yes | Variable name |
+| \`config[].description\` | string | No | Human-readable description |
+| \`config[].type\` | string | No | \`string\`, \`int\`, \`bool\`, \`json\` |
+| \`config[].default\` | string | No | Default value |
+| \`volumes[]\` | list | No | Volume mount declarations |
+| \`volumes[].path\` | string | Yes | Container mount path |
+| \`volumes[].description\` | string | No | Purpose of the volume |
+| \`info.title\` | string | No | Display title in dashboard |
+| \`info.description\` | string | No | Short description for dashboard |
+
+## Environment Variables Injected into Containers
+
+Every plugin container receives the following environment variables automatically:
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| \`PCE_HOST\` | \`pce.host\` | PCE hostname |
+| \`PCE_PORT\` | \`pce.port\` | PCE port |
+| \`PCE_ORG_ID\` | \`pce.orgId\` | Organization ID |
+| \`PCE_API_KEY\` | \`pce.apiKey\` | API key |
+| \`PCE_API_SECRET\` | \`pce.apiSecret\` | API secret |
+| \`PCE_TLS_SKIP_VERIFY\` | \`pce.tlsSkipVerify\` | TLS verification setting |
+| \`PLUGGER_URL\` | computed | URL of the plugger dashboard |
+| \`PLUGGER_PLUGIN_NAME\` | computed | Name of the current plugin |
+
+Plus any custom variables declared in \`plugin.yaml\` \`env[]\` and \`metadata.yaml\` \`config[]\`.`
+},
+"ch6-operating-in-production": {
+    title: "Chapter 6: Operating in Production",
+    icon: "server",
+    readme: `# Operating in Production
+
+## Running as a Service
+
+### systemd (Linux)
+
+\`\`\`ini
+[Unit]
+Description=Plugger - Illumio Plugin Framework
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=plugger
+ExecStart=/usr/local/bin/plugger run --addr 0.0.0.0:8800
+Restart=on-failure
+RestartSec=5
+Environment=PLUGGER_CONFIG=/etc/plugger/config.yaml
+
+[Install]
+WantedBy=multi-user.target
+\`\`\`
+
+### launchd (macOS)
+
+\`\`\`xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.plugger.daemon</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/plugger</string>
+    <string>run</string>
+    <string>--addr</string>
+    <string>0.0.0.0:8800</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/var/log/plugger/stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/log/plugger/stderr.log</string>
+</dict>
+</plist>
+\`\`\`
+
+Save to \`~/Library/LaunchDaemons/com.plugger.daemon.plist\` and load with \`launchctl load\`.
+
+## TLS Configuration
+
+Enable HTTPS for the dashboard and API:
+
+\`\`\`yaml
+plugger:
+  tls:
+    enabled: true
+    cert: /etc/plugger/tls/cert.pem
+    key: /etc/plugger/tls/key.pem
+\`\`\`
+
+With TLS enabled, the dashboard is served over HTTPS. All plugin-to-plugger communication uses the internal Docker network and does not require TLS.
+
+## API Authentication
+
+### Key Concepts
+
+- **Master key** — full read/write access to all plugins and the dashboard. Use for initial setup and emergencies only.
+- **Per-plugin permissions** — each API key maps specific plugins to \`read\` or \`write\` access.
+- **Dashboard login** — paste an API key once, get a session cookie. No username/password needed.
+- **API access** — pass the key as \`Authorization: Bearer pk_...\` header.
+
+### Managing Keys
+
+\`\`\`bash
+# Create a key with specific plugin permissions
+plugger auth create-key --name "SOC Team" \\
+  --plugins workload-isolator:write,ai-security-report:read
+
+# List all keys (secrets masked)
+plugger auth list-keys
+
+# Test a key to see its permissions
+plugger auth test-key pk_soc_xxx
+
+# Revoke a key
+plugger auth revoke-key pk_soc_xxx
+\`\`\`
+
+When authentication is disabled (\`auth.enabled: false\`, the default), all endpoints are open. The \`/healthz\` endpoint is always open regardless of auth settings.
+
+## Config Reload
+
+Reload the configuration without restarting plugger:
+
+\`\`\`bash
+plugger reload
+\`\`\`
+
+Or send SIGHUP to the running process:
+
+\`\`\`bash
+kill -HUP $(pgrep plugger)
+\`\`\`
+
+This re-reads \`config.yaml\` and restarts all plugins with the updated credentials and settings. Useful for credential rotation — update the API key in config, send SIGHUP, and all plugins restart with the new credentials.
+
+## Credential Rotation
+
+When PCE API credentials change:
+
+1. Update \`apiKey\` and \`apiSecret\` in \`config.yaml\`
+2. Run \`plugger reload\` or send SIGHUP
+3. All plugins auto-restart with the new credentials
+
+Plugger detects credential changes and triggers a rolling restart of all running plugin containers.
+
+## Plugin Store
+
+Plugin state is stored in \`~/.plugger/plugins.json\`. This file tracks installed plugins, their configuration overrides, and runtime state.
+
+### Corruption Recovery
+
+The plugin store uses write-ahead logging with fsync:
+
+1. Writes to a temporary file
+2. Calls \`fsync\` to ensure data reaches disk
+3. Renames the temp file to \`plugins.json\` (atomic on most filesystems)
+4. Keeps a \`.backup\` copy of the previous state
+
+If \`plugins.json\` is corrupted, plugger automatically recovers from \`plugins.json.backup\`. If both are corrupted, delete both files and reinstall your plugins.
+
+Cross-process locking via \`flock\` prevents concurrent writes from multiple plugger instances.
+
+## Monitoring
+
+### Health Endpoint
+
+\`\`\`bash
+curl http://localhost:8800/healthz
+# Returns 200 OK with JSON status
+\`\`\`
+
+The \`/healthz\` endpoint is always accessible (no authentication required) and reports:
+- Plugger server status
+- Number of running/stopped/errored plugins
+- Docker connectivity
+
+### Plugin Health Checks
+
+Plugins that declare a \`health\` section are monitored automatically. Health status is visible in:
+- The dashboard plugin tiles (green/yellow/red indicators)
+- \`plugger list\` output
+- \`/api/plugins\` JSON API
+
+### Monitoring Integration
+
+Use the JSON APIs for integration with external monitoring:
+
+\`\`\`bash
+# All plugins status
+curl http://localhost:8800/api/plugins
+
+# Specific plugin
+curl http://localhost:8800/api/plugins/traffic-reporter
+
+# Event statistics
+curl http://localhost:8800/api/events/stats
+\`\`\`
+
+## Multi-Arch Images and GHCR Registry
+
+All official plugin images are built for both \`amd64\` and \`arm64\` architectures and published to GitHub Container Registry (GHCR):
+
+\`\`\`
+ghcr.io/alexgoller/plugger-<plugin-name>:<version>
+\`\`\`
+
+Docker automatically pulls the correct architecture for your platform. The CI/CD pipeline builds multi-arch manifests using \`docker buildx\` on every release.
+
+### Custom Registry
+
+Add a custom plugin registry:
+
+\`\`\`bash
+plugger repo add my-registry https://registry.example.com/plugins.json
+plugger repo list
+plugger search --repo my-registry
+\`\`\``
+}
+};
+
+// Render handbook accordion
+function renderHandbookAccordion() {
+    const container = document.getElementById('handbook-accordion');
+    const order = ['ch1-getting-started','ch2-working-with-plugins','ch3-building-your-own-plugin','ch4-reporting-framework','ch5-configuration-reference','ch6-operating-in-production'];
+    const iconMap = {
+        rocket: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>',
+        puzzle: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/>',
+        code: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>',
+        megaphone: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>',
+        cog: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>',
+        server: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>'
+    };
+    const colors = ['blue','green','purple','pink','yellow','cyan'];
+    let html = '';
+    let idx = 0;
+    for (const id of order) {
+        const ch = HANDBOOK_CHAPTERS[id];
+        if (!ch) continue;
+        const color = colors[idx % colors.length];
+        const iconSvg = iconMap[ch.icon] || iconMap.rocket;
+        html += `<div class="bg-dark-800 rounded-xl border border-gray-700 overflow-hidden">
+            <button class="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-dark-700/30 transition-colors" onclick="toggleHandbook('hb-${id}')">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-${color}-500/20 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4 text-${color}-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">${iconSvg}</svg>
+                    </div>
+                    <h3 class="text-white font-semibold">${ch.title}</h3>
+                </div>
+                <svg class="w-4 h-4 text-gray-500 transition-transform" id="hb-chevron-${id}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="hidden border-t border-gray-700" id="hb-${id}">
+                <div class="docs-content p-6" id="hb-content-${id}"></div>
+            </div>
+        </div>`;
+        idx++;
+    }
+    container.innerHTML = html;
+}
+
+function toggleHandbook(id) {
+    const el = document.getElementById(id);
+    const chevron = document.getElementById('hb-chevron-' + id.replace('hb-', ''));
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        chevron.style.transform = 'rotate(180deg)';
+        const contentEl = document.getElementById(id.replace('hb-', 'hb-content-'));
+        if (!contentEl.innerHTML) {
+            const chapterId = id.replace('hb-', '');
+            const ch = HANDBOOK_CHAPTERS[chapterId];
+            if (ch) contentEl.innerHTML = marked.parse(ch.readme);
+        }
+    } else {
+        el.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
 // Product documentation data
 const PRODUCT_DOCS = {
 "getting-started": {
@@ -2699,6 +3626,7 @@ function injectMaturityBadges() {
 }
 
 // Init
+renderHandbookAccordion();
 renderDocsAccordion();
 injectMaturityBadges();
 handleHash();
