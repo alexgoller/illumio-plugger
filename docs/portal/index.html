@@ -1836,20 +1836,189 @@ plugger repo add my-registry https://registry.example.com/plugins.json
 plugger repo list
 plugger search --repo my-registry
 \`\`\``
+},
+"ch7-publishing-plugin-registry": {
+    title: "Publishing Your Own Plugin Registry",
+    icon: "share",
+    readme: `# Publishing Your Own Plugin Registry
+
+Plugger supports multiple plugin registries. The official registry ships with 23 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
+
+## How Plugin Registries Work
+
+A plugin registry is a JSON file hosted at a URL. Plugger fetches it, caches it locally, and makes its plugins available via \`plugger search\` and \`plugger install\`. Multiple registries are merged — the official registry is always present.
+
+## Creating a Registry
+
+### 1. Create a GitHub Repository
+
+Create a new repo (e.g., \`my-org/plugger-plugins\`) with your plugins:
+
+\`\`\`
+my-org-plugins/
+  my-custom-plugin/
+    plugin.yaml
+    .plugger/metadata.yaml
+    Dockerfile
+    main.py
+    requirements.txt
+  another-plugin/
+    ...
+  registry.json          # The registry index
+\`\`\`
+
+### 2. Write registry.json
+
+The registry is a JSON file listing all available plugins with their GHCR (or any Docker registry) image references:
+
+\`\`\`json
+{
+  "name": "My Org Plugin Registry",
+  "url": "https://my-org.github.io/plugger-plugins/registry.json",
+  "plugins": [
+    {
+      "name": "my-custom-plugin",
+      "version": "1.0.0",
+      "image": "ghcr.io/my-org/plugger-my-custom-plugin:latest",
+      "description": "What this plugin does in one line",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": ["custom", "integration"],
+      "author": "My Org",
+      "homepage": "https://github.com/my-org/plugger-plugins/tree/main/my-custom-plugin",
+      "maturity": "production"
+    }
+  ]
+}
+\`\`\`
+
+**Required fields:** name, version, image, description, mode
+
+**Optional fields:** has_ui, language, tags, author, homepage, maturity
+
+### 3. Host the Registry
+
+**Option A: GitHub Pages** (recommended)
+
+Enable GitHub Pages on your repo (Settings → Pages → Deploy from branch). Your registry will be at:
+\`https://my-org.github.io/plugger-plugins/registry.json\`
+
+**Option B: Raw GitHub URL**
+
+Use the raw content URL directly:
+\`https://raw.githubusercontent.com/my-org/plugger-plugins/main/registry.json\`
+
+**Option C: Any HTTP server**
+
+Host the JSON file on any web server. Plugger just needs a URL that returns valid JSON.
+
+### 4. Build and Push Plugin Images
+
+Each plugin needs a Docker image pushed to a container registry:
+
+\`\`\`bash
+# Build
+docker build -t ghcr.io/my-org/plugger-my-custom-plugin:latest ./my-custom-plugin/
+
+# Push (requires authentication)
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+docker push ghcr.io/my-org/plugger-my-custom-plugin:latest
+\`\`\`
+
+**Important:** GHCR packages default to private. Set each to public via GitHub web UI (Package Settings → Danger Zone → Change visibility) or users will need \`docker login\` configured.
+
+### 5. CI/CD (Optional)
+
+Add a GitHub Actions workflow to auto-build on push — see the official plugger repo's \`.github/workflows/build.yml\` as a template. Key elements:
+
+- Multi-arch builds (amd64/arm64) via docker/build-push-action
+- GHCR login via github.actor + GITHUB_TOKEN
+- Version injection via build args
+
+## Using a Custom Registry
+
+### Register the Repository
+
+\`\`\`bash
+plugger repo add my-org https://my-org.github.io/plugger-plugins/registry.json
+\`\`\`
+
+### Verify
+
+\`\`\`bash
+plugger repo list
+# NAME      URL
+# official  https://alexgoller.github.io/illumio-plugger/registry.json
+# my-org    https://my-org.github.io/plugger-plugins/registry.json
+
+plugger search my-custom
+# NAME               VERSION  MODE    DESCRIPTION
+# my-custom-plugin   1.0.0    daemon  What this plugin does
+\`\`\`
+
+### Install
+
+\`\`\`bash
+plugger install my-custom-plugin
+# Found "my-custom-plugin" in registry (v1.0.0)
+# Pulling image ghcr.io/my-org/plugger-my-custom-plugin:latest...
+# Installed plugin "my-custom-plugin"
+\`\`\`
+
+### Remove the Registry
+
+\`\`\`bash
+plugger repo remove my-org
+\`\`\`
+
+The official registry cannot be removed.
+
+## Plugin Development Checklist
+
+Before publishing a plugin to your registry:
+
+- [ ] \`plugin.yaml\` has correct name, version, image, schedule, health check
+- [ ] \`.plugger/metadata.yaml\` has ports, config descriptions, volumes, info
+- [ ] Dockerfile copies both yaml files to \`/.plugger/\`
+- [ ] Image builds and runs locally: \`plugger install ./plugin.yaml && plugger start my-plugin\`
+- [ ] Image pushed to container registry and publicly accessible
+- [ ] \`registry.json\` entry matches the image name exactly
+- [ ] README.md documents configuration, API, and usage
+- [ ] Maturity level is honest (example/preview/prototype/production)
+
+## Private Registries
+
+For internal/private plugins:
+
+- Host registry.json on an internal web server
+- Push images to a private Docker registry or private GHCR packages
+- Users need \`docker login\` configured for the private registry before \`plugger install\`
+- Plugger does not handle Docker authentication — it relies on the local Docker daemon's credentials
+
+## Multi-Registry Search Order
+
+When multiple registries have a plugin with the same name, the first match wins. Search order:
+
+1. Official registry (always first)
+2. Custom registries in the order they were added
+
+To override an official plugin with your fork, use \`plugger install --image ghcr.io/my-org/my-fork:latest my-plugin\` (direct image reference bypasses registry lookup).`
 }
 };
 
 // Render handbook accordion
 function renderHandbookAccordion() {
     const container = document.getElementById('handbook-accordion');
-    const order = ['ch1-getting-started','ch2-working-with-plugins','ch3-building-your-own-plugin','ch4-reporting-framework','ch5-configuration-reference','ch6-operating-in-production'];
+    const order = ['ch1-getting-started','ch2-working-with-plugins','ch3-building-your-own-plugin','ch4-reporting-framework','ch5-configuration-reference','ch6-operating-in-production','ch7-publishing-plugin-registry'];
     const iconMap = {
         rocket: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>',
         puzzle: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/>',
         code: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>',
         megaphone: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>',
         cog: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>',
-        server: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>'
+        server: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>',
+        share: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>'
     };
     const colors = ['blue','green','purple','pink','yellow','cyan'];
     let html = '';
