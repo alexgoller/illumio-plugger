@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -12,6 +13,12 @@ import (
 	"github.com/illumio/plugger/internal/lifecycle"
 	"github.com/illumio/plugger/internal/plugin"
 )
+
+// pluginConfig holds config fields for a single plugin in the unified view.
+type pluginConfig struct {
+	Plugin *plugin.Plugin
+	Fields []configField
+}
 
 // configField is a unified view of a config item for template rendering.
 type configField struct {
@@ -192,4 +199,165 @@ func (h *Handler) renderConfigSection(w http.ResponseWriter, p *plugin.Plugin, m
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	t.ExecuteTemplate(w, "plugin_config", data)
+}
+
+func (h *Handler) handleConfigAll(w http.ResponseWriter, r *http.Request) {
+	plugins, err := h.deps.Store.List()
+	if err != nil {
+		h.serverError(w, "listing plugins", err)
+		return
+	}
+
+	var configs []pluginConfig
+	for _, p := range plugins {
+		fields := BuildConfigFields(p)
+		if len(fields) > 0 {
+			configs = append(configs, pluginConfig{Plugin: p, Fields: fields})
+		}
+	}
+
+	data := map[string]any{
+		"PluginConfigs": configs,
+		"Message":       "",
+	}
+	h.render(w, "layout.html", "config_all.html", data)
+}
+
+func (h *Handler) handleSaveConfigAll(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.handleConfigAllWithMessage(w, "Invalid form data")
+		return
+	}
+
+	action := r.FormValue("action")
+
+	// Group form values by plugin: "pluginName::ENV_NAME" -> value
+	pluginOverrides := make(map[string]map[string]string)
+	for key, values := range r.Form {
+		if key == "action" || len(values) == 0 {
+			continue
+		}
+		parts := strings.SplitN(key, "::", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		pluginName, envName := parts[0], parts[1]
+		if pluginOverrides[pluginName] == nil {
+			pluginOverrides[pluginName] = make(map[string]string)
+		}
+		val := strings.TrimSpace(values[0])
+		if val != "" {
+			pluginOverrides[pluginName][envName] = val
+		}
+	}
+
+	// Handle bool checkboxes (unchecked = missing from form)
+	plugins, err := h.deps.Store.List()
+	if err != nil {
+		h.handleConfigAllWithMessage(w, "Failed to list plugins: "+err.Error())
+		return
+	}
+
+	for _, p := range plugins {
+		fields := BuildConfigFields(p)
+		for _, f := range fields {
+			if f.Type == "bool" {
+				if pluginOverrides[p.Name] == nil {
+					pluginOverrides[p.Name] = make(map[string]string)
+				}
+				if _, inForm := pluginOverrides[p.Name][f.Name]; !inForm {
+					pluginOverrides[p.Name][f.Name] = "false"
+				}
+			}
+		}
+	}
+
+	// Save each plugin's overrides and track which changed
+	var changed []string
+	var errors []string
+
+	for _, p := range plugins {
+		newOverrides, hasOverrides := pluginOverrides[p.Name]
+		if !hasOverrides {
+			continue
+		}
+
+		// Check if anything actually changed
+		old := p.EnvOverrides
+		if old == nil {
+			old = make(map[string]string)
+		}
+		modified := false
+		for k, v := range newOverrides {
+			if old[k] != v {
+				modified = true
+				break
+			}
+		}
+		if len(old) != len(newOverrides) {
+			modified = true
+		}
+
+		if !modified {
+			continue
+		}
+
+		p.EnvOverrides = newOverrides
+		if err := h.deps.Store.Put(p); err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %s", p.Name, err.Error()))
+			continue
+		}
+		changed = append(changed, p.Name)
+	}
+
+	// Restart changed plugins if requested
+	if action == "save-restart" && len(changed) > 0 {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+		defer cancel()
+		restarted := 0
+		for _, name := range changed {
+			p, err := h.deps.Store.Get(name)
+			if err != nil || p.State != plugin.StateRunning {
+				continue
+			}
+			if err := lifecycle.RestartPlugin(ctx, h.deps, p); err != nil {
+				slog.Warn("config: failed to restart plugin", "plugin", name, "error", err)
+				errors = append(errors, fmt.Sprintf("restart %s: %s", name, err.Error()))
+			} else {
+				restarted++
+			}
+		}
+		if len(errors) > 0 {
+			h.handleConfigAllWithMessage(w, fmt.Sprintf("Saved %d plugin(s), restarted %d. Errors: %s", len(changed), restarted, strings.Join(errors, "; ")))
+		} else {
+			h.handleConfigAllWithMessage(w, fmt.Sprintf("Saved and restarted %d plugin(s): %s", restarted, strings.Join(changed, ", ")))
+		}
+		return
+	}
+
+	if len(errors) > 0 {
+		h.handleConfigAllWithMessage(w, "Errors: "+strings.Join(errors, "; "))
+		return
+	}
+	if len(changed) == 0 {
+		h.handleConfigAllWithMessage(w, "No changes detected.")
+		return
+	}
+	h.handleConfigAllWithMessage(w, fmt.Sprintf("Saved %d plugin(s): %s. Restart to apply.", len(changed), strings.Join(changed, ", ")))
+}
+
+func (h *Handler) handleConfigAllWithMessage(w http.ResponseWriter, message string) {
+	plugins, _ := h.deps.Store.List()
+	var configs []pluginConfig
+	for _, p := range plugins {
+		fields := BuildConfigFields(p)
+		if len(fields) > 0 {
+			configs = append(configs, pluginConfig{Plugin: p, Fields: fields})
+		}
+	}
+	data := map[string]any{
+		"PluginConfigs": configs,
+		"Message":       message,
+	}
+	h.render(w, "layout.html", "config_all.html", data)
 }
