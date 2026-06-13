@@ -593,12 +593,51 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <div class="space-y-8">
 
+        <!-- v0.6.0 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg font-bold text-white">v0.6.0</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
+                </div>
+                <span class="text-sm text-gray-500">June 13, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-blue-400 mb-1">New: Reporting &amp; Output Framework</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Shared output bus</strong> &mdash; Plugins publish reports via POST, plugger routes to configured channels. No per-plugin delivery code needed.</li>
+                        <li><strong>Slack output</strong> &mdash; Block Kit formatted webhooks with severity emoji, plugin context, and tag display</li>
+                        <li><strong>Email output</strong> &mdash; SMTP with HTML rendering (Catppuccin-styled), supports scheduled digest mode via cron</li>
+                        <li><strong>Webhook output</strong> &mdash; Generic HTTP with configurable method, headers, and env var expansion</li>
+                        <li><strong>Filters</strong> &mdash; Route reports by severity, plugin name, and tags (AND logic)</li>
+                        <li><strong>Retry &amp; aggregation</strong> &mdash; 3x exponential backoff, aggregate buffer for scheduled email digests</li>
+                        <li><strong>Dashboard /reports page</strong> &mdash; Output health indicators, delivery stats, Send Test Message button per channel</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Unified config page</strong> &mdash; Edit all plugin settings at /config in one form, Save All &amp; Restart Changed</li>
+                        <li><strong>Plugin env injection</strong> &mdash; PLUGGER_PLUGIN_NAME, PLUGGER_URL, PLUGGER_WEBHOOK_TOKEN auto-injected into every container</li>
+                        <li><strong>Extensible output interface</strong> &mdash; Implement Output{Name, Type, Send, SendBatch} to add new channel types</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-yellow-400 mb-1">Documentation</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Developer Handbook</strong> &mdash; 6-chapter guide from zero to production: Getting Started, Working with Plugins, Building Your Own, Reporting Framework, Configuration Reference, Operating in Production</li>
+                        <li><strong>Reporting framework docs</strong> &mdash; Full plugin-side and config-side documentation in CLAUDE.md</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- v0.5.0 -->
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
                     <span class="text-lg font-bold text-white">v0.5.0</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
                 </div>
                 <span class="text-sm text-gray-500">June 12, 2026</span>
             </div>
