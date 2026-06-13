@@ -280,3 +280,84 @@ After adding or modifying a plugin:
 - **Services**: port/protocol definitions (can reference well-known services)
 - **Deny rules**: explicit deny, processed after allow rules
 - **Override deny rules**: deny that overrides allow rules
+
+### Reporting / Output Framework
+
+Plugins publish reports via a simple HTTP POST. Plugger routes them to configured output channels (Slack, email, webhook) based on filters. Plugins don't know where reports go — routing is configured centrally.
+
+**Plugin-side** (any language, one POST):
+```python
+import os, requests
+
+requests.post(
+    os.environ["PLUGGER_URL"] + "/api/reports/publish",
+    headers={"Authorization": f"Bearer {os.environ['PLUGGER_WEBHOOK_TOKEN']}"},
+    json={
+        "plugin": os.environ["PLUGGER_PLUGIN_NAME"],
+        "title": "42 new IPs discovered",
+        "severity": "info",          # info | warning | critical
+        "body": "## Summary\n- 42 resolved, 12 created",
+        "tags": ["discovery", "dns"],
+        "data": {"resolved": 42, "created": 12}
+    }
+)
+```
+
+Every container gets `PLUGGER_PLUGIN_NAME`, `PLUGGER_URL`, and `PLUGGER_WEBHOOK_TOKEN` injected automatically.
+
+**Config** (in `~/.plugger/config.yaml`):
+```yaml
+plugger:
+  outputs:
+    - name: slack-alerts
+      type: slack                    # slack | email | webhook
+      webhook: https://hooks.slack.com/services/...
+      dryRun: false                  # true = log only, don't send
+      filter:
+        severity: [warning, critical]  # empty = all severities
+        plugins: []                    # empty = all plugins
+        tags: []                       # empty = all tags
+
+    - name: weekly-digest
+      type: email
+      smtpHost: smtp.corp.com
+      smtpPort: 587
+      smtpUser: plugger@corp.com
+      smtpPasswordEnv: SMTP_PASSWORD  # env var name, not the value
+      to: [security@corp.com]
+      schedule: "0 8 * * 1"           # cron: Monday 08:00
+      aggregate: true                 # bundle all reports since last send
+
+    - name: incidents
+      type: webhook
+      url: https://api.example.com/incidents
+      method: POST
+      headers:
+        Authorization: "Bearer ${API_TOKEN}"  # env var expansion
+      filter:
+        severity: [critical]
+```
+
+**Output types**:
+- `slack` — Slack Block Kit webhooks, severity emoji, tag context
+- `email` — SMTP with HTML rendering (Catppuccin-styled), supports digest mode
+- `webhook` — generic HTTP with configurable method, headers, env var expansion
+
+**Framework features**:
+- Filter matching: severity AND plugins AND tags (all AND, empty = match all)
+- Retry: 3 attempts with exponential backoff (2s, 4s, 8s)
+- Aggregate: buffer reports, flush on cron schedule via SendBatch
+- DryRun: logs what would send without sending
+- Test messages: `POST /api/reports/test/{output-name}` sends a test to verify connectivity
+- Dashboard: `/reports` page shows output health (green/red dot), delivery stats, and recent report table
+
+**Adding new output types**: implement the `Output` interface in `internal/reports/`:
+```go
+type Output interface {
+    Name() string
+    Type() string
+    Send(ctx context.Context, report *Report) error
+    SendBatch(ctx context.Context, reports []*Report) error
+}
+```
+Then add to the `newOutput()` factory in `router.go` and the `OutputConfig` struct in `config.go`.

@@ -87,6 +87,7 @@ func (h *Handler) Routes() *http.ServeMux {
 
 	// Reports
 	mux.HandleFunc("POST /api/reports/publish", h.handleReportPublish)
+	mux.HandleFunc("POST /api/reports/test/{name}", h.handleReportTest)
 	mux.HandleFunc("GET /api/reports", h.handleReportList)
 	mux.HandleFunc("GET /api/reports/stats", h.handleReportStats)
 	mux.HandleFunc("GET /reports", h.handleReportsPage)

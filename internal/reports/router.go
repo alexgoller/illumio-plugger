@@ -157,17 +157,122 @@ func (r *Router) OutputCount() int {
 	return len(r.outputs)
 }
 
-// Stats returns per-output type counts.
-func (r *Router) Stats() []map[string]string {
-	var stats []map[string]string
+// OutputStats returns detailed stats per output including delivery counts.
+type OutputStat struct {
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	DryRun    bool   `json:"dry_run"`
+	Delivered int    `json:"delivered"`
+	Failed    int    `json:"failed"`
+	Filtered  int    `json:"filtered"`
+	Pending   int    `json:"pending"`
+	Healthy   bool   `json:"healthy"`
+	LastError string `json:"last_error,omitempty"`
+}
+
+func (r *Router) Stats() []OutputStat {
+	r.mu.RLock()
+	recent := r.recent
+	r.mu.RUnlock()
+
+	statMap := make(map[string]*OutputStat)
 	for _, e := range r.outputs {
-		stats = append(stats, map[string]string{
-			"name":   e.config.Name,
-			"type":   e.config.Type,
-			"dryRun": fmt.Sprintf("%v", e.config.DryRun),
-		})
+		statMap[e.config.Name] = &OutputStat{
+			Name:    e.config.Name,
+			Type:    e.config.Type,
+			DryRun:  e.config.DryRun,
+			Healthy: true,
+		}
+	}
+
+	for _, rec := range recent {
+		for _, d := range rec.Deliveries {
+			s, ok := statMap[d.OutputName]
+			if !ok {
+				continue
+			}
+			switch d.Status {
+			case "delivered", "dry_run":
+				s.Delivered++
+			case "failed":
+				s.Failed++
+				s.Healthy = false
+				if d.Error != "" {
+					s.LastError = d.Error
+				}
+			case "filtered":
+				s.Filtered++
+			case "pending", "delivering":
+				s.Pending++
+			}
+		}
+	}
+
+	var stats []OutputStat
+	for _, e := range r.outputs {
+		stats = append(stats, *statMap[e.config.Name])
 	}
 	return stats
+}
+
+// TestOutput sends a test report to a specific named output, bypassing filters.
+func (r *Router) TestOutput(name string) error {
+	var entry *outputEntry
+	for i := range r.outputs {
+		if r.outputs[i].config.Name == name {
+			entry = &r.outputs[i]
+			break
+		}
+	}
+	if entry == nil {
+		return fmt.Errorf("output %q not found", name)
+	}
+
+	testReport := &Report{
+		ID:        "test-" + name,
+		Plugin:    "plugger",
+		Title:     "Test message from Plugger",
+		Severity:  SeverityInfo,
+		Body:      fmt.Sprintf("This is a test message for output channel **%s** (%s).\n\nIf you see this, the output is configured correctly.", name, entry.config.Type),
+		Tags:      []string{"test"},
+		CreatedAt: time.Now(),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	err := entry.output.Send(ctx, testReport)
+
+	record := ReportRecord{
+		Report: *testReport,
+		Deliveries: []DeliveryStatus{{
+			OutputName: name,
+			OutputType: entry.config.Type,
+		}},
+	}
+
+	if err != nil {
+		record.Deliveries[0].Status = "failed"
+		record.Deliveries[0].Error = err.Error()
+		slog.Error("test message failed", "output", name, "error", err)
+	} else {
+		now := time.Now()
+		record.Deliveries[0].Status = "delivered"
+		record.Deliveries[0].DeliveredAt = &now
+		slog.Info("test message sent", "output", name)
+	}
+
+	r.addRecent(record)
+	return err
+}
+
+// OutputNames returns the names of all configured outputs.
+func (r *Router) OutputNames() []string {
+	var names []string
+	for _, e := range r.outputs {
+		names = append(names, e.config.Name)
+	}
+	return names
 }
 
 func (r *Router) addRecent(record ReportRecord) {

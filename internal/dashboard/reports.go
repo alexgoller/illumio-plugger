@@ -49,27 +49,60 @@ func (h *Handler) handleReportList(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleReportStats(w http.ResponseWriter, r *http.Request) {
 	if h.reports == nil {
-		h.json(w, http.StatusOK, map[string]any{"outputs": 0})
+		h.json(w, http.StatusOK, map[string]any{"configured": false, "outputs": 0})
 		return
 	}
 	h.json(w, http.StatusOK, map[string]any{
-		"outputs":     h.reports.OutputCount(),
-		"output_list": h.reports.Stats(),
-		"recent":      len(h.reports.RecentReports()),
+		"configured": true,
+		"outputs":    h.reports.OutputCount(),
+		"channels":   h.reports.Stats(),
+		"recent":     len(h.reports.RecentReports()),
+	})
+}
+
+func (h *Handler) handleReportTest(w http.ResponseWriter, r *http.Request) {
+	if h.reports == nil {
+		h.json(w, http.StatusServiceUnavailable, map[string]string{"error": "Report system not configured"})
+		return
+	}
+
+	name := r.PathValue("name")
+	if name == "" {
+		h.json(w, http.StatusBadRequest, map[string]string{"error": "output name required"})
+		return
+	}
+
+	err := h.reports.TestOutput(name)
+	if err != nil {
+		h.json(w, http.StatusBadGateway, map[string]string{
+			"status": "failed",
+			"output": name,
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	h.json(w, http.StatusOK, map[string]string{
+		"status": "delivered",
+		"output": name,
 	})
 }
 
 func (h *Handler) handleReportsPage(w http.ResponseWriter, r *http.Request) {
 	var recentReports []reports.ReportRecord
-	var outputCount int
+	var outputStats []reports.OutputStat
+	configured := false
+
 	if h.reports != nil {
 		recentReports = h.reports.RecentReports()
-		outputCount = h.reports.OutputCount()
+		outputStats = h.reports.Stats()
+		configured = true
 	}
 
 	data := map[string]any{
-		"Reports":     recentReports,
-		"OutputCount": outputCount,
+		"Reports":    recentReports,
+		"Outputs":    outputStats,
+		"Configured": configured,
 	}
 	h.render(w, "layout.html", "reports.html", data)
 }
