@@ -4,6 +4,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN useradd -m -u 1000 plugin
 COPY main.py /app/main.py
 COPY ai_advisor.py /app/ai_advisor.py
+COPY plugger_report.py /app/plugger_report.py
 COPY .plugger/metadata.yaml /.plugger/metadata.yaml
 COPY plugin.yaml /.plugger/plugin.yaml
 ARG VERSION=0.1.0

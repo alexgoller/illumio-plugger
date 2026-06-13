@@ -261,6 +261,33 @@ def check_stale(pce):
              report_state["check_count"], len(stale), total,
              total - online, managed, dict(by_reason))
 
+    # Publish to plugger output channels
+    if len(stale) > 0:
+        try:
+            from plugger_report import publish_report
+            sev = "info" if len(stale) < 10 else "warning" if len(stale) < 50 else "critical"
+            lines = [
+                f"**{len(stale)} stale workloads** found out of {total} total",
+                f"- Offline: {total - online}",
+                f"- Managed: {managed}",
+            ]
+            for reason, count in sorted(by_reason.items(), key=lambda x: -x[1]):
+                lines.append(f"- {reason}: {count}")
+            if by_app_env:
+                top_apps = sorted(by_app_env.items(), key=lambda x: -len(x[1]))[:5]
+                lines.append("\n**Top affected apps:**")
+                for app, wls in top_apps:
+                    lines.append(f"- {app}: {len(wls)} stale")
+            publish_report(
+                title=f"{len(stale)} stale workloads detected",
+                body="\n".join(lines),
+                severity=sev,
+                tags=["stale", "workloads", "cleanup"],
+                data={"stale": len(stale), "total": total, "reasons": dict(by_reason)},
+            )
+        except Exception:
+            pass
+
 
 def poller_loop(pce):
     interval = int(os.environ.get("POLL_INTERVAL", "3600"))

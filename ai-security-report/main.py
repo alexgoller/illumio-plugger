@@ -1722,6 +1722,35 @@ def poller_loop(pce, ai):
             log.info("Scan complete. Score: %s (%s). Duration: %.1fs",
                      report["overall_score"], report["overall_grade"], report["scan_duration_seconds"])
 
+            # Publish to plugger output channels
+            try:
+                from plugger_report import publish_report
+                score = report["overall_score"]
+                grade = report["overall_grade"]
+                sev = "info" if score >= 75 else "warning" if score >= 50 else "critical"
+                cats = report.get("categories", {})
+                top_issues = []
+                for cat_name, cat_data in sorted(cats.items(), key=lambda x: x[1].get("score", 100)):
+                    if cat_data.get("score", 100) < 70:
+                        top_issues.append(f"- {cat_name}: {cat_data['score']}/100 ({cat_data.get('finding_count', 0)} findings)")
+                lines = [
+                    f"**Security Score: {score}/100 (Grade {grade})**",
+                    f"- Scanned in {report.get('scan_duration_seconds', 0):.0f}s",
+                    f"- {report.get('workload_count', 0)} workloads analyzed",
+                ]
+                if top_issues:
+                    lines.append("\n**Areas needing attention:**")
+                    lines.extend(top_issues[:5])
+                publish_report(
+                    title=f"Security Score: {score}/100 ({grade})",
+                    body="\n".join(lines),
+                    severity=sev,
+                    tags=["security", "posture", "compliance"],
+                    data={"score": score, "grade": grade},
+                )
+            except Exception:
+                pass
+
         except Exception as e:
             log.error("Scan failed: %s", e, exc_info=True)
             with state_lock:

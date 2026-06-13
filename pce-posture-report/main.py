@@ -366,6 +366,27 @@ def main():
 
     log.info("Report complete. Score: %d/100", report["score"])
 
+    # Publish to plugger output channels
+    from plugger_report import publish_report
+    score = report["score"]
+    wl = report.get("workloads", {})
+    enf = report.get("enforcement", {})
+    sev = "info" if score >= 75 else "warning" if score >= 50 else "critical"
+    lines = [
+        f"**Posture Score: {score}/100**",
+        f"- Workloads: {wl.get('total', 0)} ({wl.get('managed', 0)} managed)",
+        f"- Enforcement: {enf.get('full', 0)} full, {enf.get('selective', 0)} selective, {enf.get('visibility_only', 0)} visibility, {enf.get('idle', 0)} idle",
+        f"- Labels: {report.get('labels', {}).get('fully_labeled', 0)} fully labeled",
+        f"- Active rules: {report.get('policy', {}).get('active_rules', 0)}",
+    ]
+    publish_report(
+        title=f"Posture Score: {score}/100",
+        body="\n".join(lines),
+        severity=sev,
+        tags=["posture", "compliance", "score"],
+        data={"score": score, "workloads": wl.get("total", 0), "managed": wl.get("managed", 0)},
+    )
+
 
 if __name__ == "__main__":
     main()

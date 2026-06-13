@@ -587,6 +587,30 @@ def scan_traffic(pce):
         log.info("Scan #%d complete: %d bare IPs, %d internal, %d resolved, %d created (%.1fs)",
                  discovery_state["scan_count"], len(bare_ips), len(internal), dns_ok, created, duration)
 
+        # Publish report if there's something interesting
+        if dns_ok > 0 or created > 0:
+            from plugger_report import publish_report
+            sev = "info"
+            if created > 0:
+                sev = "warning"
+            lines = [
+                f"**Scan #{discovery_state['scan_count']}** completed in {duration:.1f}s",
+                f"- Bare IPs found: **{len(bare_ips)}** ({len(internal)} internal, {external_count} external)",
+                f"- DNS resolved: **{dns_ok}** / {dns_ok + dns_fail}",
+                f"- Already known: {already_exists}",
+            ]
+            if created > 0:
+                lines.append(f"- **Workloads created: {created}** ({labeled} with labels)")
+            elif len(hostname_groups) > 0 and MODE == "dry-run":
+                lines.append(f"- Would create: {len(hostname_groups)} workloads (dry-run)")
+            publish_report(
+                title=f"Discovery: {dns_ok} resolved, {created} created" if created else f"Discovery: {dns_ok} IPs resolved",
+                body="\n".join(lines),
+                severity=sev,
+                tags=["discovery", "dns", "scan"],
+                data={"bare_ips": len(bare_ips), "internal": len(internal), "resolved": dns_ok, "created": created},
+            )
+
     except Exception as e:
         log.exception("Scan failed")
         with state_lock:
