@@ -132,11 +132,14 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 					addr, tok[:8])
 			}
 
-			// Set up report router
+			// Set up report router — merge config.yaml outputs with stored outputs
 			var reportRouter *reports.Router
-			if len(app.Config.Plugger.Outputs) > 0 {
+			outputStore := reports.NewOutputStore(app.Config.Plugger.DataDir)
+			storedOutputs, _ := outputStore.List()
+			allOutputs := reports.MergeWithConfig(app.Config.Plugger.Outputs, storedOutputs)
+			if len(allOutputs) > 0 {
 				var err error
-				reportRouter, err = reports.NewRouter(app.Config.Plugger.Outputs)
+				reportRouter, err = reports.NewRouter(allOutputs)
 				if err != nil {
 					slog.Warn("failed to initialize report router", "error", err)
 				} else {

@@ -91,6 +91,8 @@ func (h *Handler) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/reports", h.handleReportList)
 	mux.HandleFunc("GET /api/reports/stats", h.handleReportStats)
 	mux.HandleFunc("GET /reports", h.handleReportsPage)
+	mux.HandleFunc("POST /api/outputs/add", h.handleOutputAdd)
+	mux.HandleFunc("DELETE /api/outputs/{name}", h.handleOutputRemove)
 
 	// Event webhook
 	mux.HandleFunc("POST /api/events/trigger", h.handleEventTrigger)

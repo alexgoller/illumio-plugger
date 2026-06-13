@@ -66,6 +66,7 @@ health checks, and scheduling (daemon, cron, event-driven).`,
 		newReloadCmd(),
 		newDashboardCmd(),
 		newAuthCmd(),
+		newOutputCmd(),
 		newVersionCmd(),
 	)
 
