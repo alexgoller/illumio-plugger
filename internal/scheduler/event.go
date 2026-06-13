@@ -141,7 +141,11 @@ func (e *EventScheduler) executeEvent(runID int, event json.RawMessage) {
 	// Create a temporary plugin copy for env building
 	tmpPlugin := *e.plugin
 	tmpPlugin.EnvOverrides = overrides
-	env := tmpPlugin.BuildEnv(e.deps.Config.PCE)
+	pluggerEnv := plugin.PluggerEnvConfig{
+		PluggerURL:   "http://host.docker.internal:8800",
+		WebhookToken: e.deps.Config.Plugger.WebhookToken,
+	}
+	env := tmpPlugin.BuildEnv(e.deps.Config.PCE, pluggerEnv)
 
 	labels := map[string]string{
 		ct.LabelManaged: "true",

@@ -13,14 +13,16 @@ import (
 	"github.com/illumio/plugger/internal/container"
 	"github.com/illumio/plugger/internal/lifecycle"
 	"github.com/illumio/plugger/internal/plugin"
+	"github.com/illumio/plugger/internal/reports"
 )
 
 // Handler serves the dashboard web UI and API.
 type Handler struct {
-	deps   *lifecycle.Deps
-	logger *slog.Logger
-	tmpl   *template.Template
-	events *EventRegistry
+	deps    *lifecycle.Deps
+	logger  *slog.Logger
+	tmpl    *template.Template
+	events  *EventRegistry
+	reports *reports.Router
 }
 
 // NewHandler creates a new dashboard handler.
@@ -39,6 +41,11 @@ func NewHandler(store *plugin.Store, rt container.Runtime, cfg *config.Config, l
 // SetEventRegistry attaches the event registry to the handler for webhook support.
 func (h *Handler) SetEventRegistry(r *EventRegistry) {
 	h.events = r
+}
+
+// SetReportRouter attaches the report routing system.
+func (h *Handler) SetReportRouter(r *reports.Router) {
+	h.reports = r
 }
 
 // Routes returns the HTTP mux with all dashboard routes registered.
@@ -77,6 +84,12 @@ func (h *Handler) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /registry", h.handleRegistryPage)
 	mux.HandleFunc("GET /api/registry", h.handleAPIRegistry)
 	mux.HandleFunc("POST /api/registry/install", h.handleAPIRegistryInstall)
+
+	// Reports
+	mux.HandleFunc("POST /api/reports/publish", h.handleReportPublish)
+	mux.HandleFunc("GET /api/reports", h.handleReportList)
+	mux.HandleFunc("GET /api/reports/stats", h.handleReportStats)
+	mux.HandleFunc("GET /reports", h.handleReportsPage)
 
 	// Event webhook
 	mux.HandleFunc("POST /api/events/trigger", h.handleEventTrigger)

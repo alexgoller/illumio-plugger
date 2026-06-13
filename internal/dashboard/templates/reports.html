@@ -1,0 +1,74 @@
+{{define "title"}}Reports — Plugger{{end}}
+
+{{define "content"}}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Reports</h1>
+        <p class="text-sm text-gray-500 mt-1">Reports published by plugins and their delivery status</p>
+    </div>
+    <div class="flex items-center gap-3 text-sm text-gray-400">
+        <span>{{.OutputCount}} output(s) configured</span>
+    </div>
+</div>
+
+<div class="bg-dark-800 rounded-lg border border-gray-700 p-6"
+     hx-get="/api/reports" hx-trigger="every 10s" hx-target="#reports-table-body" hx-select="#reports-rows" hx-swap="innerHTML">
+
+    {{if not .Reports}}
+    <p class="text-gray-500 text-sm">No reports yet. Plugins can publish reports via <code class="text-xs">POST /api/reports/publish</code>.</p>
+    {{else}}
+    <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+        <table class="w-full text-sm">
+            <thead class="sticky top-0 bg-dark-800 z-10">
+                <tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
+                    <th class="px-3 py-2">Time</th>
+                    <th class="px-3 py-2">Plugin</th>
+                    <th class="px-3 py-2">Severity</th>
+                    <th class="px-3 py-2">Title</th>
+                    <th class="px-3 py-2">Delivery</th>
+                </tr>
+            </thead>
+            <tbody id="reports-table-body">
+                {{range .Reports}}
+                <tr class="border-b border-gray-700/30 hover:bg-dark-700/30">
+                    <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
+                        {{.Report.CreatedAt.Format "15:04:05"}}
+                    </td>
+                    <td class="px-3 py-2">
+                        <code class="text-xs text-blue-300">{{.Report.Plugin}}</code>
+                    </td>
+                    <td class="px-3 py-2">
+                        {{if eq .Report.Severity "critical"}}
+                        <span class="text-xs px-2 py-0.5 rounded bg-red-900/30 text-red-400">critical</span>
+                        {{else if eq .Report.Severity "warning"}}
+                        <span class="text-xs px-2 py-0.5 rounded bg-yellow-900/30 text-yellow-400">warning</span>
+                        {{else}}
+                        <span class="text-xs px-2 py-0.5 rounded bg-blue-900/30 text-blue-400">info</span>
+                        {{end}}
+                    </td>
+                    <td class="px-3 py-2 text-gray-300">{{.Report.Title}}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex gap-1 flex-wrap">
+                            {{range .Deliveries}}
+                            {{if eq .Status "delivered"}}
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-green-900/30 text-green-400" title="{{.OutputName}}">{{.OutputType}} ✓</span>
+                            {{else if eq .Status "failed"}}
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-red-900/30 text-red-400" title="{{.OutputName}}: {{.Error}}">{{.OutputType}} ✗</span>
+                            {{else if eq .Status "dry_run"}}
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400" title="{{.OutputName}}">{{.OutputType}} dry</span>
+                            {{else if eq .Status "filtered"}}
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-gray-900/30 text-gray-500" title="{{.OutputName}}">{{.OutputType}} —</span>
+                            {{else}}
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400" title="{{.OutputName}}">{{.OutputType}} …</span>
+                            {{end}}
+                            {{end}}
+                        </div>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
+</div>
+{{end}}

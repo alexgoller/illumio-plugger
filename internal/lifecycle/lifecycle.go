@@ -37,7 +37,11 @@ func StartPlugin(ctx context.Context, d *Deps, p *plugin.Plugin) error {
 		return err
 	}
 
-	env := p.BuildEnv(d.Config.PCE)
+	pluggerEnv := plugin.PluggerEnvConfig{
+		PluggerURL:   "http://host.docker.internal:8800",
+		WebhookToken: d.Config.Plugger.WebhookToken,
+	}
+	env := p.BuildEnv(d.Config.PCE, pluggerEnv)
 	labels := map[string]string{
 		ct.LabelManaged: "true",
 		ct.LabelPlugin:  p.Name,

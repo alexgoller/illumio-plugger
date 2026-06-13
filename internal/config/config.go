@@ -24,14 +24,57 @@ type PCEConfig struct {
 }
 
 type PluggerConfig struct {
-	DataDir           string     `yaml:"dataDir"           mapstructure:"dataDir"`
-	Network           string     `yaml:"network"           mapstructure:"network"`
-	EventPollInterval int        `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
-	Registry          string     `yaml:"registry"          mapstructure:"registry"`
-	WebhookToken      string     `yaml:"webhookToken"      mapstructure:"webhookToken"`
-	DockerSocket      string     `yaml:"dockerSocket"      mapstructure:"dockerSocket"`
-	TLS               TLSConfig  `yaml:"tls"               mapstructure:"tls"`
-	Auth              AuthConfig `yaml:"auth"              mapstructure:"auth"`
+	DataDir           string         `yaml:"dataDir"           mapstructure:"dataDir"`
+	Network           string         `yaml:"network"           mapstructure:"network"`
+	EventPollInterval int            `yaml:"eventPollInterval" mapstructure:"eventPollInterval"`
+	Registry          string         `yaml:"registry"          mapstructure:"registry"`
+	WebhookToken      string         `yaml:"webhookToken"      mapstructure:"webhookToken"`
+	DockerSocket      string         `yaml:"dockerSocket"      mapstructure:"dockerSocket"`
+	TLS               TLSConfig      `yaml:"tls"               mapstructure:"tls"`
+	Auth              AuthConfig     `yaml:"auth"              mapstructure:"auth"`
+	Outputs           []OutputConfig `yaml:"outputs"           mapstructure:"outputs"`
+}
+
+// OutputConfig defines a single output channel for the reporting framework.
+type OutputConfig struct {
+	Name    string       `yaml:"name"    mapstructure:"name"`
+	Type    string       `yaml:"type"    mapstructure:"type"` // slack, email, webhook
+	Enabled *bool        `yaml:"enabled" mapstructure:"enabled"`
+	DryRun  bool         `yaml:"dryRun"  mapstructure:"dryRun"`
+	Filter  OutputFilter `yaml:"filter"  mapstructure:"filter"`
+
+	// Slack
+	Webhook string `yaml:"webhook" mapstructure:"webhook"`
+
+	// Email
+	SMTPHost        string   `yaml:"smtpHost"        mapstructure:"smtpHost"`
+	SMTPPort        int      `yaml:"smtpPort"        mapstructure:"smtpPort"`
+	SMTPUser        string   `yaml:"smtpUser"        mapstructure:"smtpUser"`
+	SMTPPasswordEnv string   `yaml:"smtpPasswordEnv" mapstructure:"smtpPasswordEnv"`
+	From            string   `yaml:"from"            mapstructure:"from"`
+	To              []string `yaml:"to"              mapstructure:"to"`
+	Schedule        string   `yaml:"schedule"        mapstructure:"schedule"`
+	Aggregate       bool     `yaml:"aggregate"       mapstructure:"aggregate"`
+
+	// Webhook
+	URL     string            `yaml:"url"     mapstructure:"url"`
+	Method  string            `yaml:"method"  mapstructure:"method"`
+	Headers map[string]string `yaml:"headers" mapstructure:"headers"`
+}
+
+// OutputFilter determines which reports are routed to an output.
+type OutputFilter struct {
+	Severity []string `yaml:"severity" mapstructure:"severity"`
+	Plugins  []string `yaml:"plugins"  mapstructure:"plugins"`
+	Tags     []string `yaml:"tags"     mapstructure:"tags"`
+}
+
+// IsEnabled returns true if the output is enabled (default: true).
+func (o *OutputConfig) IsEnabled() bool {
+	if o.Enabled == nil {
+		return true
+	}
+	return *o.Enabled
 }
 
 type AuthConfig struct {

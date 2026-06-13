@@ -18,6 +18,7 @@ import (
 	"github.com/illumio/plugger/internal/health"
 	"github.com/illumio/plugger/internal/lifecycle"
 	"github.com/illumio/plugger/internal/plugin"
+	"github.com/illumio/plugger/internal/reports"
 	"github.com/illumio/plugger/internal/scheduler"
 	"github.com/spf13/cobra"
 )
@@ -131,10 +132,25 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 					addr, tok[:8])
 			}
 
+			// Set up report router
+			var reportRouter *reports.Router
+			if len(app.Config.Plugger.Outputs) > 0 {
+				var err error
+				reportRouter, err = reports.NewRouter(app.Config.Plugger.Outputs)
+				if err != nil {
+					slog.Warn("failed to initialize report router", "error", err)
+				} else {
+					slog.Info("report router initialized", "outputs", reportRouter.OutputCount())
+				}
+			}
+
 			// Start dashboard
 			if !noDashboard {
 				handler := dashboard.NewHandler(app.Store, app.Runtime, app.Config, app.Logger)
 				handler.SetEventRegistry(eventRegistry)
+				if reportRouter != nil {
+					handler.SetReportRouter(reportRouter)
+				}
 				mux := handler.WrappedRoutes()
 				go func() {
 					certFile, keyFile := resolveTLSCerts(app.Config)
@@ -238,6 +254,10 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 				if err := sched.Stop(shutdownCtx); err != nil {
 					slog.Warn("error stopping plugin", "plugin", name, "error", err)
 				}
+			}
+
+			if reportRouter != nil {
+				reportRouter.Stop()
 			}
 
 			slog.Info("plugger stopped")
