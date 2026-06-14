@@ -3,6 +3,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN useradd -m -u 1000 plugin
 COPY main.py /app/main.py
+COPY plugger_sdk.py /app/plugger_sdk.py
 COPY .plugger/metadata.yaml /.plugger/metadata.yaml
 COPY plugin.yaml /.plugger/plugin.yaml
 ARG VERSION=0.1.0

@@ -9,48 +9,33 @@ Plugger injects PCE connection details as environment variables:
 
 import ipaddress
 import json
-import logging
 import os
 import re
-import signal
 import socket
-import sys
-import threading
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone, timedelta
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
 
 import dns.exception
 import dns.resolver
 import dns.reversename
-from illumio import PolicyComputeEngine
 from illumio.explorer import TrafficQuery
+from plugger_sdk import Plugin
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-)
-log = logging.getLogger("network-discovery")
+app = Plugin("network-discovery")
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-POLL_INTERVAL = max(300, int(os.environ.get("POLL_INTERVAL", "3600")))
-LOOKBACK_HOURS = int(os.environ.get("LOOKBACK_HOURS", "24"))
-MAX_RESULTS = int(os.environ.get("MAX_RESULTS", "10000"))
-INTERNAL_SUBNETS_STR = os.environ.get("INTERNAL_SUBNETS", "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16")
-DNS_SERVER = os.environ.get("DNS_SERVER", "").strip()
-DNS_TIMEOUT = int(os.environ.get("DNS_TIMEOUT", "5"))
-MODE = os.environ.get("MODE", "dry-run").strip().lower()
-HOSTNAME_LABEL_RULES_STR = os.environ.get("HOSTNAME_LABEL_RULES", "").strip()
-STATE_FILE = os.environ.get("STATE_FILE", "/data/state.json")
-HTTP_PORT = int(os.environ.get("HTTP_PORT", "8080"))
+POLL_INTERVAL = max(300, int(app.env("POLL_INTERVAL", "3600")))
+LOOKBACK_HOURS = int(app.env("LOOKBACK_HOURS", "24"))
+MAX_RESULTS = int(app.env("MAX_RESULTS", "10000"))
+INTERNAL_SUBNETS_STR = app.env("INTERNAL_SUBNETS", "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16")
+DNS_SERVER = app.env("DNS_SERVER", "").strip()
+DNS_TIMEOUT = int(app.env("DNS_TIMEOUT", "5"))
+MODE = app.env("MODE", "dry-run").strip().lower()
+HOSTNAME_LABEL_RULES_STR = app.env("HOSTNAME_LABEL_RULES", "").strip()
+STATE_FILE = app.env("STATE_FILE", "/data/state.json")
 
 # Parse subnets
 SUBNETS = []
@@ -60,7 +45,7 @@ for s in INTERNAL_SUBNETS_STR.split(","):
         try:
             SUBNETS.append(ipaddress.ip_network(s, strict=False))
         except ValueError:
-            log.warning("Invalid subnet: %s", s)
+            app.log.warning("Invalid subnet: %s", s)
 
 # Parse hostname label rules
 LABEL_RULES = []
@@ -72,15 +57,19 @@ if HOSTNAME_LABEL_RULES_STR:
             labels = rule.get("labels", {})
             if pattern and labels:
                 LABEL_RULES.append({"regex": re.compile(pattern, re.IGNORECASE), "labels": labels})
-        log.info("Loaded %d hostname label rules", len(LABEL_RULES))
+        app.log.info("Loaded %d hostname label rules", len(LABEL_RULES))
     except Exception as e:
-        log.warning("Failed to parse HOSTNAME_LABEL_RULES: %s", e)
+        app.log.warning("Failed to parse HOSTNAME_LABEL_RULES: %s", e)
 
 # ---------------------------------------------------------------------------
-# Global state
+# Plugin-specific globals
 # ---------------------------------------------------------------------------
-state_lock = threading.Lock()
-discovery_state = {
+dns_cache = {}
+existing_workload_ips = set()
+created_workload_ips = set()
+
+# Initialise state
+app.state.update({
     "last_scan": None,
     "last_scan_duration": 0,
     "scan_count": 0,
@@ -116,67 +105,11 @@ discovery_state = {
         "total_dns_queries": 0,
         "scan_history": [],
     },
-}
-
-label_cache = {}
-label_href_map = {}
-dns_cache = {}
-existing_workload_ips = set()
-created_workload_ips = set()
-pce_client = None
+})
 
 # ---------------------------------------------------------------------------
 # PCE helpers
 # ---------------------------------------------------------------------------
-
-def get_pce():
-    pce = PolicyComputeEngine(
-        url=os.environ["PCE_HOST"],
-        port=os.environ.get("PCE_PORT", "8443"),
-        org_id=os.environ.get("PCE_ORG_ID", "1"),
-    )
-    pce.set_credentials(
-        username=os.environ["PCE_API_KEY"],
-        password=os.environ["PCE_API_SECRET"],
-    )
-    verify = os.environ.get("PCE_TLS_SKIP_VERIFY", "true").lower() != "true"
-    pce.set_tls_settings(verify=verify)
-    return pce
-
-
-def fetch_labels(pce):
-    global label_cache, label_href_map
-    try:
-        resp = pce.get("/labels")
-        if resp.status_code == 200:
-            for lbl in resp.json():
-                href = lbl.get("href", "")
-                key = lbl.get("key", "")
-                value = lbl.get("value", "")
-                if href:
-                    label_cache[href] = {"key": key, "value": value}
-                    label_href_map[(key, value)] = href
-            log.info("Loaded %d labels", len(label_cache))
-    except Exception as e:
-        log.warning("Failed to fetch labels: %s", e)
-
-
-def ensure_label(pce, key, value):
-    existing = label_href_map.get((key, value))
-    if existing:
-        return existing
-    try:
-        resp = pce.post("/labels", json={"key": key, "value": value})
-        if resp.status_code in (200, 201):
-            href = resp.json().get("href", "")
-            if href:
-                label_href_map[(key, value)] = href
-                label_cache[href] = {"key": key, "value": value}
-            return href
-    except Exception as e:
-        log.warning("Failed to create label %s:%s — %s", key, value, e)
-    return ""
-
 
 def fetch_existing_workloads(pce):
     global existing_workload_ips
@@ -190,17 +123,9 @@ def fetch_existing_workloads(pce):
                     if addr and ":" not in addr:
                         ips.add(addr)
             existing_workload_ips = ips
-            log.info("Loaded %d existing workload IPs", len(ips))
+            app.log.info("Loaded %d existing workload IPs", len(ips))
     except Exception as e:
-        log.warning("Failed to fetch workloads: %s", e)
-
-
-def pce_console_url(href):
-    pce_host = os.environ.get("PCE_HOST", "localhost")
-    m = re.match(r'.*/orgs/\d+/(.*)', href)
-    path = m.group(1) if m else href.lstrip('/')
-    path = path.replace('sec_policy/draft/', '').replace('sec_policy/active/', '')
-    return f"https://{pce_host}/#/{path}"
+        app.log.warning("Failed to fetch workloads: %s", e)
 
 # ---------------------------------------------------------------------------
 # Network helpers
@@ -299,17 +224,17 @@ def infer_labels(hostname):
 # Core discovery
 # ---------------------------------------------------------------------------
 
+@app.poll(interval_env="POLL_INTERVAL", default=3600)
 def scan_traffic(pce):
-    with state_lock:
-        if discovery_state["scanning"]:
-            return
-        discovery_state["scanning"] = True
+    state = app.state
+    if state["scanning"]:
+        return
+    app.update_state({"scanning": True})
 
     scan_start = time.time()
-    log.info("Starting traffic scan (lookback=%dh, max=%d)...", LOOKBACK_HOURS, MAX_RESULTS)
+    app.log.info("Starting traffic scan (lookback=%dh, max=%d)...", LOOKBACK_HOURS, MAX_RESULTS)
 
     try:
-        fetch_labels(pce)
         fetch_existing_workloads(pce)
 
         end_time = datetime.now(timezone.utc)
@@ -341,7 +266,7 @@ def scan_traffic(pce):
                 continue
             flows.append(flow)
 
-        log.info("Got %d traffic flows", len(flows))
+        app.log.info("Got %d traffic flows", len(flows))
 
         # Extract bare IPs
         bare_ips = {}
@@ -364,7 +289,7 @@ def scan_traffic(pce):
                         proto = svc.get("proto", "?")
                         bare_ips[ip]["services"].add(f"{port}/{proto}")
 
-        log.info("Found %d bare IPs from %d endpoints", len(bare_ips), total_endpoints)
+        app.log.info("Found %d bare IPs from %d endpoints", len(bare_ips), total_endpoints)
 
         # Classify internal vs external
         internal = {}
@@ -388,8 +313,8 @@ def scan_traffic(pce):
             else:
                 new_ips[ip] = meta
 
-        log.info("Internal: %d, external: %d, new: %d, already exists: %d",
-                 len(internal), external_count, len(new_ips), already_exists)
+        app.log.info("Internal: %d, external: %d, new: %d, already exists: %d",
+                     len(internal), external_count, len(new_ips), already_exists)
 
         # DNS resolution
         dns_results = {}
@@ -416,8 +341,8 @@ def scan_traffic(pce):
                 latencies.append(latency_ms)
 
         avg_latency = sum(latencies) / len(latencies) if latencies else 0
-        log.info("DNS: %d resolved, %d failed, %d timeouts, %d cache hits",
-                 dns_ok, dns_fail, dns_timeout, dns_cached)
+        app.log.info("DNS: %d resolved, %d failed, %d timeouts, %d cache hits",
+                     dns_ok, dns_fail, dns_timeout, dns_cached)
 
         # Group by hostname (multi-homed hosts)
         hostname_groups = defaultdict(list)
@@ -436,7 +361,7 @@ def scan_traffic(pce):
             if MODE == "auto-create":
                 label_hrefs = []
                 for key, value in labels_dict.items():
-                    href = ensure_label(pce, key, value)
+                    href = app.ensure_label(key, value)
                     if href:
                         label_hrefs.append({"href": href})
 
@@ -468,7 +393,7 @@ def scan_traffic(pce):
                             "detail": f"Created with {len(ips)} interface(s)" + (f", labels: {labels_dict}" if labels_dict else ""),
                             "href": wl_href,
                         })
-                        log.info("Created workload: %s (%s)", hostname, ", ".join(ips))
+                        app.log.info("Created workload: %s (%s)", hostname, ", ".join(ips))
                     else:
                         activity.append({
                             "timestamp": now_iso,
@@ -477,7 +402,7 @@ def scan_traffic(pce):
                             "hostname": hostname,
                             "detail": f"HTTP {resp.status_code}: {resp.text[:200]}",
                         })
-                        log.warning("Failed to create %s: HTTP %d", hostname, resp.status_code)
+                        app.log.warning("Failed to create %s: HTTP %d", hostname, resp.status_code)
                 except Exception as e:
                     activity.append({
                         "timestamp": now_iso,
@@ -540,13 +465,32 @@ def scan_traffic(pce):
 
         duration = time.time() - scan_start
 
-        with state_lock:
-            discovery_state["last_scan"] = now_iso
-            discovery_state["last_scan_duration"] = round(duration, 1)
-            discovery_state["scan_count"] += 1
-            discovery_state["scanning"] = False
-            discovery_state["error"] = None
-            discovery_state["funnel"] = {
+        old_activity = app.state.get("activity", [])
+        cum = app.state.get("cumulative", {
+            "total_ips_discovered": 0,
+            "total_workloads_created": 0,
+            "total_dns_queries": 0,
+            "scan_history": [],
+        })
+        cum["total_ips_discovered"] += len(new_ips)
+        cum["total_workloads_created"] += created
+        cum["total_dns_queries"] += dns_total
+        cum["scan_history"].append({
+            "timestamp": now_iso,
+            "bare_ips": len(bare_ips),
+            "internal": len(internal),
+            "resolved": dns_ok,
+            "created": created,
+        })
+        cum["scan_history"] = cum["scan_history"][-50:]
+
+        app.update_state({
+            "last_scan": now_iso,
+            "last_scan_duration": round(duration, 1),
+            "scan_count": app.state.get("scan_count", 0) + 1,
+            "scanning": False,
+            "error": None,
+            "funnel": {
                 "total_endpoints": total_endpoints,
                 "bare_ips": bare_count,
                 "unique_bare_ips": len(bare_ips),
@@ -557,44 +501,31 @@ def scan_traffic(pce):
                 "already_exists": already_exists,
                 "created": created,
                 "labeled": labeled,
-            }
-            discovery_state["dns_stats"] = {
+            },
+            "dns_stats": {
                 "total_queries": dns_total,
                 "successful": dns_ok,
                 "failed": dns_fail,
                 "timeout": dns_timeout,
                 "avg_latency_ms": round(avg_latency, 1),
                 "cache_hits": dns_cached,
-            }
-            discovery_state["subnet_breakdown"] = subnet_breakdown
-            discovery_state["discovered"] = discovered
-            old_activity = discovery_state["activity"]
-            discovery_state["activity"] = (activity + old_activity)[:200]
+            },
+            "subnet_breakdown": subnet_breakdown,
+            "discovered": discovered,
+            "activity": (activity + old_activity)[:200],
+            "cumulative": cum,
+        })
 
-            cum = discovery_state["cumulative"]
-            cum["total_ips_discovered"] += len(new_ips)
-            cum["total_workloads_created"] += created
-            cum["total_dns_queries"] += dns_total
-            cum["scan_history"].append({
-                "timestamp": now_iso,
-                "bare_ips": len(bare_ips),
-                "internal": len(internal),
-                "resolved": dns_ok,
-                "created": created,
-            })
-            cum["scan_history"] = cum["scan_history"][-50:]
-
-        log.info("Scan #%d complete: %d bare IPs, %d internal, %d resolved, %d created (%.1fs)",
-                 discovery_state["scan_count"], len(bare_ips), len(internal), dns_ok, created, duration)
+        app.log.info("Scan #%d complete: %d bare IPs, %d internal, %d resolved, %d created (%.1fs)",
+                     app.state["scan_count"], len(bare_ips), len(internal), dns_ok, created, duration)
 
         # Publish report if there's something interesting
         if dns_ok > 0 or created > 0:
-            from plugger_report import publish_report
             sev = "info"
             if created > 0:
                 sev = "warning"
             lines = [
-                f"**Scan #{discovery_state['scan_count']}** completed in {duration:.1f}s",
+                f"**Scan #{app.state['scan_count']}** completed in {duration:.1f}s",
                 f"- Bare IPs found: **{len(bare_ips)}** ({len(internal)} internal, {external_count} external)",
                 f"- DNS resolved: **{dns_ok}** / {dns_ok + dns_fail}",
                 f"- Already known: {already_exists}",
@@ -603,7 +534,7 @@ def scan_traffic(pce):
                 lines.append(f"- **Workloads created: {created}** ({labeled} with labels)")
             elif len(hostname_groups) > 0 and MODE == "dry-run":
                 lines.append(f"- Would create: {len(hostname_groups)} workloads (dry-run)")
-            publish_report(
+            app.report(
                 title=f"Discovery: {dns_ok} resolved, {created} created" if created else f"Discovery: {dns_ok} IPs resolved",
                 body="\n".join(lines),
                 severity=sev,
@@ -612,10 +543,10 @@ def scan_traffic(pce):
             )
 
     except Exception as e:
-        log.exception("Scan failed")
-        with state_lock:
-            discovery_state["scanning"] = False
-            discovery_state["error"] = str(e)
+        app.log.exception("Scan failed")
+        app.update_state({"scanning": False, "error": str(e)})
+
+    save_state()
 
 # ---------------------------------------------------------------------------
 # State persistence
@@ -626,15 +557,15 @@ def save_state():
         data = {
             "created_ips": list(created_workload_ips),
             "dns_cache": {ip: [h, t] for ip, (h, t) in dns_cache.items()},
-            "cumulative": discovery_state["cumulative"],
-            "scan_count": discovery_state["scan_count"],
+            "cumulative": app.state.get("cumulative", {}),
+            "scan_count": app.state.get("scan_count", 0),
         }
         tmp = STATE_FILE + ".tmp"
         with open(tmp, "w") as f:
             json.dump(data, f)
         os.rename(tmp, STATE_FILE)
     except Exception as e:
-        log.warning("Failed to save state: %s", e)
+        app.log.warning("Failed to save state: %s", e)
 
 
 def load_state():
@@ -645,14 +576,16 @@ def load_state():
         created_workload_ips = set(data.get("created_ips", []))
         for ip, (h, t) in data.get("dns_cache", {}).items():
             dns_cache[ip] = (h, t)
-        discovery_state["cumulative"] = data.get("cumulative", discovery_state["cumulative"])
-        discovery_state["scan_count"] = data.get("scan_count", 0)
-        log.info("Loaded state: %d created IPs, %d DNS cache entries",
-                 len(created_workload_ips), len(dns_cache))
+        app.update_state({
+            "cumulative": data.get("cumulative", app.state.get("cumulative", {})),
+            "scan_count": data.get("scan_count", 0),
+        })
+        app.log.info("Loaded state: %d created IPs, %d DNS cache entries",
+                     len(created_workload_ips), len(dns_cache))
     except FileNotFoundError:
         pass
     except Exception as e:
-        log.warning("Failed to load state: %s", e)
+        app.log.warning("Failed to load state: %s", e)
 
 # ---------------------------------------------------------------------------
 # Dashboard
@@ -1001,161 +934,79 @@ setInterval(fetchData, 15000);
 </body></html>"""
 
 
+@app.dashboard
+def render():
+    return DASHBOARD_HTML
+
 # ---------------------------------------------------------------------------
-# HTTP handler
+# API routes
 # ---------------------------------------------------------------------------
 
-class DiscoveryHandler(BaseHTTPRequestHandler):
-    def _send(self, code, body, content_type="application/json"):
-        self.send_response(code)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-        if isinstance(body, str):
-            body = body.encode()
-        self.wfile.write(body)
+@app.api("GET", "/api/state")
+def get_state(request):
+    return json.loads(json.dumps(app.state, default=str))
 
-    def do_OPTIONS(self):
-        self._send(200, "")
 
-    def do_GET(self):
-        path = urlparse(self.path).path.rstrip("/") or "/"
+@app.api("GET", "/api/export/json")
+def export_json(request):
+    return json.loads(json.dumps(app.state, default=str))
 
-        if path == "/":
-            self._send(200, DASHBOARD_HTML, "text/html; charset=utf-8")
-        elif path == "/healthz":
-            with state_lock:
-                healthy = discovery_state["error"] is None
-            self._send(200, json.dumps({"status": "healthy" if healthy else "degraded"}))
-        elif path == "/api/state":
-            with state_lock:
-                data = json.loads(json.dumps(discovery_state, default=str))
-            self._send(200, json.dumps(data, default=str))
-        elif path == "/api/export/json":
-            with state_lock:
-                data = json.loads(json.dumps(discovery_state, default=str))
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Disposition", "attachment; filename=network-discovery-export.json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(data, indent=2, default=str).encode())
-        else:
-            self._send(404, json.dumps({"error": "Not found"}))
 
-    def do_POST(self):
-        path = urlparse(self.path).path.rstrip("/")
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length) if content_length > 0 else b""
+@app.api("POST", "/api/scan")
+def trigger_scan(request):
+    if app.state.get("scanning"):
+        return {"error": "Scan already in progress"}, 409
+    app.trigger_poll()
+    return {"status": "scan_triggered"}
 
-        if path == "/api/scan":
-            with state_lock:
-                if discovery_state["scanning"]:
-                    self._send(409, json.dumps({"error": "Scan already in progress"}))
-                    return
-            threading.Thread(target=lambda: (scan_traffic(pce_client), save_state()), daemon=True).start()
-            self._send(200, json.dumps({"status": "scan_triggered"}))
-        elif path == "/api/create":
-            if MODE != "auto-create":
-                self._send(400, json.dumps({"error": "Plugin is in dry-run mode. Set MODE=auto-create to create workloads."}))
-                return
-            try:
-                req = json.loads(body)
-            except Exception:
-                self._send(400, json.dumps({"error": "Invalid JSON"}))
-                return
-            ip = req.get("ip", "")
-            if not ip:
-                self._send(400, json.dumps({"error": "ip is required"}))
-                return
-            hostname = dns_cache.get(ip, (None,))[0]
-            if not hostname:
-                hostname, _, _, _ = resolve_dns(ip)
-            if not hostname:
-                self._send(400, json.dumps({"error": f"Cannot resolve {ip}"}))
-                return
-            labels_dict = infer_labels(hostname)
-            label_hrefs = []
-            for key, value in labels_dict.items():
-                href = ensure_label(pce_client, key, value)
-                if href:
-                    label_hrefs.append({"href": href})
-            body_wl = {
-                "name": hostname,
-                "hostname": hostname,
-                "interfaces": [{"address": ip, "friendly_name": "eth0"}],
-                "service_provider": "plugger-network-discovery",
-                "description": "Discovered from traffic flows by plugger network-discovery",
-            }
-            if label_hrefs:
-                body_wl["labels"] = label_hrefs
-            try:
-                resp = pce_client.post("/workloads", json=body_wl)
-                if resp.status_code in (200, 201):
-                    created_workload_ips.add(ip)
-                    save_state()
-                    self._send(200, json.dumps({"status": "created", "hostname": hostname, "labels": labels_dict}))
-                else:
-                    self._send(resp.status_code, json.dumps({"error": f"PCE returned {resp.status_code}"}))
-            except Exception as e:
-                self._send(500, json.dumps({"error": str(e)}))
-        else:
-            self._send(404, json.dumps({"error": "Not found"}))
 
-    def log_message(self, fmt, *args):
-        pass
+@app.api("POST", "/api/create")
+def create_workload(request):
+    if MODE != "auto-create":
+        return {"error": "Plugin is in dry-run mode. Set MODE=auto-create to create workloads."}, 400
+    ip = request.json.get("ip", "")
+    if not ip:
+        return {"error": "ip is required"}, 400
+    hostname = dns_cache.get(ip, (None,))[0]
+    if not hostname:
+        hostname, _, _, _ = resolve_dns(ip)
+    if not hostname:
+        return {"error": f"Cannot resolve {ip}"}, 400
+    labels_dict = infer_labels(hostname)
+    label_hrefs = []
+    for key, value in labels_dict.items():
+        href = app.ensure_label(key, value)
+        if href:
+            label_hrefs.append({"href": href})
+    body_wl = {
+        "name": hostname,
+        "hostname": hostname,
+        "interfaces": [{"address": ip, "friendly_name": "eth0"}],
+        "service_provider": "plugger-network-discovery",
+        "description": "Discovered from traffic flows by plugger network-discovery",
+    }
+    if label_hrefs:
+        body_wl["labels"] = label_hrefs
+    try:
+        resp = app.pce.post("/workloads", json=body_wl)
+        if resp.status_code in (200, 201):
+            created_workload_ips.add(ip)
+            save_state()
+            return {"status": "created", "hostname": hostname, "labels": labels_dict}
+        return {"error": f"PCE returned {resp.status_code}"}, resp.status_code
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 
 # ---------------------------------------------------------------------------
-# Poller
+# Startup
 # ---------------------------------------------------------------------------
 
-def poller_loop(pce):
-    while True:
-        time.sleep(POLL_INTERVAL)
-        scan_traffic(pce)
-        save_state()
+load_state()
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-def main():
-    global pce_client
-    log.info("Starting network-discovery...")
-    log.info("Config: mode=%s, subnets=%s, dns=%s, poll=%ds, lookback=%dh",
+app.log.info("Config: mode=%s, subnets=%s, dns=%s, poll=%ds, lookback=%dh",
              MODE, INTERNAL_SUBNETS_STR, DNS_SERVER or "system", POLL_INTERVAL, LOOKBACK_HOURS)
-    if LABEL_RULES:
-        log.info("Label rules: %d patterns loaded", len(LABEL_RULES))
+if LABEL_RULES:
+    app.log.info("Label rules: %d patterns loaded", len(LABEL_RULES))
 
-    load_state()
-    pce_client = get_pce()
-    log.info("Connected to PCE: %s", pce_client.base_url)
-
-    # Initial scan
-    scan_traffic(pce_client)
-    save_state()
-
-    # Background poller
-    threading.Thread(target=poller_loop, args=(pce_client,), daemon=True).start()
-
-    # HTTP server
-    server = HTTPServer(("0.0.0.0", HTTP_PORT), DiscoveryHandler)
-    log.info("Dashboard on http://0.0.0.0:%d", HTTP_PORT)
-
-    def shutdown(signum, frame):
-        log.info("Shutting down...")
-        save_state()
-        server.shutdown()
-        sys.exit(0)
-
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-    server.serve_forever()
-
-
-if __name__ == "__main__":
-    main()
+app.run()
