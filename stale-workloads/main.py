@@ -6,121 +6,53 @@ unpair/cleanup recommendations.
 """
 
 import json
-import logging
 import os
-import signal
-import threading
-import time
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from illumio import PolicyComputeEngine
 from illumio.explorer import TrafficQuery
+from plugger_sdk import Plugin
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-)
-log = logging.getLogger("stale_workloads")
+app = Plugin("stale-workloads")
 
-state_lock = threading.Lock()
-report_state = {
-    "last_check": None,
-    "check_count": 0,
-    "error": None,
-    "stale_workloads": [],
-    "summary": {},
-    "by_app_env": {},
-    "by_reason": {},
-}
+STALE_DAYS = int(app.env("STALE_DAYS", "7"))
+OFFLINE_HOURS = int(app.env("OFFLINE_HOURS", "24"))
+CHECK_TRAFFIC = app.env("CHECK_TRAFFIC", "true").lower() in ("true", "1")
+CLEANUP_ENABLED = app.env("ENABLE_CLEANUP", "false").lower() in ("true", "1")
 
-label_cache = {}
+if CLEANUP_ENABLED:
+    app.log.info("Cleanup ENABLED — unpair/delete actions available")
 
 
-def get_pce():
-    pce = PolicyComputeEngine(
-        url=os.environ["PCE_HOST"],
-        port=os.environ.get("PCE_PORT", "8443"),
-        org_id=os.environ.get("PCE_ORG_ID", "1"),
-    )
-    pce.set_credentials(
-        username=os.environ["PCE_API_KEY"],
-        password=os.environ["PCE_API_SECRET"],
-    )
-    pce.set_tls_settings(verify=False)
-    return pce
+# ---------------------------------------------------------------------------
+# Core analysis
+# ---------------------------------------------------------------------------
 
-
-def fetch_labels(pce):
-    global label_cache
-    try:
-        resp = pce.get("/labels")
-        if resp.status_code == 200:
-            for lbl in resp.json():
-                href = lbl.get("href", "")
-                if href:
-                    label_cache[href] = {"key": lbl.get("key", ""), "value": lbl.get("value", "")}
-            log.info("Loaded %d labels", len(label_cache))
-    except Exception as e:
-        log.warning("Failed to fetch labels: %s", e)
-
-
-def resolve_labels(workload):
-    """Resolve workload labels to key:value map."""
-    result = {}
-    for lbl in workload.get("labels", []):
-        if isinstance(lbl, dict):
-            href = lbl.get("href", "")
-            if href in label_cache:
-                cached = label_cache[href]
-                result[cached["key"]] = cached["value"]
-    return result
-
-
-def get_app_env(labels):
-    app = labels.get("app", "")
-    env = labels.get("env", "")
-    if app and env:
-        return f"{app}|{env}"
-    return app or env or "unlabeled"
-
-
+@app.poll(interval_env="POLL_INTERVAL", default=3600)
 def check_stale(pce):
-    """Analyze all workloads for staleness."""
-    if not label_cache:
-        fetch_labels(pce)
+    app.log.info("Checking for stale workloads (stale=%dd, offline=%dh, traffic_check=%s)...",
+                 STALE_DAYS, OFFLINE_HOURS, CHECK_TRAFFIC)
 
-    stale_days = int(os.environ.get("STALE_DAYS", "7"))
-    offline_hours = int(os.environ.get("OFFLINE_HOURS", "24"))
-    check_traffic = os.environ.get("CHECK_TRAFFIC", "true").lower() in ("true", "1")
-
-    log.info("Checking for stale workloads (stale=%dd, offline=%dh, traffic_check=%s)...",
-             stale_days, offline_hours, check_traffic)
-
-    # Fetch all workloads
     try:
         resp = pce.get("/workloads", params={"max_results": 10000})
         workloads = resp.json() if resp.status_code == 200 else []
     except Exception as e:
-        log.error("Failed to fetch workloads: %s", e)
+        app.log.error("Failed to fetch workloads: %s", e)
         return
 
     if not isinstance(workloads, list):
         workloads = []
 
-    log.info("Analyzing %d workloads...", len(workloads))
+    app.log.info("Analyzing %d workloads...", len(workloads))
 
     now = datetime.now(timezone.utc)
-    stale_threshold = now - timedelta(days=stale_days)
-    offline_threshold = now - timedelta(hours=offline_hours)
+    stale_threshold = now - timedelta(days=STALE_DAYS)
+    offline_threshold = now - timedelta(hours=OFFLINE_HOURS)
 
-    # Optionally query traffic to find workloads with zero traffic
     active_workload_hrefs = set()
-    if check_traffic:
+    if CHECK_TRAFFIC:
         try:
-            lookback = int(os.environ.get("TRAFFIC_LOOKBACK_HOURS", "168"))  # 7 days default
+            lookback = int(app.env("TRAFFIC_LOOKBACK_HOURS", "168"))
             query = TrafficQuery.build(
                 start_date=(now - timedelta(hours=lookback)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 end_date=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -142,9 +74,9 @@ def check_stale(pce):
                             wl = ep.get("workload", {}) or {}
                             if isinstance(wl, dict) and wl.get("href"):
                                 active_workload_hrefs.add(wl["href"])
-            log.info("Found %d workloads with traffic in last %dh", len(active_workload_hrefs), lookback)
+            app.log.info("Found %d workloads with traffic in last %dh", len(active_workload_hrefs), lookback)
         except Exception as e:
-            log.warning("Traffic check failed: %s", e)
+            app.log.warning("Traffic check failed: %s", e)
 
     stale = []
     by_app_env = defaultdict(list)
@@ -156,11 +88,12 @@ def check_stale(pce):
     for wl in workloads:
         hostname = wl.get("hostname", "") or "(unnamed)"
         href = wl.get("href", "")
-        labels = resolve_labels(wl)
-        app_env = get_app_env(labels)
+        labels = app.resolve_workload_labels(wl)
+        a = labels.get("app", "")
+        e = labels.get("env", "")
+        app_env = f"{a}|{e}" if a and e else (a or e or "unlabeled")
         is_online = wl.get("online", False)
 
-        # Agent info
         agent = wl.get("agent", {}) or {}
         agent_href = agent.get("href", "")
         is_managed = bool(agent_href)
@@ -168,7 +101,6 @@ def check_stale(pce):
 
         if is_managed:
             managed += 1
-            # Parse last heartbeat
             hb = agent.get("status", {}) if isinstance(agent.get("status"), dict) else {}
             last_hb_str = hb.get("last_heartbeat_on", "") or agent.get("last_heartbeat_on", "")
             if last_hb_str:
@@ -180,16 +112,13 @@ def check_stale(pce):
         if is_online:
             online += 1
 
-        # Determine staleness reasons
         reasons = []
         severity = "info"
 
-        # 1. Offline for too long
         if not is_online:
             reasons.append("offline")
             severity = "warning"
 
-        # 2. No heartbeat or stale heartbeat (managed only)
         if is_managed and last_heartbeat:
             if last_heartbeat < stale_threshold:
                 days_ago = (now - last_heartbeat).days
@@ -199,13 +128,11 @@ def check_stale(pce):
             reasons.append("no heartbeat data")
             severity = "warning"
 
-        # 3. No traffic (if traffic check enabled)
-        if check_traffic and href and href not in active_workload_hrefs:
+        if CHECK_TRAFFIC and href and href not in active_workload_hrefs:
             reasons.append("no traffic")
             if severity == "info":
                 severity = "warning"
 
-        # 4. Unmanaged (no agent)
         if not is_managed:
             reasons.append("unmanaged")
 
@@ -232,72 +159,104 @@ def check_stale(pce):
         stale.append(entry)
         by_app_env[app_env].append(entry)
         for r in reasons:
-            by_reason[r.split(" ")[0]] += 1  # group by first word
+            by_reason[r.split(" ")[0]] += 1
 
-    # Sort by severity then hostname
     severity_order = {"high": 0, "warning": 1, "info": 2}
     stale.sort(key=lambda x: (severity_order.get(x["severity"], 3), x["hostname"]))
 
-    summary = {
-        "total_workloads": total,
-        "managed": managed,
-        "online": online,
-        "offline": total - online,
-        "stale_count": len(stale),
-        "stale_days_threshold": stale_days,
-        "offline_hours_threshold": offline_hours,
-    }
+    app.update_state({
+        "last_check": now.isoformat(),
+        "check_count": app.state.get("check_count", 0) + 1,
+        "stale_workloads": stale,
+        "summary": {
+            "total_workloads": total,
+            "managed": managed,
+            "online": online,
+            "offline": total - online,
+            "stale_count": len(stale),
+            "stale_days_threshold": STALE_DAYS,
+            "offline_hours_threshold": OFFLINE_HOURS,
+        },
+        "by_app_env": {k: len(v) for k, v in by_app_env.items()},
+        "by_reason": dict(by_reason),
+        "error": None,
+    })
 
-    with state_lock:
-        report_state["last_check"] = now.isoformat()
-        report_state["check_count"] += 1
-        report_state["stale_workloads"] = stale
-        report_state["summary"] = summary
-        report_state["by_app_env"] = {k: len(v) for k, v in by_app_env.items()}
-        report_state["by_reason"] = dict(by_reason)
-        report_state["error"] = None
+    app.log.info("Check #%d: %d/%d stale (%d offline, %d managed, reasons: %s)",
+                 app.state["check_count"], len(stale), total,
+                 total - online, managed, dict(by_reason))
 
-    log.info("Check #%d: %d/%d stale (%d offline, %d managed, reasons: %s)",
-             report_state["check_count"], len(stale), total,
-             total - online, managed, dict(by_reason))
-
-    # Publish to plugger output channels
-    if len(stale) > 0:
-        try:
-            from plugger_report import publish_report
-            sev = "info" if len(stale) < 10 else "warning" if len(stale) < 50 else "critical"
-            lines = [
-                f"**{len(stale)} stale workloads** found out of {total} total",
-                f"- Offline: {total - online}",
-                f"- Managed: {managed}",
-            ]
-            for reason, count in sorted(by_reason.items(), key=lambda x: -x[1]):
-                lines.append(f"- {reason}: {count}")
-            if by_app_env:
-                top_apps = sorted(by_app_env.items(), key=lambda x: -len(x[1]))[:5]
-                lines.append("\n**Top affected apps:**")
-                for app, wls in top_apps:
-                    lines.append(f"- {app}: {len(wls)} stale")
-            publish_report(
-                title=f"{len(stale)} stale workloads detected",
-                body="\n".join(lines),
-                severity=sev,
-                tags=["stale", "workloads", "cleanup"],
-                data={"stale": len(stale), "total": total, "reasons": dict(by_reason)},
-            )
-        except Exception:
-            pass
+    if stale:
+        sev = "info" if len(stale) < 10 else "warning" if len(stale) < 50 else "critical"
+        lines = [
+            f"**{len(stale)} stale workloads** found out of {total} total",
+            f"- Offline: {total - online}",
+            f"- Managed: {managed}",
+        ]
+        for reason, count in sorted(by_reason.items(), key=lambda x: -x[1]):
+            lines.append(f"- {reason}: {count}")
+        if by_app_env:
+            top_apps = sorted(by_app_env.items(), key=lambda x: -len(x[1]))[:5]
+            lines.append("\n**Top affected apps:**")
+            for a, wls in top_apps:
+                lines.append(f"- {a}: {len(wls)} stale")
+        app.report(
+            f"{len(stale)} stale workloads detected",
+            body="\n".join(lines),
+            severity=sev,
+            tags=["stale", "workloads", "cleanup"],
+            data={"stale": len(stale), "total": total, "reasons": dict(by_reason)},
+        )
 
 
-def poller_loop(pce):
-    interval = int(os.environ.get("POLL_INTERVAL", "3600"))
-    while True:
-        try:
-            check_stale(pce)
-        except Exception:
-            log.exception("Stale check failed")
-        time.sleep(interval)
+# ---------------------------------------------------------------------------
+# API routes
+# ---------------------------------------------------------------------------
 
+@app.api("GET", "/api/stale")
+def get_stale(request):
+    data = dict(app.state)
+    data["cleanup_enabled"] = CLEANUP_ENABLED
+    return data
+
+
+@app.api("POST", "/api/cleanup/unpair")
+def cleanup_unpair(request):
+    if not CLEANUP_ENABLED:
+        return {"error": "Cleanup disabled. Set ENABLE_CLEANUP=true."}, 403
+    href = request.json.get("href", "")
+    if not href:
+        return {"error": "workload href is required"}, 400
+    try:
+        resp = app.pce.put(href, json={"agent": {"config": {"mode": "idle"}}})
+        if resp.status_code in (200, 204):
+            app.log.info("Unpaired workload: %s", href)
+            return {"success": True, "action": "unpaired"}
+        return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.api("POST", "/api/cleanup/delete")
+def cleanup_delete(request):
+    if not CLEANUP_ENABLED:
+        return {"error": "Cleanup disabled. Set ENABLE_CLEANUP=true."}, 403
+    href = request.json.get("href", "")
+    if not href:
+        return {"error": "workload href is required"}, 400
+    try:
+        resp = app.pce.delete(href)
+        if resp.status_code in (200, 204):
+            app.log.info("Deleted workload: %s", href)
+            return {"success": True, "action": "deleted"}
+        return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
 
 DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="en">
@@ -380,8 +339,6 @@ function initCharts() {
 function update(data) {
     lastData = data;
     const s = data.summary || {};
-    const stale = data.stale_workloads || [];
-
     document.getElementById('stats').innerHTML = `
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5"><div class="text-3xl font-bold text-white">${s.total_workloads||0}</div><div class="text-xs text-gray-500 mt-1">Total Workloads</div></div>
         <div class="bg-dark-800 rounded-xl border border-orange-900/30 p-5"><div class="text-3xl font-bold text-orange-400">${s.stale_count||0}</div><div class="text-xs text-gray-500 mt-1">Stale</div></div>
@@ -389,21 +346,15 @@ function update(data) {
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5"><div class="text-3xl font-bold text-green-400">${s.online||0}</div><div class="text-xs text-gray-500 mt-1">Online</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5"><div class="text-3xl font-bold text-blue-400">${s.managed||0}</div><div class="text-xs text-gray-500 mt-1">Managed</div></div>
     `;
-
-    // Reasons chart
     const reasons = data.by_reason || {};
     chartReasons.data.labels = Object.keys(reasons);
     chartReasons.data.datasets[0].data = Object.values(reasons);
     chartReasons.update('none');
-
-    // Apps chart
     const apps = Object.entries(data.by_app_env || {}).sort((a,b)=>b[1]-a[1]).slice(0,10);
     chartApps.data.labels = apps.map(a=>a[0]);
     chartApps.data.datasets[0].data = apps.map(a=>a[1]);
     chartApps.update('none');
-
     renderTable();
-
     document.getElementById('status').textContent = data.error ? 'Error: '+data.error : 'Check #'+(data.check_count||0)+' · '+timeAgo(data.last_check);
     document.getElementById('footer').textContent = 'Threshold: '+s.stale_days_threshold+'d heartbeat, '+s.offline_hours_threshold+'h offline';
 }
@@ -412,7 +363,6 @@ function renderTable() {
     const stale = (lastData||{}).stale_workloads || [];
     const q = (document.getElementById('search').value||'').toLowerCase();
     const filtered = q ? stale.filter(w => w.hostname.toLowerCase().includes(q) || w.app_env.toLowerCase().includes(q) || w.ip.includes(q)) : stale;
-
     const sevColor = {high:'red',warning:'yellow',info:'gray'};
     const canCleanup = (lastData||{}).cleanup_enabled;
     document.getElementById('table-body').innerHTML = filtered.map(w => `
@@ -440,7 +390,7 @@ async function cleanupWorkload(href, action, hostname) {
         : 'Delete workload "' + hostname + '" from PCE? This cannot be undone.';
     if (!confirm(msg)) return;
     try {
-        const resp = await fetch('/api/cleanup/' + action, {
+        const resp = await fetch(BASE+'/api/cleanup/' + action, {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({href: href})
         });
@@ -455,7 +405,7 @@ async function cleanupWorkload(href, action, hostname) {
 }
 
 async function fetchData() {
-    try { const d = await (await fetch('/api/stale')).json(); update(d); } catch(e) { console.error(e); }
+    try { const d = await (await fetch(BASE+'/api/stale')).json(); update(d); } catch(e) { console.error(e); }
 }
 
 initCharts(); fetchData(); setInterval(fetchData, 30000);
@@ -463,129 +413,9 @@ initCharts(); fetchData(); setInterval(fetchData, 30000);
 </body></html>"""
 
 
-cleanup_enabled = os.environ.get("ENABLE_CLEANUP", "false").lower() in ("true", "1")
-pce_client = None
+@app.dashboard
+def render():
+    return DASHBOARD_HTML
 
 
-def unpair_workload(href):
-    """Unpair a managed workload (removes VEN agent)."""
-    try:
-        resp = pce_client.put(href, json={"agent": {"config": {"mode": "idle"}}})
-        if resp.status_code in (200, 204):
-            log.info("Unpaired workload: %s", href)
-            return {"success": True, "action": "unpaired"}
-        return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-def delete_workload(href):
-    """Delete an unmanaged workload from PCE."""
-    try:
-        resp = pce_client.delete(href)
-        if resp.status_code in (200, 204):
-            log.info("Deleted workload: %s", href)
-            return {"success": True, "action": "deleted"}
-        return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-class StaleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == "/healthz":
-            self.send_json(200, {"status": "healthy"})
-        elif self.path == "/api/stale":
-            with state_lock:
-                data = dict(report_state)
-            data["cleanup_enabled"] = cleanup_enabled
-            self.send_json(200, data)
-        elif self.path == "/":
-            body = DASHBOARD_HTML.encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(body)
-        else:
-            self.send_error(404)
-
-    def do_POST(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length) if content_length > 0 else b""
-
-        if self.path == "/api/cleanup/unpair":
-            self.handle_cleanup(body, "unpair")
-        elif self.path == "/api/cleanup/delete":
-            self.handle_cleanup(body, "delete")
-        else:
-            self.send_error(404)
-
-    def handle_cleanup(self, body, action):
-        if not cleanup_enabled:
-            self.send_json(403, {"error": "Cleanup is disabled. Set ENABLE_CLEANUP=true to enable."})
-            return
-
-        try:
-            req = json.loads(body) if body else {}
-        except json.JSONDecodeError:
-            self.send_json(400, {"error": "Invalid JSON"})
-            return
-
-        href = req.get("href", "")
-        if not href:
-            self.send_json(400, {"error": "workload href is required"})
-            return
-
-        if action == "unpair":
-            result = unpair_workload(href)
-        elif action == "delete":
-            result = delete_workload(href)
-        else:
-            self.send_json(400, {"error": f"Unknown action: {action}"})
-            return
-
-        self.send_json(200, result)
-
-    def send_json(self, code, data):
-        body = json.dumps(data, indent=2, default=str).encode()
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, fmt, *args):
-        pass
-
-
-def main():
-    global pce_client
-
-    log.info("Starting stale-workloads...")
-    port = int(os.environ.get("HTTP_PORT", "8080"))
-
-    pce_client = get_pce()
-    pce = pce_client
-    log.info("Connected to PCE: %s", pce.base_url)
-    if cleanup_enabled:
-        log.info("Cleanup ENABLED — unpair/delete actions available")
-    else:
-        log.info("Cleanup disabled (set ENABLE_CLEANUP=true to enable)")
-
-    poller = threading.Thread(target=poller_loop, args=(pce,), daemon=True)
-    poller.start()
-    check_stale(pce)
-
-    server = HTTPServer(("0.0.0.0", port), StaleHandler)
-    log.info("Dashboard on http://0.0.0.0:%d", port)
-
-    def shutdown(signum, frame):
-        log.info("Shutting down...")
-        server.shutdown()
-
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-    server.serve_forever()
-
-
-if __name__ == "__main__":
-    main()
+app.run()
