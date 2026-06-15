@@ -59,14 +59,15 @@ func newOutputAddCmd() *cobra.Command {
 Examples:
   plugger output add my-slack --type slack --webhook https://hooks.slack.com/services/...
   plugger output add alerts --type slack --webhook https://hooks.slack.com/... --severity warning,critical
+  plugger output add my-teams --type teams --webhook https://outlook.office.com/webhook/...
   plugger output add my-webhook --type webhook --url https://api.example.com/alerts --header "Authorization=Bearer token"
-  plugger output add team-email --type email --smtp-host smtp.corp.com --to security@corp.com --schedule "0 8 * * 1" --aggregate`,
+  plugger output add team-email --type email --smtp-host smtp.corp.com --smtp-user plugger@corp.com --smtp-password-env SMTP_PASS --to security@corp.com --schedule "0 8 * * 1" --aggregate`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
 			if outputType == "" {
-				return fmt.Errorf("--type is required (slack, email, webhook)")
+				return fmt.Errorf("--type is required (slack, teams, email, webhook)")
 			}
 
 			o := config.OutputConfig{
@@ -84,6 +85,11 @@ Examples:
 			case "slack":
 				if webhook == "" {
 					return fmt.Errorf("--webhook is required for slack outputs")
+				}
+				o.Webhook = webhook
+			case "teams":
+				if webhook == "" {
+					return fmt.Errorf("--webhook is required for teams outputs")
 				}
 				o.Webhook = webhook
 			case "email":
@@ -118,7 +124,7 @@ Examples:
 					o.Headers = headerMap
 				}
 			default:
-				return fmt.Errorf("unknown output type: %s (use slack, email, or webhook)", outputType)
+				return fmt.Errorf("unknown output type: %s (use slack, teams, email, or webhook)", outputType)
 			}
 
 			store := reports.NewOutputStore(app.Config.Plugger.DataDir)

@@ -406,6 +406,8 @@ func newOutput(cfg config.OutputConfig) (Output, error) {
 	switch cfg.Type {
 	case "slack":
 		return NewSlackOutput(cfg)
+	case "teams":
+		return NewTeamsOutput(cfg)
 	case "email":
 		return NewEmailOutput(cfg)
 	case "webhook":

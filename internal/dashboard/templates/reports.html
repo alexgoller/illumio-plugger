@@ -41,6 +41,8 @@
                 <span class="text-xs px-2 py-0.5 rounded bg-purple-900/30 text-purple-400">Slack</span>
                 {{else if eq .Type "email"}}
                 <span class="text-xs px-2 py-0.5 rounded bg-blue-900/30 text-blue-400">Email</span>
+                {{else if eq .Type "teams"}}
+                <span class="text-xs px-2 py-0.5 rounded bg-indigo-900/30 text-indigo-400">Teams</span>
                 {{else if eq .Type "webhook"}}
                 <span class="text-xs px-2 py-0.5 rounded bg-cyan-900/30 text-cyan-400">Webhook</span>
                 {{end}}
@@ -113,6 +115,7 @@
                 <label class="text-sm text-gray-400 block mb-1">Type</label>
                 <select id="out-type" onchange="toggleOutputFields()" class="w-full px-3 py-1.5 bg-dark-700 border border-gray-600 rounded text-sm text-gray-200 focus:border-blue-500 focus:outline-none">
                     <option value="slack">Slack</option>
+                    <option value="teams">Microsoft Teams</option>
                     <option value="webhook">Webhook</option>
                     <option value="email">Email</option>
                 </select>
@@ -133,6 +136,15 @@
                 <div>
                     <label class="text-sm text-gray-400 block mb-1">To (comma-separated)</label>
                     <input type="text" id="out-to" placeholder="team@corp.com" class="w-full px-3 py-1.5 bg-dark-700 border border-gray-600 rounded text-sm text-gray-200 focus:border-blue-500 focus:outline-none font-mono">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 block mb-1">SMTP User (optional)</label>
+                    <input type="text" id="out-smtp-user" placeholder="plugger@corp.com" class="w-full px-3 py-1.5 bg-dark-700 border border-gray-600 rounded text-sm text-gray-200 focus:border-blue-500 focus:outline-none font-mono">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 block mb-1">SMTP Password Env Var (optional)</label>
+                    <input type="text" id="out-smtp-pass-env" placeholder="SMTP_PASSWORD" class="w-full px-3 py-1.5 bg-dark-700 border border-gray-600 rounded text-sm text-gray-200 focus:border-blue-500 focus:outline-none font-mono">
+                    <p class="text-xs text-gray-600 mt-0.5">Name of the env var containing the password, not the password itself</p>
                 </div>
             </div>
             <div>
@@ -219,7 +231,7 @@
 <script>
 function toggleOutputFields() {
     const type = document.getElementById('out-type').value;
-    document.getElementById('out-webhook-field').classList.toggle('hidden', type !== 'slack');
+    document.getElementById('out-webhook-field').classList.toggle('hidden', type !== 'slack' && type !== 'teams');
     document.getElementById('out-url-field').classList.toggle('hidden', type !== 'webhook');
     document.getElementById('out-smtp-fields').classList.toggle('hidden', type !== 'email');
 }
@@ -235,11 +247,13 @@ async function addOutput() {
     params.set('severity', document.getElementById('out-severity').value.trim());
     params.set('dry_run', document.getElementById('out-dryrun').checked ? 'true' : 'false');
 
-    if (type === 'slack') params.set('webhook', document.getElementById('out-webhook').value.trim());
+    if (type === 'slack' || type === 'teams') params.set('webhook', document.getElementById('out-webhook').value.trim());
     if (type === 'webhook') params.set('url', document.getElementById('out-url').value.trim());
     if (type === 'email') {
         params.set('smtp_host', document.getElementById('out-smtp-host').value.trim());
         params.set('to', document.getElementById('out-to').value.trim());
+        params.set('smtp_user', document.getElementById('out-smtp-user').value.trim());
+        params.set('smtp_password_env', document.getElementById('out-smtp-pass-env').value.trim());
     }
 
     try {

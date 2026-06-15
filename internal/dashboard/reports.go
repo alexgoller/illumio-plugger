@@ -130,10 +130,10 @@ func (h *Handler) handleOutputAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch outputType {
-	case "slack":
+	case "slack", "teams":
 		o.Webhook = r.FormValue("webhook")
 		if o.Webhook == "" {
-			h.json(w, http.StatusBadRequest, map[string]string{"error": "webhook URL required for Slack"})
+			h.json(w, http.StatusBadRequest, map[string]string{"error": "webhook URL required"})
 			return
 		}
 	case "email":
