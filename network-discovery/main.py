@@ -692,6 +692,10 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
     <h2 class="text-lg font-semibold text-white">Discovered IPs</h2>
     <div class="flex items-center gap-3">
       <button onclick="createSelected()" id="btn-create-selected" class="hidden px-3 py-1.5 text-sm rounded bg-green-700 hover:bg-green-600 text-white transition-colors">Create Selected</button>
+      <label class="flex items-center gap-1.5 cursor-pointer" title="JDS Knob — invert the filter">
+        <input type="checkbox" id="disc-not" onchange="renderDiscovered()" class="w-3.5 h-3.5 rounded border-gray-600 bg-dark-700 text-orange-500">
+        <span class="text-xs text-orange-400">(not)</span>
+      </label>
       <select id="disc-filter" onchange="renderDiscovered()" class="bg-dark-700 text-sm border border-gray-600 rounded px-3 py-1.5 text-gray-300">
         <option value="all">All Status</option>
         <option value="pending">Pending</option>
@@ -874,9 +878,13 @@ function renderAll(data) {
 function renderDiscovered() {
   if (!lastData) return;
   const filter = document.getElementById('disc-filter').value;
+  const notMode = document.getElementById('disc-not').checked;
   const search = document.getElementById('disc-search').value.toLowerCase();
   let items = lastData.discovered || [];
-  if (filter !== 'all') items = items.filter(d => d.status === filter);
+  if (filter !== 'all') {
+    if (notMode) items = items.filter(d => d.status !== filter);
+    else items = items.filter(d => d.status === filter);
+  }
   if (search) items = items.filter(d => d.ip.includes(search) || (d.hostname||'').toLowerCase().includes(search));
 
   const canCreate = d => d.hostname && d.status !== 'created' && d.status !== 'exists';
