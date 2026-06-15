@@ -691,6 +691,7 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
   <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-semibold text-white">Discovered IPs</h2>
     <div class="flex items-center gap-3">
+      <button onclick="createSelected()" id="btn-create-selected" class="hidden px-3 py-1.5 text-sm rounded bg-green-700 hover:bg-green-600 text-white transition-colors">Create Selected</button>
       <select id="disc-filter" onchange="renderDiscovered()" class="bg-dark-700 text-sm border border-gray-600 rounded px-3 py-1.5 text-gray-300">
         <option value="all">All Status</option>
         <option value="pending">Pending</option>
@@ -704,6 +705,7 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
   <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
     <table class="w-full text-sm">
       <thead class="sticky top-0 bg-dark-800 z-10"><tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
+        <th class="px-3 py-2 w-8"><input type="checkbox" id="disc-select-all" onchange="toggleSelectAll()" class="w-3.5 h-3.5 rounded border-gray-600 bg-dark-700 text-blue-500"></th>
         <th class="px-3 py-2">IP</th>
         <th class="px-3 py-2">Hostname</th>
         <th class="px-3 py-2">Subnet</th>
@@ -712,6 +714,7 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
         <th class="px-3 py-2">Direction</th>
         <th class="px-3 py-2">Services</th>
         <th class="px-3 py-2 text-right">Flows</th>
+        <th class="px-3 py-2 text-right">Action</th>
       </tr></thead>
       <tbody id="disc-table-body"></tbody>
     </table>
@@ -876,8 +879,10 @@ function renderDiscovered() {
   if (filter !== 'all') items = items.filter(d => d.status === filter);
   if (search) items = items.filter(d => d.ip.includes(search) || (d.hostname||'').toLowerCase().includes(search));
 
+  const canCreate = d => d.hostname && d.status !== 'created' && d.status !== 'exists';
   document.getElementById('disc-table-body').innerHTML = items.slice(0, 200).map(d => `
     <tr class="border-b border-gray-700/30 hover:bg-dark-700/30">
+      <td class="px-3 py-2">${canCreate(d) ? `<input type="checkbox" class="disc-check w-3.5 h-3.5 rounded border-gray-600 bg-dark-700 text-blue-500" data-ip="${d.ip}" onchange="updateCreateBtn()">` : ''}</td>
       <td class="px-3 py-2 font-mono text-xs text-gray-300">${d.ip}</td>
       <td class="px-3 py-2 text-xs">${d.hostname ? `<code class="text-blue-400">${d.hostname}</code>` : '<span class="text-gray-600">—</span>'}</td>
       <td class="px-3 py-2 text-xs text-gray-400">${d.subnet||'—'}</td>
@@ -886,9 +891,73 @@ function renderDiscovered() {
       <td class="px-3 py-2 text-xs text-gray-400">${(d.directions||[]).join(', ')}</td>
       <td class="px-3 py-2 text-xs text-gray-500">${(d.services||[]).join(', ')||'—'}</td>
       <td class="px-3 py-2 text-right font-mono text-xs text-gray-400">${(d.flow_count||0).toLocaleString()}</td>
+      <td class="px-3 py-2 text-right">${canCreate(d) ? `<button onclick="createOne('${d.ip}')" class="px-2 py-0.5 text-[10px] rounded bg-green-800 hover:bg-green-700 text-green-200">Create</button>` : ''}</td>
     </tr>
   `).join('');
   document.getElementById('disc-footer').textContent = `Showing ${Math.min(items.length, 200)} of ${items.length} discovered IPs`;
+  updateCreateBtn();
+}
+
+function toggleSelectAll() {
+  const checked = document.getElementById('disc-select-all').checked;
+  document.querySelectorAll('.disc-check').forEach(cb => { cb.checked = checked; });
+  updateCreateBtn();
+}
+
+function updateCreateBtn() {
+  const selected = document.querySelectorAll('.disc-check:checked').length;
+  const btn = document.getElementById('btn-create-selected');
+  if (selected > 0) {
+    btn.classList.remove('hidden');
+    btn.textContent = `Create Selected (${selected})`;
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
+async function createOne(ip) {
+  try {
+    const resp = await fetch(BASE+'/api/create', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ip: ip})
+    });
+    const result = await resp.json();
+    if (result.status === 'created') {
+      alert('Created: ' + result.hostname);
+      fetchData();
+    } else {
+      alert('Failed: ' + (result.error || 'unknown'));
+    }
+  } catch(e) { alert('Error: ' + e); }
+}
+
+async function createSelected() {
+  const checkboxes = document.querySelectorAll('.disc-check:checked');
+  const ips = Array.from(checkboxes).map(cb => cb.dataset.ip);
+  if (!ips.length) return;
+  if (!confirm(`Create ${ips.length} workload(s) on the PCE?`)) return;
+
+  const btn = document.getElementById('btn-create-selected');
+  btn.textContent = 'Creating...';
+  btn.disabled = true;
+
+  let created = 0, failed = 0;
+  for (const ip of ips) {
+    try {
+      const resp = await fetch(BASE+'/api/create', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ip: ip})
+      });
+      const result = await resp.json();
+      if (result.status === 'created') created++;
+      else failed++;
+    } catch(e) { failed++; }
+  }
+
+  alert(`Done: ${created} created, ${failed} failed`);
+  btn.disabled = false;
+  btn.classList.add('hidden');
+  fetchData();
 }
 
 function renderActivity() {
@@ -962,8 +1031,6 @@ def trigger_scan(request):
 
 @app.api("POST", "/api/create")
 def create_workload(request):
-    if MODE != "auto-create":
-        return {"error": "Plugin is in dry-run mode. Set MODE=auto-create to create workloads."}, 400
     ip = request.json.get("ip", "")
     if not ip:
         return {"error": "ip is required"}, 400
