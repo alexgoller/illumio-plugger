@@ -1573,24 +1573,35 @@ plugger:
           plugin-name: "read"   # read or write
         dashboard: true         # Allow dashboard access
 
-  # Report outputs (optional)
+  # Report outputs (optional — also manageable via CLI and dashboard)
   outputs:
-    - type: slack
-      name: alerts
-      webhook_url: https://hooks.slack.com/services/xxx
-      filters:
+    - name: slack-alerts
+      type: slack
+      webhook: https://hooks.slack.com/services/T.../B.../xxx
+      filter:
         severity: [warning, critical]
-    - type: email
-      name: digest
-      smtp_host: smtp.example.com
-      smtp_port: 587
+
+    - name: teams-channel
+      type: teams
+      webhook: https://outlook.office.com/webhook/...
+
+    - name: weekly-digest
+      type: email
+      smtpHost: smtp.example.com
+      smtpPort: 587
+      smtpUser: plugger@example.com       # optional (for SMTP auth)
+      smtpPasswordEnv: SMTP_PASSWORD      # env var name, not the value
       from: plugger@example.com
-      to: [team@example.com]
-    - type: webhook
-      name: siem
+      to: [security@example.com]
+      schedule: "0 8 * * 1"               # Monday 08:00
+      aggregate: true                     # bundle reports into digest
+
+    - name: siem-webhook
+      type: webhook
       url: https://siem.example.com/api/events
+      method: POST
       headers:
-        Authorization: "Bearer xxx"
+        Authorization: "Bearer \${API_TOKEN}"  # env var expansion
 
 # Logging
 logging:
@@ -1624,7 +1635,35 @@ logging:
 | \`auth.masterKey\` | string | | Master API key with full access |
 | \`auth.dashboard.method\` | string | \`key\` | Dashboard authentication method |
 | \`auth.dashboard.sessionTTL\` | int | \`86400\` | Session cookie TTL in seconds |
-| \`outputs\` | list | \`[]\` | Report output channel configurations |
+| \`outputs\` | list | \`[]\` | Report output channel configurations (see below) |
+
+## Output Channel Fields
+
+Each entry in \`outputs[]\` supports:
+
+| Field | Type | Used By | Description |
+|-------|------|---------|-------------|
+| \`name\` | string | all | Unique name for this output |
+| \`type\` | string | all | \`slack\`, \`teams\`, \`email\`, or \`webhook\` |
+| \`enabled\` | bool | all | Enable/disable (default: true) |
+| \`dryRun\` | bool | all | Log without sending (for testing) |
+| \`filter.severity\` | list | all | Filter by severity: \`[info, warning, critical]\` |
+| \`filter.plugins\` | list | all | Filter by plugin name (empty = all) |
+| \`filter.tags\` | list | all | Filter by report tags (empty = all) |
+| \`webhook\` | string | slack, teams | Incoming webhook URL |
+| \`smtpHost\` | string | email | SMTP server hostname |
+| \`smtpPort\` | int | email | SMTP port (default: 587) |
+| \`smtpUser\` | string | email | SMTP username (optional) |
+| \`smtpPasswordEnv\` | string | email | Env var name containing SMTP password |
+| \`from\` | string | email | Sender address |
+| \`to\` | list | email | Recipient addresses |
+| \`schedule\` | string | email | Cron expression for digest delivery |
+| \`aggregate\` | bool | email | Bundle reports into single digest |
+| \`url\` | string | webhook | HTTP endpoint URL |
+| \`method\` | string | webhook | HTTP method (default: POST) |
+| \`headers\` | map | webhook | HTTP headers (\`\${ENV_VAR}\` expansion supported) |
+
+Outputs can also be managed via CLI (\`plugger output add/list/remove/test\`) and the dashboard (/reports page). CLI/dashboard-managed outputs are stored in \`outputs.json\` and merged with config.yaml outputs at startup.
 
 ## Plugin plugin.yaml Fields
 
