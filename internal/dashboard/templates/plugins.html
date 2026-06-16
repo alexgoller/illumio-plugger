@@ -5,6 +5,13 @@
         <h1 class="text-2xl font-bold text-white">Plugins</h1>
         <p class="text-gray-400 text-sm mt-1">{{len .Plugins}} plugin{{if ne (len .Plugins) 1}}s{{end}} installed</p>
     </div>
+    <div class="flex items-center gap-3">
+        <span id="update-status" class="text-xs text-gray-500"></span>
+        <button onclick="checkForUpdates()" id="btn-check-updates"
+            class="px-3 py-1.5 text-sm rounded bg-dark-700 hover:bg-dark-700/80 border border-gray-600 text-gray-300 transition-colors">
+            Check for Updates
+        </button>
+    </div>
 </div>
 
 {{if eq (len .Plugins) 0}}
@@ -25,7 +32,9 @@
                     <a href="/plugins/{{.Name}}" class="text-white font-semibold text-lg hover:text-blue-400 transition-colors block truncate">
                         {{if and .Metadata .Metadata.Info}}{{.Metadata.Info.Title}}{{else}}{{.Name}}{{end}}
                     </a>
-                    <p class="text-gray-500 text-xs font-mono mt-0.5">{{.Name}} v{{.Manifest.Version}}</p>
+                    <p class="text-gray-500 text-xs font-mono mt-0.5">{{.Name}} v{{.Manifest.Version}}
+                        <span id="badge-update-{{.Name}}" class="hidden ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-900/50 text-orange-400 cursor-pointer" onclick="updatePlugin('{{.Name}}')">update available</span>
+                    </p>
                 </div>
                 {{if eq (printf "%s" .State) "running"}}
                 <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 shrink-0 ml-2">
@@ -205,6 +214,59 @@
 
 </div>
 {{end}}
+
+<script>
+async function checkForUpdates() {
+    const btn = document.getElementById('btn-check-updates');
+    const status = document.getElementById('update-status');
+    btn.textContent = 'Checking...';
+    btn.disabled = true;
+    status.textContent = 'Pulling images...';
+    try {
+        const resp = await fetch('/api/plugins/updates');
+        const data = await resp.json();
+        const updates = data.updates || [];
+        // Clear all badges first
+        document.querySelectorAll('[id^="badge-update-"]').forEach(el => el.classList.add('hidden'));
+        if (updates.length === 0) {
+            status.textContent = 'All plugins up to date';
+            status.className = 'text-xs text-green-400';
+        } else {
+            status.textContent = updates.length + ' update(s) available';
+            status.className = 'text-xs text-orange-400';
+            updates.forEach(u => {
+                const badge = document.getElementById('badge-update-' + u.name);
+                if (badge) badge.classList.remove('hidden');
+            });
+        }
+    } catch(e) {
+        status.textContent = 'Check failed';
+        status.className = 'text-xs text-red-400';
+    }
+    btn.textContent = 'Check for Updates';
+    btn.disabled = false;
+}
+
+async function updatePlugin(name) {
+    if (!confirm('Update "' + name + '"? This will pull the latest image and restart the plugin.')) return;
+    const badge = document.getElementById('badge-update-' + name);
+    if (badge) badge.textContent = 'updating...';
+    try {
+        const resp = await fetch('/api/plugins/' + name + '/update', {method: 'POST'});
+        const result = await resp.json();
+        if (result.status === 'updated') {
+            if (badge) { badge.textContent = 'updated!'; badge.className = badge.className.replace('bg-orange-900/50', 'bg-green-900/50').replace('text-orange-400', 'text-green-400'); }
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            alert('Update failed: ' + (result.error || 'unknown'));
+            if (badge) badge.textContent = 'update available';
+        }
+    } catch(e) {
+        alert('Update failed: ' + e);
+        if (badge) badge.textContent = 'update available';
+    }
+}
+</script>
 
 <!-- Table view -->
 <details class="mb-4">
