@@ -3582,7 +3582,7 @@ plugger install ven-fleet-manager
 
 ## Enforcement Progression Pipeline
 
-The core feature visualizes your fleet\`s journey through Illumio enforcement stages:
+The core feature visualizes your fleet's journey through Illumio enforcement stages:
 
 | Stage | Description |
 |-------|-------------|
@@ -3625,7 +3625,7 @@ curl http://localhost:8080/api/progression/preview?from=idle&to=visibility_only
 
 # Execute batch progression
 curl -X POST http://localhost:8080/api/progression/execute \\
-  -d \`{"from": "idle", "to": "visibility_only", "filter": {"app": "ordering"}}\`
+  -d '{"from": "idle", "to": "visibility_only", "filter": {"app": "ordering"}}'
 \`\`\`
 
 ## API Endpoints
@@ -3641,7 +3641,16 @@ curl -X POST http://localhost:8080/api/progression/execute \\
 | GET | \`/api/health\` | Agent health summary |
 | GET | \`/api/progression/preview\` | Preview batch progression |
 | POST | \`/api/progression/execute\` | Execute batch progression |
-| POST | \`/api/scan\` | Trigger immediate scan |`
+| POST | \`/api/scan\` | Trigger immediate scan |
+
+## Key Features
+
+- Enforcement progression funnel (idle → visibility → selective → full)
+- Compatibility check analysis before enforcement changes
+- Batch progression with preview (dry-run) mode
+- VEN version distribution and upgrade readiness
+- Agent health monitoring (errors, warnings, offline, stale heartbeats)
+- Coverage heatmap by application and environment`
 },
 "fortigate-sync": {
     title: "FortiGate Sync",
@@ -3888,7 +3897,7 @@ Three tabs:
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];
