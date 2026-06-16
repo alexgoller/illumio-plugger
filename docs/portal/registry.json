@@ -446,7 +446,7 @@
     },
     {
       "name": "network-discovery",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "image": "ghcr.io/alexgoller/plugger-network-discovery:latest",
       "description": "Scan traffic flows for unknown IPs, reverse-DNS resolve them, and create unmanaged workloads with hostname-based label inference",
       "mode": "daemon",

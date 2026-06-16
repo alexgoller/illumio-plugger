@@ -62,7 +62,7 @@ volumes:
 
 info:
   title: Network Discovery
-  version: "0.1.0"
+  version: "0.2.0"
   description: "Scan traffic flows for unknown IPs, reverse-DNS resolve them, and create unmanaged workloads with optional hostname-based label inference"
   author: Illumio
   license: Apache-2.0

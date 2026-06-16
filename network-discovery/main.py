@@ -887,7 +887,7 @@ function renderDiscovered() {
   }
   if (search) items = items.filter(d => d.ip.includes(search) || (d.hostname||'').toLowerCase().includes(search));
 
-  const canCreate = d => d.hostname && d.status !== 'created' && d.status !== 'exists';
+  const canCreate = d => d.status !== 'created' && d.status !== 'exists';
   document.getElementById('disc-table-body').innerHTML = items.slice(0, 200).map(d => `
     <tr class="border-b border-gray-700/30 hover:bg-dark-700/30">
       <td class="px-3 py-2">${canCreate(d) ? `<input type="checkbox" class="disc-check w-3.5 h-3.5 rounded border-gray-600 bg-dark-700 text-blue-500" data-ip="${d.ip}" onchange="updateCreateBtn()">` : ''}</td>
