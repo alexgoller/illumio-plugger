@@ -103,6 +103,10 @@
                     class="px-3 py-1 text-xs font-medium rounded bg-gray-600 hover:bg-gray-500 text-white transition-colors">
                     Restart
                 </button>
+                <button id="btn-update-{{.Name}}" onclick="updatePlugin('{{.Name}}')"
+                    class="hidden px-3 py-1 text-xs font-medium rounded bg-orange-600 hover:bg-orange-500 text-white transition-colors">
+                    Update
+                </button>
                 <button hx-post="/api/plugins/{{.Name}}/uninstall" hx-target="body" hx-swap="outerHTML"
                     hx-confirm="Uninstall plugin {{.Name}}? This will stop and remove the plugin."
                     class="px-3 py-1 text-xs font-medium rounded bg-gray-700 hover:bg-red-600 text-gray-400 hover:text-white transition-colors">
@@ -226,8 +230,9 @@ async function checkForUpdates() {
         const resp = await fetch('/api/plugins/updates');
         const data = await resp.json();
         const updates = data.updates || [];
-        // Clear all badges first
+        // Clear all badges and update buttons first
         document.querySelectorAll('[id^="badge-update-"]').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('[id^="btn-update-"]').forEach(el => el.classList.add('hidden'));
         if (updates.length === 0) {
             status.textContent = 'All plugins up to date';
             status.className = 'text-xs text-green-400';
@@ -237,6 +242,8 @@ async function checkForUpdates() {
             updates.forEach(u => {
                 const badge = document.getElementById('badge-update-' + u.name);
                 if (badge) badge.classList.remove('hidden');
+                const btn = document.getElementById('btn-update-' + u.name);
+                if (btn) btn.classList.remove('hidden');
             });
         }
     } catch(e) {
