@@ -357,16 +357,13 @@ class Plugin:
             def log_message(self, fmt, *args):
                 pass
 
-        # Initial poll
-        if self._poll_fn:
-            try:
-                self._poll_fn(self.pce)
-            except Exception:
-                self._log.exception("Initial poll failed")
-
-        # Poller thread
+        # Poller thread (initial poll + recurring)
         if self._poll_fn:
             def _poller():
+                try:
+                    self._poll_fn(self.pce)
+                except Exception:
+                    self._log.exception("Initial poll failed")
                 while True:
                     self._poll_event.wait(timeout=self._poll_interval)
                     self._poll_event.clear()
