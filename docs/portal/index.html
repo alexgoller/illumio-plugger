@@ -1528,18 +1528,18 @@ plugger:
   outputs:
     - type: slack
       name: security-alerts
-      webhook_url: https://hooks.slack.com/services/T.../B.../xxx
-      filters:
+      webhook: https://hooks.slack.com/services/T.../B.../xxx
+      filter:
         severity: [warning, critical]
         plugins: [ai-security-report, workload-isolator]
 
     - type: email
       name: daily-digest
-      smtp_host: smtp.example.com
-      smtp_port: 587
+      smtpHost: smtp.example.com
+      smtpPort: 587
       from: plugger@example.com
       to: [team@example.com]
-      filters:
+      filter:
         tags: [daily]
 
     - type: webhook
@@ -1553,8 +1553,9 @@ plugger:
 
 | Type | Description | Key Config |
 |------|-------------|------------|
-| **Slack** | Posts to a Slack channel via incoming webhook | \`webhook_url\` |
-| **Email** | Sends email via SMTP | \`smtp_host\`, \`from\`, \`to\` |
+| **Slack** | Posts to a Slack channel via incoming webhook | \`webhook\` |
+| **Teams** | Posts Adaptive Cards to Microsoft Teams | \`webhook\` |
+| **Email** | Sends email via SMTP (auth optional) | \`smtpHost\`, \`from\`, \`to\` |
 | **Webhook** | POSTs JSON to any HTTP endpoint | \`url\`, \`headers\` |
 
 ## Filters: Routing Reports
@@ -1576,12 +1577,11 @@ For email outputs, you can enable digest mode to batch reports:
 \`\`\`yaml
 - type: email
   name: weekly-digest
-  smtp_host: smtp.example.com
+  smtpHost: smtp.example.com
   from: plugger@example.com
   to: [manager@example.com]
-  digest:
-    schedule: "0 9 * * 1"   # Monday at 09:00
-    subject: "Weekly Plugger Report Digest"
+  schedule: "0 9 * * 1"     # Monday at 09:00
+  aggregate: true
 \`\`\`
 
 Reports are accumulated and sent as a single email on the configured schedule.
