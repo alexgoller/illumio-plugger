@@ -43,6 +43,10 @@ type Runtime interface {
 	// container, copying the file out, and cleaning up. Returns the file
 	// contents or an error if the file doesn't exist in the image.
 	CopyFromImage(ctx context.Context, image string, srcPath string) ([]byte, error)
+
+	// ImageDigest returns the repo digest of a local image (e.g., "sha256:abc...").
+	// Returns empty string if the image has no repo digest.
+	ImageDigest(ctx context.Context, image string) (string, error)
 }
 
 // CreateOpts are the options for creating a container.

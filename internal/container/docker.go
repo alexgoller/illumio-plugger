@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/netip"
 	"strconv"
+	"strings"
 	"time"
 
 	containertypes "github.com/moby/moby/api/types/container"
@@ -287,4 +288,19 @@ func (d *DockerRuntime) CopyFromImage(ctx context.Context, img string, srcPath s
 			return buf.Bytes(), nil
 		}
 	}
+}
+
+func (d *DockerRuntime) ImageDigest(ctx context.Context, image string) (string, error) {
+	inspect, err := d.cli.ImageInspect(ctx, image)
+	if err != nil {
+		return "", err
+	}
+	if len(inspect.RepoDigests) > 0 {
+		// RepoDigests looks like "ghcr.io/user/image@sha256:abc123..."
+		parts := strings.SplitN(inspect.RepoDigests[0], "@", 2)
+		if len(parts) == 2 {
+			return parts[1], nil
+		}
+	}
+	return "", nil
 }
