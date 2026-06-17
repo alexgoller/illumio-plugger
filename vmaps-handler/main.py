@@ -99,7 +99,7 @@ def build_ip_to_workload_map(workloads):
 # Import orchestration
 # ---------------------------------------------------------------------------
 
-def create_processor(scanner_type, import_file=""):
+def create_processor(scanner_type, import_file="", xorg_id=1):
     from illumio_vuln_import.nessus import NessusProXMLReportProcessor
     from illumio_vuln_import.qualys import QualysXMLReportProcessor, QualysAPIProcessor
     from illumio_vuln_import.tenable import (
@@ -108,21 +108,23 @@ def create_processor(scanner_type, import_file=""):
     )
 
     if scanner_type == "nessus-file":
-        return NessusProXMLReportProcessor(import_file)
+        return NessusProXMLReportProcessor(xorg_id, input_file=import_file)
     elif scanner_type == "qualys-file":
-        return QualysXMLReportProcessor(import_file)
+        return QualysXMLReportProcessor(xorg_id, input_file=import_file)
     elif scanner_type == "tenable-sc-csv":
-        return TenableSCCSVReportProcessor(import_file)
+        return TenableSCCSVReportProcessor(xorg_id, input_file=import_file)
     elif scanner_type == "tenable-io-csv":
-        return TenableIOCSVReportProcessor(import_file)
+        return TenableIOCSVReportProcessor(xorg_id, input_file=import_file)
     elif scanner_type == "qualys-api":
         return QualysAPIProcessor(
+            xorg_id,
             host=SCANNER_HOST,
-            username=SCANNER_USER,
+            user_name=SCANNER_USER,
             password=SCANNER_PASSWORD,
         )
     elif scanner_type == "tenable-sc-api":
         return TenableSCAPIReportProcessor(
+            xorg_id,
             host=SCANNER_HOST,
             username=SCANNER_USER,
             password=SCANNER_PASSWORD,
@@ -131,6 +133,7 @@ def create_processor(scanner_type, import_file=""):
         )
     elif scanner_type == "tenable-io-api":
         return TenableIOAPIReportProcessor(
+            xorg_id,
             host=SCANNER_HOST or "cloud.tenable.com",
             access_key=SCANNER_ACCESS_KEY,
             secret_key=SCANNER_SECRET_KEY,
@@ -157,25 +160,32 @@ def run_import(pce_client, scanner_type, import_file=""):
     try:
         # Create processor and parse/pull data
         app.log.info("Creating %s processor...", scanner_type)
-        processor = create_processor(scanner_type, import_file)
+        processor = create_processor(scanner_type, import_file, xorg_id=pce_client.org_id)
 
-        app.log.info("Processing scan data...")
-        processor.process()
+        # Set report metadata
+        processor.add_report_meta_data(
+            reference_id=REPORT_NAME,
+            name=REPORT_NAME,
+            report_type=scanner_type.split("-")[0],
+            authoritative=AUTHORITATIVE,
+            scanned_ips=[],
+        )
 
-        vulns = processor.vulnerabilities
-        detections = processor.detected_vulnerabilities
-        app.log.info("Parsed %d vulnerability definitions, %d detections", len(vulns), len(detections))
-
-        result["vulns_defined"] = len(vulns)
-        result["detections_total"] = len(detections)
+        total_detections = len(processor._detected_vulnerabilities_map)
+        result["vulns_defined"] = len(processor.vulnerabilities)
+        result["detections_total"] = total_detections
+        app.log.info("Parsed %d vulnerability definitions, %d detections",
+                     result["vulns_defined"], total_detections)
 
         # Upload vulnerability definitions in batches of 1000
-        vuln_list = list(vulns.values())
-        for i in range(0, len(vuln_list), 1000):
-            batch = vuln_list[i:i+1000]
+        vuln_payload = [
+            {"reference_id": vid, "score": v["score"], "name": v["name"], "cve_ids": v.get("cve_ids", [])}
+            for vid, v in processor.vulnerabilities.items()
+        ]
+        for i in range(0, len(vuln_payload), 1000):
+            batch = vuln_payload[i:i+1000]
             status, resp = pce_client.post_vulnerabilities(batch)
-            if status not in (200, 201, 204):
-                app.log.warning("Vuln upload batch %d: HTTP %d — %s", i//1000, status, resp)
+            app.log.info("Vuln upload batch %d: HTTP %d (%d vulns)", i//1000, status, len(batch))
 
         # Fetch workloads and build IP map
         app.log.info("Fetching workloads for IP mapping...")
@@ -184,48 +194,29 @@ def run_import(pce_client, scanner_type, import_file=""):
         result["workloads_scanned"] = len(workloads)
         app.log.info("Built IP map: %d IPs from %d workloads", len(ip_map), len(workloads))
 
-        # Match detections to workloads
-        matched = []
-        scanned_ips = set()
-        for det in detections:
-            ip = det.get("ip_address", "")
-            try:
-                ip = str(ipaddress.ip_address(ip))
-            except ValueError:
-                continue
-            scanned_ips.add(ip)
-            href = ip_map.get(ip)
-            if href:
-                matched.append({
-                    "ip_address": ip,
-                    "workload": {"href": href},
-                    "vulnerability": {"href": f"/orgs/{pce_client.org_id}/vulnerabilities/{det['vulnerability_id']}"},
-                    "port": det.get("port"),
-                    "proto": det.get("proto"),
-                })
-
+        # Associate workloads to detections (uses the prototype's method)
+        processed_ips, unassociated_ips = processor.associate_workloads_to_ips(ip_map)
+        matched = processor.detected_vulnerabilities
         result["detections_matched"] = len(matched)
-        result["detections_dropped"] = len(detections) - len(matched)
-        result["ips_scanned"] = len(scanned_ips)
+        result["detections_dropped"] = total_detections - len(matched)
+        result["ips_scanned"] = len(processed_ips) + len(unassociated_ips)
 
-        app.log.info("Matched %d/%d detections (%d IPs, %d dropped)",
-                     len(matched), len(detections), len(scanned_ips),
-                     len(detections) - len(matched))
+        app.log.info("Matched %d/%d detections (%d IPs matched, %d dropped)",
+                     len(matched), total_detections, len(processed_ips),
+                     len(unassociated_ips))
 
         # Upload report with detections
         if matched:
-            report_body = {
-                "name": REPORT_NAME,
-                "report_type": scanner_type.split("-")[0],
-                "authoritative": AUTHORITATIVE,
-                "scanned_ips": list(scanned_ips),
-                "detected_vulnerabilities": matched,
-            }
+            scanned_ip_list = list(processed_ips | unassociated_ips)
+            report_body = dict(processor.report)
+            report_body["scanned_ips"] = scanned_ip_list
+            report_body["detected_vulnerabilities"] = matched
+
             status, resp = pce_client.put_report(REPORT_NAME, report_body)
             if status in (200, 201, 204):
                 app.log.info("Report uploaded: %d detections", len(matched))
             else:
-                result["error"] = f"Report upload failed: HTTP {status}"
+                result["error"] = f"Report upload failed: HTTP {status} — {resp}"
                 app.log.error("Report upload: HTTP %d — %s", status, resp)
 
         duration = time.time() - start

@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<NessusClientData_v2>
+  <Report name="Plugger Sample Scan 2026">
+    <ReportHost name="10.30.100.5">
+      <HostProperties>
+        <tag name="host-ip">10.30.100.5</tag>
+        <tag name="operating-system">Windows Server 2019</tag>
+      </HostProperties>
+      <ReportItem port="445" protocol="tcp" severity="3" pluginID="57608" pluginName="SMB Signing Disabled">
+        <cve>CVE-2016-2183</cve>
+        <cvss3_base_score>7.5</cvss3_base_score>
+        <description>SMB signing is not required on the remote host, allowing man-in-the-middle attacks.</description>
+      </ReportItem>
+      <ReportItem port="3389" protocol="tcp" severity="2" pluginID="18405" pluginName="RDP Encryption Level">
+        <cvss3_base_score>5.3</cvss3_base_score>
+        <description>The RDP service uses a weak encryption level.</description>
+      </ReportItem>
+      <ReportItem port="0" protocol="tcp" severity="0" pluginID="11111" pluginName="OS Identification"/>
+    </ReportHost>
+    <ReportHost name="10.30.100.6">
+      <HostProperties>
+        <tag name="host-ip">10.30.100.6</tag>
+        <tag name="operating-system">Windows Server 2019</tag>
+      </HostProperties>
+      <ReportItem port="443" protocol="tcp" severity="4" pluginID="51192" pluginName="SSL Certificate Expired">
+        <cve>CVE-2021-3449</cve>
+        <cvss3_base_score>9.1</cvss3_base_score>
+        <description>The SSL certificate on this host has expired.</description>
+      </ReportItem>
+      <ReportItem port="445" protocol="tcp" severity="3" pluginID="57608" pluginName="SMB Signing Disabled">
+        <cve>CVE-2016-2183</cve>
+        <cvss3_base_score>7.5</cvss3_base_score>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="10.40.100.2">
+      <HostProperties>
+        <tag name="host-ip">10.40.100.2</tag>
+        <tag name="operating-system">CentOS 7</tag>
+      </HostProperties>
+      <ReportItem port="22" protocol="tcp" severity="2" pluginID="70658" pluginName="SSH Weak Algorithms">
+        <cvss3_base_score>5.9</cvss3_base_score>
+        <description>SSH server supports weak key exchange algorithms.</description>
+      </ReportItem>
+      <ReportItem port="80" protocol="tcp" severity="3" pluginID="42873" pluginName="Apache HTTP Server Outdated">
+        <cve>CVE-2023-25690</cve>
+        <cvss3_base_score>7.5</cvss3_base_score>
+      </ReportItem>
+    </ReportHost>
+  </Report>
+</NessusClientData_v2>
