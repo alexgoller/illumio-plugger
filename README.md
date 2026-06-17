@@ -6,14 +6,14 @@
 
 <p align="center">
 
-[![Plugins](https://img.shields.io/badge/plugins-21-blue)](https://alexgoller.github.io/illumio-plugger/)
+[![Plugins](https://img.shields.io/badge/plugins-24-blue)](https://alexgoller.github.io/illumio-plugger/)
 [![Languages](https://img.shields.io/badge/templates-Go%20%7C%20Python%20%7C%20Shell%20%7C%20JavaScript-green)](docs/plugin-development.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
 [![Portal](https://img.shields.io/badge/portal-live-brightgreen)](https://alexgoller.github.io/illumio-plugger/)
 
 </p>
 
-Plugger is a Go CLI that manages Illumio PCE extensions as Docker containers — install, schedule, health-check, auto-restart, and expose them through a unified web dashboard. No patch cycles. No custom integrations hardwired into your environment. Just `plugger install <name> && plugger run`.
+Plugger is a Go CLI that manages Illumio PCE extensions as Docker containers — install, schedule, health-check, auto-restart, and expose them through a unified web dashboard. Includes a Python SDK for rapid plugin development and a shared reporting bus (Slack/Teams/email/webhook). No patch cycles. No custom integrations hardwired into your environment. Just `plugger install <name> && plugger run`.
 
 > Community project by [Alex Goller](https://github.com/alexgoller), Illumio Solutions Architect. Not an official Illumio product.
 
@@ -64,7 +64,7 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 
 ---
 
-## All 20 Plugins
+## All 24 Plugins
 
 ### Monitoring & Visibility
 
@@ -76,6 +76,7 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 | [pce-events](pce-events/) | Real-time PCE event fan-out — Slack, Teams, PagerDuty, Email, 15+ outputs | Daemon + UI |
 | [ven-fleet-manager](ven-fleet-manager/) | VEN fleet visibility — enforcement progress, compatibility, version distribution, upgrade readiness | Daemon + UI |
 | [stale-workloads](stale-workloads/) | Find offline, unresponsive, and traffic-silent workloads — with optional cleanup | Daemon + UI |
+| [network-discovery](network-discovery/) | Scan traffic for bare IPs, reverse-DNS, create unmanaged workloads | Daemon + UI |
 
 ### AI & Security Analysis
 
@@ -85,6 +86,7 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 | [ai-assisted-rules](ai-assisted-rules/) | Policy advisor — blocked traffic analysis, tiered rule generation, label gap detection, LLM recommendations | Daemon + UI |
 | [pce-posture-report](pce-posture-report/) | Enforcement coverage, label coverage, policy rules scoring — HTML+JSON output | Cron |
 | [app-dependency-intel](app-dependency-intel/) | Application dependency graph — blast radius, SPOF detection, resiliency scoring, D3.js visualization | Daemon + UI |
+| [vmaps-handler](vmaps-handler/) | Import vulnerability scans into PCE vmaps — Nessus, Qualys, Tenable | Daemon + UI |
 
 ### Policy Management
 
@@ -105,6 +107,8 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 | [infoblox-ipam-sync](infoblox-ipam-sync/) | Bi-directional sync between Illumio labels and Infoblox extensible attributes | Daemon + UI |
 | [remedy-cmdb-sync](remedy-cmdb-sync/) | Sync BMC Helix/Remedy CMDB CIs to Illumio labels — analytics mode for feasibility testing | Daemon + UI |
 | [ad-label-sync](ad-label-sync/) | Discover AD computers via LDAP, map OU/group/location attributes to Illumio labels | Daemon + UI |
+| [fortigate-sync](fortigate-sync/) | Sync to FortiGate via RSSO + REST API | Daemon + UI |
+| [vcenter-sync](vcenter-sync/) | Bi-directional VMware vCenter sync | Daemon + UI |
 
 ---
 
@@ -136,6 +140,47 @@ plugger create -t shell my-plugin      # Shell script
 ```
 
 Each template includes a `plugin.yaml` manifest, health endpoint, Illumio credential injection, and a working Dockerfile. See [Plugin Development](docs/plugin-development.md).
+
+---
+
+## Python SDK
+
+Plugins written in Python can use `plugger_sdk.py` to eliminate boilerplate:
+
+```python
+from plugger_sdk import Plugin
+
+app = Plugin("my-plugin")
+
+@app.poll(interval_env="POLL_INTERVAL", default=3600)
+def work(pce):
+    app.state["data"] = pce.get("/workloads").json()
+
+@app.api("GET", "/api/data")
+def get_data(request):
+    return app.state
+
+@app.dashboard
+def render():
+    return "<html>...</html>"
+
+app.run()
+```
+
+The SDK handles PCE connection, health endpoints, state management, scheduled polling, API routing, and report publishing via the shared output bus.
+
+---
+
+## Reporting & Outputs
+
+Plugins publish reports to a shared bus. Plugger routes to Slack, Teams, email, or webhooks.
+
+```bash
+plugger output add my-slack --type slack --webhook https://hooks.slack.com/...
+plugger output add my-teams --type teams --webhook https://outlook.office.com/...
+plugger output list
+plugger output test my-slack
+```
 
 ---
 
