@@ -12,6 +12,21 @@ from __future__ import annotations
 
 import os
 from typing import Optional
+try:
+    from lxml import etree as _lxml_etree
+    def _parse_xml(source):
+        parser = _lxml_etree.XMLParser(recover=True)
+        return _lxml_etree.parse(source, parser)
+    def _fromstring(text):
+        parser = _lxml_etree.XMLParser(recover=True)
+        return _lxml_etree.fromstring(text, parser)
+except ImportError:
+    from xml.etree import ElementTree as _stdlib_et
+    def _parse_xml(source):
+        return _stdlib_et.parse(source)
+    def _fromstring(text):
+        return _stdlib_et.fromstring(text)
+
 from xml.etree import ElementTree as ET
 
 from .base import ACTIVE, FIXED, ReportProcessorBase, get_score
@@ -28,7 +43,7 @@ class QualysXMLReportProcessor(ReportProcessorBase):
 
         rep_file_name = os.path.splitext(os.path.basename(input_file))[0]
         try:
-            root = ET.parse(input_file).getroot()
+            root = _parse_xml(input_file).getroot()
             # Ruby's `//ASSET_DATA_REPORT` is root-inclusive; ElementTree's
             # `.//` is descendant-only, so check the root element explicitly.
             asset_data = root.tag == "ASSET_DATA_REPORT" or bool(root.findall(".//ASSET_DATA_REPORT"))
@@ -354,7 +369,7 @@ class QualysAPIProcessor(QualysXMLReportProcessor):
         if resp.status_code != 200:
             raise ScannerAPIError(f"Qualys knowledge base failed: HTTP {resp.status_code}",
                                   resp.status_code, resp.text)
-        self._parse_qid_data(ET.fromstring(resp.content))
+        self._parse_qid_data(_fromstring(resp.content))
 
     def _parse_qid_data(self, root) -> None:
         for vuln in root.findall(".//VULN"):

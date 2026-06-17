@@ -3,6 +3,16 @@
 from __future__ import annotations
 
 import os
+try:
+    from lxml import etree as _lxml_etree
+    def _parse_xml(source):
+        parser = _lxml_etree.XMLParser(recover=True)
+        return _lxml_etree.parse(source, parser)
+except ImportError:
+    from xml.etree import ElementTree as _stdlib_et
+    def _parse_xml(source):
+        return _stdlib_et.parse(source)
+
 from xml.etree import ElementTree as ET
 
 from .base import ReportProcessorBase
@@ -18,7 +28,7 @@ class NessusProXMLReportProcessor(ReportProcessorBase):
         if ilowd and not os.path.isfile(input_file):
             input_file = f"{ilowd}/{input_file}"
 
-        tree = ET.parse(input_file)
+        tree = _parse_xml(input_file)
         root = tree.getroot()
         report_node = root.find(".//Report")
         if report_node is None:
