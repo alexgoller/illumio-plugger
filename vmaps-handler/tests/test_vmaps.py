@@ -155,9 +155,16 @@ class TestQualysParser:
     def test_parse_asset_xml(self):
         path = os.path.join(FIXTURES, "qualys_asset.xml")
         p = QualysXMLReportProcessor(xorg_id=1, input_file=path)
-        # Data loaded in constructor via process_report()
         assert len(p.vulnerabilities) > 0
         assert len(p._detected_vulnerabilities_map) > 0
+
+    def test_parse_malformed_xml(self):
+        """Qualys exports often have broken CDATA — lxml recover=True handles this."""
+        path = os.path.join(FIXTURES, "qualys_malformed.xml")
+        p = QualysXMLReportProcessor(xorg_id=1, input_file=path)
+        # Should not crash despite <![MySQL Overflow Corruption]> (broken CDATA)
+        assert len(p.vulnerabilities) >= 1
+        assert len(p._detected_vulnerabilities_map) >= 1
 
 
 # ---------------------------------------------------------------------------

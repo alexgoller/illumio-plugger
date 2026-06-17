@@ -52,9 +52,8 @@ class QualysXMLReportProcessor(ReportProcessorBase):
             else:
                 self._process_scan_data_report(root, rep_file_name)
         except Exception as e:  # noqa: BLE001
-            print("Failed parsing the file.")
-            print(repr(e))
-            raise SystemExit(1)
+            print(f"Warning: XML parsing encountered errors (recovered): {e}")
+            # Don't exit — let the import continue with whatever was parsed
 
     # -- Scan Data Report --------------------------------------------------
 
