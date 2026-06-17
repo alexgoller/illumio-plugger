@@ -2,8 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -22,6 +25,15 @@ func newOutdatedCmd() *cobra.Command {
 With --pull, also checks if the remote Docker image has a newer digest
 than the local one (catches :latest tag updates).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check for plugger CLI updates
+			if latest, err := checkLatestRelease(); err == nil && latest != "" {
+				current := Version
+				if current != "dev" && current != latest {
+					fmt.Printf("Plugger update available: %s → %s\n", current, latest)
+					fmt.Printf("  Download: https://github.com/alexgoller/illumio-plugger/releases/tag/%s\n\n", latest)
+				}
+			}
+
 			plugins, err := app.Store.List()
 			if err != nil {
 				return err
@@ -154,4 +166,23 @@ than the local one (catches :latest tag updates).`,
 
 	cmd.Flags().BoolVar(&pull, "pull", false, "pull latest images and check for digest changes")
 	return cmd
+}
+
+func checkLatestRelease() (string, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("https://api.github.com/repos/alexgoller/illumio-plugger/releases/latest")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return "", err
+	}
+	return strings.TrimPrefix(release.TagName, "v"), nil
 }
