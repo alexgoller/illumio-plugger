@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 23 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 24 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -99,7 +99,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         Plugin Framework for<br><span class="gradient-text">Illumio PCE</span>
     </h1>
     <p class="text-xl text-gray-300 max-w-2xl mx-auto mb-10 fade-in fade-d1">
-        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 23 plugins.
+        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 24 plugins.
     </p>
     <div class="flex flex-wrap gap-4 justify-center fade-in fade-d2">
         <a href="#quickstart" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">Get Started</a>
@@ -116,7 +116,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">23</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">24</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Output Channels</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">Python</div><div class="text-xs text-gray-400 mt-1">SDK Included</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -218,7 +218,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (23)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (24)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -581,6 +581,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             </div>
         </div>
 
+        <!-- Vulnerability Maps Handler -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d6 cursor-pointer" data-plugin="vmaps-handler" data-categories="operations,integration" data-maturity="preview" onclick="showDocs('vmaps-handler')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Vulnerability Maps Handler</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Import vulnerability scans into Illumio PCE vmaps. Supports Nessus, Qualys, Tenable file uploads and live API pulls. IP-to-workload matching, batch upload, import history.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install vmaps-handler</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
+            </div>
+        </div>
+
     </div>
 </div>
 </section>
@@ -593,12 +609,30 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <div class="space-y-8">
 
+        <!-- v0.8.0 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg font-bold text-white">v0.8.0</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
+                </div>
+                <span class="text-sm text-gray-500">June 17, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">New Plugin</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Vulnerability Maps Handler</strong> &mdash; Import vulnerability scans from Nessus, Qualys, and Tenable into Illumio PCE vulnerability maps. Supports file uploads (Nessus XML, Qualys XML, Tenable CSV) and live API pulls (Qualys API, Tenable.sc API, Tenable.io API). IP-to-workload matching, batch upload of vuln definitions (1000 per batch), import history dashboard.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- v0.7.9 -->
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
                     <span class="text-lg font-bold text-white">v0.7.9</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
                 </div>
                 <span class="text-sm text-gray-500">June 16, 2026</span>
             </div>
@@ -856,7 +890,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
                 <div>
                     <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
                     <ul class="text-gray-300 space-y-1 ml-4 list-disc">
-                        <li><strong>Plugin maturity ratings</strong> &mdash; Four levels (example/preview/prototype/production) for all 23 plugins, with color-coded badges and filter pills on the portal</li>
+                        <li><strong>Plugin maturity ratings</strong> &mdash; Four levels (example/preview/prototype/production) for all 24 plugins, with color-coded badges and filter pills on the portal</li>
                         <li><strong>Breach radius dropdown</strong> &mdash; Replaced free-text input with live app|env tuples from PCE workloads</li>
                         <li><strong>VEN Fleet Manager</strong> &mdash; Idle-to-visibility switch with three modes: compatible only, no known issues, force all</li>
                         <li><strong>PCE object linking</strong> &mdash; HREF-to-console URL mapping pattern added to plugin creation guide and Python template</li>
@@ -2034,7 +2068,7 @@ plugger search --repo my-registry
     icon: "share",
     readme: `# Publishing Your Own Plugin Registry
 
-Plugger supports multiple plugin registries. The official registry ships with 23 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
+Plugger supports multiple plugin registries. The official registry ships with 24 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
 
 ## How Plugin Registries Work
 
@@ -3936,13 +3970,118 @@ Three tabs:
 - Rate-limited DNS queries to avoid flooding nameservers
 - IPv6 addresses are skipped (PCE workloads are IPv4)
 - Graceful handling of DNS timeouts and resolution failures`
+},
+"vmaps-handler": {
+    title: "Vulnerability Maps Handler",
+    mode: "daemon",
+    tags: ["vulnerability","vmaps","nessus","qualys","tenable","scanner","security"],
+    readme: `# Vulnerability Maps Handler
+
+Import vulnerability scan results into Illumio PCE vulnerability maps (vmaps). Vmaps overlay vulnerability data on Illumio\\'s application dependency map, giving security teams a combined view of segmentation posture and vulnerability exposure per workload.
+
+## Install
+
+\\\`\\\`\\\`bash
+plugger install vmaps-handler
+\\\`\\\`\\\`
+
+## What Are Vmaps?
+
+Illumio\\'s **Vulnerability Maps** feature enriches the dependency map with per-workload vulnerability data. Each workload can have associated vulnerability reports containing detected CVEs, severity scores, and exposure details. When vmaps data is present the Illumination map renders workloads with a vulnerability risk colour overlay, letting you see which segmentation boundaries protect vulnerable assets and where lateral movement risk is highest.
+
+This plugin automates the process of getting scan data from external vulnerability scanners into the PCE\\'s vmaps API.
+
+## Input Modes
+
+### File Import
+
+Upload scan result files directly through the dashboard or API:
+
+| Scanner Type | File Format | \\\`SCANNER_TYPE\\\` value |
+|-------------|-------------|----------------------|
+| Nessus | .nessus XML | \\\`nessus-file\\\` |
+| Qualys | XML export | \\\`qualys-file\\\` |
+| Tenable.sc | CSV export | \\\`tenable-sc-csv\\\` |
+| Tenable.io | CSV export | \\\`tenable-io-csv\\\` |
+
+### API Pull
+
+Connect directly to scanner APIs for automated, scheduled imports:
+
+| Scanner | \\\`SCANNER_TYPE\\\` value | Auth Required |
+|---------|----------------------|---------------|
+| Qualys API | \\\`qualys-api\\\` | \\\`SCANNER_HOST\\\`, \\\`SCANNER_USER\\\`, \\\`SCANNER_PASSWORD\\\` |
+| Tenable.sc API | \\\`tenable-sc-api\\\` | \\\`SCANNER_HOST\\\`, \\\`SCANNER_ACCESS_KEY\\\`, \\\`SCANNER_SECRET_KEY\\\` |
+| Tenable.io API | \\\`tenable-io-api\\\` | \\\`SCANNER_ACCESS_KEY\\\`, \\\`SCANNER_SECRET_KEY\\\` |
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \\\`SCANNER_TYPE\\\` | (required) | Scanner type: \\\`nessus-file\\\`, \\\`qualys-file\\\`, \\\`tenable-sc-csv\\\`, \\\`tenable-io-csv\\\`, \\\`qualys-api\\\`, \\\`tenable-sc-api\\\`, \\\`tenable-io-api\\\` |
+| \\\`SCANNER_HOST\\\` | (empty) | Scanner API hostname (for API pull modes) |
+| \\\`SCANNER_USER\\\` | (empty) | Scanner API username (Qualys API) |
+| \\\`SCANNER_PASSWORD\\\` | (empty) | Scanner API password (Qualys API) |
+| \\\`SCANNER_ACCESS_KEY\\\` | (empty) | Scanner API access key (Tenable.sc / Tenable.io) |
+| \\\`SCANNER_SECRET_KEY\\\` | (empty) | Scanner API secret key (Tenable.sc / Tenable.io) |
+| \\\`REPORT_NAME\\\` | \\\`plugger-vmaps\\\` | Name for the vulnerability report created in PCE |
+| \\\`AUTHORITATIVE\\\` | \\\`false\\\` | If true, the report replaces all previous vuln data for matched workloads |
+| \\\`IMPORT_FILE\\\` | (empty) | Path to scan file for file-based import (alternative to dashboard upload) |
+| \\\`POLL_INTERVAL\\\` | \\\`0\\\` | Seconds between automatic API pulls (0 = manual only) |
+
+## How the Pipeline Works
+
+1. **Parse scan** — Reads the scan file or API response and extracts raw vulnerability records
+2. **Extract vulns + detections** — Normalises each finding into a vulnerability definition (CVE ID, title, score, severity) and a detection record (which IP was affected, port, protocol)
+3. **Fetch workloads** — Pulls all managed and unmanaged workloads from the PCE with their interface IP addresses
+4. **Match IPs** — Maps each detection\\'s IP address to a PCE workload. Unmatched IPs are logged and skipped
+5. **Upload vuln definitions** — Creates or updates vulnerability definitions in the PCE in batches of 1000 to stay within API limits
+6. **Upload report with detections** — Creates a vulnerability report linking each detection to its matched workload, making the data visible in Illumination vmaps
+
+## Dashboard
+
+The plugin dashboard provides:
+
+- **Stats cards** — Total vulnerabilities imported, workloads matched, unmatched IPs, last import timestamp
+- **File upload form** — Drag-and-drop or browse to upload Nessus XML, Qualys XML, or Tenable CSV files directly from the browser
+- **Import trigger** — Button to trigger an immediate API pull (for API-mode configurations)
+- **History** — Table of all past imports with timestamp, scanner type, file name, vulnerability count, workload match count, and status
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | \\\`/api/state\\\` | Current import state: stats, history, configuration |
+| POST | \\\`/api/import\\\` | Trigger an API-based import (uses configured scanner credentials) |
+| POST | \\\`/api/upload\\\` | Upload a scan file (multipart form, field: \\\`file\\\`) |
+
+## Scanner Type Reference
+
+| Value | Mode | Description |
+|-------|------|-------------|
+| \\\`nessus-file\\\` | File | Nessus .nessus XML export |
+| \\\`qualys-file\\\` | File | Qualys XML vulnerability report |
+| \\\`tenable-sc-csv\\\` | File | Tenable.sc CSV export |
+| \\\`tenable-io-csv\\\` | File | Tenable.io CSV export |
+| \\\`qualys-api\\\` | API | Live pull from Qualys API |
+| \\\`tenable-sc-api\\\` | API | Live pull from Tenable.sc API |
+| \\\`tenable-io-api\\\` | API | Live pull from Tenable.io API |
+
+## Key Features
+
+- Batch upload of vulnerability definitions (1000 per batch) for large scan files
+- IP-to-workload matching across all PCE workload interfaces
+- Persistent import history across container restarts
+- Support for both one-shot file imports and scheduled API polling
+- Authoritative mode to replace stale vulnerability data on re-import
+- Works with managed and unmanaged workloads`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','vmaps-handler','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];
