@@ -209,6 +209,7 @@ def run_import(pce_client, scanner_type, import_file=""):
         if matched:
             scanned_ip_list = list(processed_ips | unassociated_ips)
             report_body = dict(processor.report)
+            report_body.pop("reference_id", None)
             report_body["scanned_ips"] = scanned_ip_list
             report_body["detected_vulnerabilities"] = matched
 
