@@ -263,9 +263,27 @@ After adding or modifying a plugin:
 
 2. **CI matrix** — add to `.github/workflows/build.yml` plugin matrix (unless external)
 
-3. **Portal** — add card to `docs/portal/index.html` with `data-plugin`, `data-categories`, `data-maturity` attributes
+3. **Portal** — update `docs/portal/index.html`:
+   - Add plugin card in `#plugin-grid` with `data-plugin`, `data-categories`, `data-maturity`
+   - Add PLUGIN_DOCS entry with full markdown documentation
+   - Add plugin name to docs accordion `order` array
+   - Update plugin count in All filter, meta description, hero text, stats
 
-4. **Validation** — run `python3 .github/scripts/validate-registry.py` and `python3 .github/scripts/validate-manifests.py` locally before pushing
+4. **README.md** — update the root README:
+   - Add to the plugin table in the correct category
+   - Update plugin count in badge and section heading
+   - For complex plugins: write a detailed `README.md` in the plugin directory
+
+5. **Changelog** — add entry to portal changelog section with version and date
+
+6. **Version bump** — increment version in `plugin.yaml`, `metadata.yaml`, and `registry.json`
+
+7. **Validation** — run locally before pushing:
+   ```bash
+   python3 .github/scripts/validate-registry.py
+   python3 .github/scripts/validate-manifests.py
+   node -e "..." # JS syntax check (see docs backtick memory)
+   ```
 
 ### Illumio Policy Concepts (for plugin developers)
 
