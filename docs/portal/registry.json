@@ -463,6 +463,26 @@
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/network-discovery",
       "maturity": "preview"
+    },
+    {
+      "name": "vmaps-handler",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-vmaps-handler:latest",
+      "description": "Import vulnerability scan data into Illumio PCE vulnerability maps (vmaps). Supports Nessus, Qualys, and Tenable file imports and live API pulls.",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": [
+        "vulnerability",
+        "vmaps",
+        "nessus",
+        "qualys",
+        "tenable",
+        "security"
+      ],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/vmaps-handler",
+      "maturity": "preview"
     }
   ]
 }

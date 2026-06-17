@@ -1,0 +1,51 @@
+apiVersion: plugger/v1
+name: vmaps-handler
+version: 0.1.0
+image: plugger-vmaps-handler:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: POLL_INTERVAL
+    required: false
+    default: "3600"
+  - name: SCANNER_TYPE
+    required: false
+    default: ""
+  - name: SCANNER_HOST
+    required: false
+  - name: SCANNER_USER
+    required: false
+  - name: SCANNER_PASSWORD
+    required: false
+    secret: true
+  - name: SCANNER_ACCESS_KEY
+    required: false
+    secret: true
+  - name: SCANNER_SECRET_KEY
+    required: false
+    secret: true
+  - name: REPORT_NAME
+    required: false
+    default: "plugger-vmaps"
+  - name: AUTHORITATIVE
+    required: false
+    default: "false"
+  - name: IMPORT_FILE
+    required: false
+    default: ""
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 512m
+  cpuLimit: "0.5"

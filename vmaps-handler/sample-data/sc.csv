@@ -1,0 +1,3 @@
+Plugin,Plugin Name,IP Address,Port,Protocol,Severity,CVSS V2 Base Score,CVSS V3 Base Score,CVE,Mitigated On
+19506,SSL Cert,10.0.0.5,443,tcp,High,7.0,7.5,CVE-2021-1234,
+51192,Old TLS,10.0.0.6,443,tcp,Medium,5.0,,CVE-2020-9999,2024-01-01

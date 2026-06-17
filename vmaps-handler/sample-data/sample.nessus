@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<NessusClientData_v2>
+  <Report name="My Scan 2025">
+    <ReportHost name="10.0.0.5">
+      <HostProperties>
+        <tag name="host-ip">10.0.0.5</tag>
+      </HostProperties>
+      <ReportItem port="443" protocol="tcp" severity="3" pluginID="19506" pluginName="SSL Cert">
+        <cve>CVE-2021-1234</cve>
+        <cvss3_base_score>7.5</cvss3_base_score>
+      </ReportItem>
+      <ReportItem port="0" protocol="tcp" severity="0" pluginID="11111" pluginName="Info item"/>
+    </ReportHost>
+  </Report>
+</NessusClientData_v2>

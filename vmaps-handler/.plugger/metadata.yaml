@@ -1,0 +1,73 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Vulnerability import dashboard
+    type: ui
+    path: /
+
+config:
+  - name: POLL_INTERVAL
+    description: Seconds between import cycles (for API scanner modes)
+    required: false
+    type: int
+    default: "3600"
+  - name: SCANNER_TYPE
+    description: "Scanner source: nessus-file, qualys-file, tenable-sc-csv, tenable-io-csv, qualys-api, tenable-sc-api, tenable-io-api"
+    required: false
+    type: string
+    default: ""
+  - name: SCANNER_HOST
+    description: Scanner API hostname (for API modes)
+    required: false
+    type: string
+  - name: SCANNER_USER
+    description: Scanner API username
+    required: false
+    type: string
+  - name: SCANNER_PASSWORD
+    description: Scanner API password
+    required: false
+    type: secret
+  - name: SCANNER_ACCESS_KEY
+    description: Scanner API access key (Tenable)
+    required: false
+    type: secret
+  - name: SCANNER_SECRET_KEY
+    description: Scanner API secret key (Tenable)
+    required: false
+    type: secret
+  - name: REPORT_NAME
+    description: Name for the vulnerability report in the PCE
+    required: false
+    type: string
+    default: "plugger-vmaps"
+  - name: AUTHORITATIVE
+    description: Mark report as authoritative source of truth
+    required: false
+    type: bool
+    default: "false"
+  - name: IMPORT_FILE
+    description: Path to local scan file (for file import modes)
+    required: false
+    type: string
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Import files and persistent state
+    required: false
+
+info:
+  title: Vulnerability Maps Handler
+  version: "0.1.0"
+  description: "Import vulnerability scan data into Illumio PCE vulnerability maps (vmaps). Supports Nessus, Qualys, and Tenable file imports and live API pulls."
+  author: Illumio
+  license: Apache-2.0
+  homepage: https://github.com/alexgoller/illumio-plugger/tree/main/vmaps-handler

@@ -46,6 +46,7 @@ jobs:
           - fortigate-sync
           - vcenter-sync
           - network-discovery
+          - vmaps-handler
 
     steps:
       - name: Checkout
