@@ -120,7 +120,7 @@ func DefaultDataDir() string {
 func DefaultConfig() *Config {
 	return &Config{
 		PCE: PCEConfig{
-			Port: 8443,
+			Port: 443,
 			OrgID: 1,
 		},
 		Plugger: PluggerConfig{

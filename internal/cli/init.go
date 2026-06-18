@@ -46,7 +46,7 @@ func newInitCmd() *cobra.Command {
 			}
 
 			// 3. Check for .env file
-			pceHost, pcePort, pceOrg, apiKey, apiSecret := "", "8443", "1", "", ""
+			pceHost, pcePort, pceOrg, apiKey, apiSecret := "", "443", "1", "", ""
 			envFile := findEnvFile()
 			if envFile != "" {
 				fmt.Printf("✓ Found %s\n", envFile)
@@ -92,6 +92,10 @@ func newInitCmd() *cobra.Command {
 					pceHost = prompt(reader, "PCE hostname", "")
 				} else {
 					fmt.Printf("  PCE host: %s\n", pceHost)
+				}
+				if pceHost != "" {
+					pcePort = prompt(reader, "PCE port", pcePort)
+					pceOrg = prompt(reader, "PCE org ID", pceOrg)
 				}
 				if pceHost != "" && apiKey == "" {
 					apiKey = prompt(reader, "PCE API key", "")
