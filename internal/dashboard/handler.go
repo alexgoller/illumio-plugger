@@ -80,6 +80,9 @@ func (h *Handler) Routes() *http.ServeMux {
 	// SSE log stream
 	mux.HandleFunc("GET /api/plugins/{name}/logs", h.handleLogs)
 
+	// Log download for issue filing
+	mux.HandleFunc("GET /api/plugins/{name}/logs/download", h.handleLogDownload)
+
 	// Registry
 	mux.HandleFunc("GET /registry", h.handleRegistryPage)
 	mux.HandleFunc("GET /api/registry", h.handleAPIRegistry)

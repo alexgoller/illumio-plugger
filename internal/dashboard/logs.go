@@ -64,6 +64,39 @@ func (h *Handler) handleLogs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) handleLogDownload(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	p, err := h.deps.Store.Get(name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	if p.ContainerID == "" {
+		http.Error(w, "Plugin has no container", http.StatusBadRequest)
+		return
+	}
+
+	reader, err := h.deps.Runtime.Logs(r.Context(), p.ContainerID, container.LogOpts{
+		Tail: "1000",
+	})
+	if err != nil {
+		h.serverError(w, "getting logs", err)
+		return
+	}
+	defer reader.Close()
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-logs.txt", name))
+
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := stripDockerLogHeader(scanner.Text())
+		fmt.Fprintln(w, line)
+	}
+}
+
 // stripDockerLogHeader removes the 8-byte Docker log multiplexing header
 // that prefixes each line when the container is not using a TTY.
 func stripDockerLogHeader(line string) string {

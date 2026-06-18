@@ -81,8 +81,12 @@
         <div class="bg-dark-800 rounded-lg border border-gray-700 p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-semibold text-white">Logs</h2>
-                <button onclick="document.getElementById('log-output').innerHTML=''"
-                    class="text-xs text-gray-400 hover:text-gray-300">Clear</button>
+                <div class="flex items-center gap-2">
+                    <a href="/api/plugins/{{.Plugin.Name}}/logs/download" download
+                        class="text-xs text-blue-400 hover:text-blue-300">Download Logs</a>
+                    <button onclick="document.getElementById('log-output').innerHTML=''"
+                        class="text-xs text-gray-400 hover:text-gray-300">Clear</button>
+                </div>
             </div>
             {{if eq (printf "%s" .Plugin.State) "running"}}
             <div hx-ext="sse" sse-connect="/api/plugins/{{.Plugin.Name}}/logs?follow=true&tail=100">
