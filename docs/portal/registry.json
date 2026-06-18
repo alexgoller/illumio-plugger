@@ -482,7 +482,7 @@
       ],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/vmaps-handler",
-      "maturity": "preview"
+      "maturity": "beta"
     }
   ]
 }

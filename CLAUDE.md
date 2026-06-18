@@ -223,6 +223,7 @@ The portal at `docs/portal/index.html` is a single-page static site. All updates
 **Maturity badge colors** (injected by JS):
 - production: `bg-green-500/15 text-green-300 border-green-500/30`
 - prototype: `bg-amber-500/15 text-amber-300 border-amber-500/30`
+- beta: `bg-orange-500/15 text-orange-300 border-orange-500/30`
 - preview: `bg-blue-500/15 text-blue-300 border-blue-500/30`
 - example: `bg-gray-500/15 text-gray-400 border-gray-500/30`
 
@@ -249,6 +250,7 @@ Every plugin has a maturity rating in the registry:
 |-------|---------|
 | **example** | Proof of concept, demonstrates the idea |
 | **preview** | Functional code, needs real-world validation |
+| **beta** | Feature-complete but untested in production, actively being validated |
 | **prototype** | Works end-to-end, evolving rapidly |
 | **production** | Verified against live PCE, reliable for customer environments |
 

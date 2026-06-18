@@ -231,6 +231,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         <button onclick="filterMaturity('all')" class="mat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="all">All Maturity</button>
         <button onclick="filterMaturity('production')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="production">Production</button>
         <button onclick="filterMaturity('prototype')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="prototype">Prototype</button>
+        <button onclick="filterMaturity('beta')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="beta">Beta</button>
         <button onclick="filterMaturity('preview')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="preview">Preview</button>
         <button onclick="filterMaturity('example')" class="mat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-mat="example">Example</button>
     </div>
@@ -582,12 +583,12 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         </div>
 
         <!-- Vulnerability Maps Handler -->
-        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d6 cursor-pointer" data-plugin="vmaps-handler" data-categories="operations,integration" data-maturity="preview" onclick="showDocs('vmaps-handler')">
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 glow fade-in fade-d6 cursor-pointer" data-plugin="vmaps-handler" data-categories="operations,integration" data-maturity="beta" onclick="showDocs('vmaps-handler')">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-semibold">Vulnerability Maps Handler</h3>
                 <div class="flex gap-1">
                     <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">new</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">untested</span>
                 </div>
             </div>
             <p class="text-sm text-gray-300 mb-3">Import vulnerability scans into Illumio PCE vmaps. Supports Nessus, Qualys, Tenable file uploads and live API pulls. IP-to-workload matching, batch upload, import history.</p>
@@ -4227,6 +4228,7 @@ function injectMaturityBadges() {
     const colors = {
         production: { bg: 'bg-green-500/15', text: 'text-green-300', border: 'border-green-500/30' },
         prototype: { bg: 'bg-amber-500/15', text: 'text-amber-300', border: 'border-amber-500/30' },
+        beta:      { bg: 'bg-orange-500/15', text: 'text-orange-300', border: 'border-orange-500/30' },
         preview:   { bg: 'bg-blue-500/15',  text: 'text-blue-300',  border: 'border-blue-500/30' },
         example:   { bg: 'bg-gray-500/15',  text: 'text-gray-400',  border: 'border-gray-500/30' }
     };

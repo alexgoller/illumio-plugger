@@ -142,7 +142,7 @@ def main():
             warnings += 1
 
     # Check 7: Maturity values are valid
-    valid_maturity = {"example", "preview", "prototype", "production"}
+    valid_maturity = {"example", "preview", "beta", "prototype", "production"}
     for name, entry in registry_by_name.items():
         m = entry.get("maturity", "")
         if m and m not in valid_maturity:
