@@ -6,6 +6,7 @@ file imports and live API pulls.
 """
 
 import json
+import logging
 import os
 import time
 import traceback
@@ -26,6 +27,9 @@ SCANNER_USER = app.env("SCANNER_USER", "")
 SCANNER_PASSWORD = app.env("SCANNER_PASSWORD", "")
 SCANNER_ACCESS_KEY = app.env("SCANNER_ACCESS_KEY", "")
 SCANNER_SECRET_KEY = app.env("SCANNER_SECRET_KEY", "")
+
+# Debug mode — toggled via UI or env
+debug_enabled = app.env("DEBUG", "false").lower() in ("true", "1")
 
 # File-based scanner types
 FILE_SCANNERS = {"nessus-file", "qualys-file", "tenable-sc-csv", "tenable-io-csv"}
@@ -143,9 +147,17 @@ def create_processor(scanner_type, import_file="", xorg_id=1):
 
 
 def run_import(pce_client, scanner_type, import_file=""):
+    global debug_enabled
     start = time.time()
+    log_lines = []
+
+    def dlog(msg):
+        app.log.info(msg)
+        log_lines.append(f"{datetime.now(timezone.utc).strftime('%H:%M:%S')} {msg}")
+
     result = {
         "scanner_type": scanner_type,
+        "import_file": import_file or "(none)",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "status": "running",
         "vulns_defined": 0,
@@ -155,14 +167,14 @@ def run_import(pce_client, scanner_type, import_file=""):
         "workloads_scanned": 0,
         "ips_scanned": 0,
         "error": None,
+        "debug": {},
+        "log": [],
     }
 
     try:
-        # Create processor and parse/pull data
-        app.log.info("Creating %s processor...", scanner_type)
+        dlog(f"Creating {scanner_type} processor (org={pce_client.org_id})...")
         processor = create_processor(scanner_type, import_file, xorg_id=pce_client.org_id)
 
-        # Set report metadata
         processor.add_report_meta_data(
             reference_id=REPORT_NAME,
             name=REPORT_NAME,
@@ -174,38 +186,72 @@ def run_import(pce_client, scanner_type, import_file=""):
         total_detections = len(processor._detected_vulnerabilities_map)
         result["vulns_defined"] = len(processor.vulnerabilities)
         result["detections_total"] = total_detections
-        app.log.info("Parsed %d vulnerability definitions, %d detections",
-                     result["vulns_defined"], total_detections)
+        dlog(f"Parsed: {result['vulns_defined']} vuln definitions, {total_detections} detections")
 
-        # Upload vulnerability definitions in batches of 1000
+        # Debug: sample vulns
+        if debug_enabled:
+            sample_vulns = []
+            for vid, v in list(processor.vulnerabilities.items())[:10]:
+                sample_vulns.append({"id": vid, "name": v["name"], "score": v["score"], "cves": v.get("cve_ids", [])})
+            result["debug"]["sample_vulns"] = sample_vulns
+
+            sample_dets = []
+            for dv in list(processor._detected_vulnerabilities_map.values())[:10]:
+                sample_dets.append({
+                    "ip": dv.get("ip_address"),
+                    "port": dv.get("port"),
+                    "proto": dv.get("proto"),
+                    "vuln_href": dv.get("vulnerability", {}).get("href", ""),
+                })
+            result["debug"]["sample_detections_before_match"] = sample_dets
+
+        # Upload vulnerability definitions
         vuln_payload = [
             {"reference_id": vid, "score": v["score"], "name": v["name"], "cve_ids": v.get("cve_ids", [])}
             for vid, v in processor.vulnerabilities.items()
         ]
+        upload_results = []
         for i in range(0, len(vuln_payload), 1000):
             batch = vuln_payload[i:i+1000]
             status, resp = pce_client.post_vulnerabilities(batch)
-            app.log.info("Vuln upload batch %d: HTTP %d (%d vulns)", i//1000, status, len(batch))
+            msg = f"Vuln upload batch {i//1000}: HTTP {status} ({len(batch)} vulns)"
+            dlog(msg)
+            upload_results.append({"batch": i//1000, "count": len(batch), "http": status, "response": resp[:200]})
+        result["debug"]["vuln_uploads"] = upload_results
 
         # Fetch workloads and build IP map
-        app.log.info("Fetching workloads for IP mapping...")
+        dlog("Fetching workloads for IP mapping...")
         workloads = pce_client.get_workloads()
         ip_map = build_ip_to_workload_map(workloads)
         result["workloads_scanned"] = len(workloads)
-        app.log.info("Built IP map: %d IPs from %d workloads", len(ip_map), len(workloads))
+        dlog(f"Built IP map: {len(ip_map)} IPs from {len(workloads)} workloads")
 
-        # Associate workloads to detections (uses the prototype's method)
+        if debug_enabled:
+            # Show which scan IPs exist in workload IP map
+            scan_ips = set(dv.get("ip_address", "") for dv in processor._detected_vulnerabilities_map.values())
+            matched_ips = scan_ips & set(ip_map.keys())
+            unmatched_ips = scan_ips - set(ip_map.keys())
+            result["debug"]["scan_ips"] = sorted(scan_ips)
+            result["debug"]["workload_ips_sample"] = sorted(list(ip_map.keys()))[:20]
+            result["debug"]["matched_ips"] = sorted(matched_ips)
+            result["debug"]["unmatched_ips"] = sorted(unmatched_ips)
+
+        # Associate workloads to detections
         processed_ips, unassociated_ips = processor.associate_workloads_to_ips(ip_map)
         matched = processor.detected_vulnerabilities
         result["detections_matched"] = len(matched)
         result["detections_dropped"] = total_detections - len(matched)
         result["ips_scanned"] = len(processed_ips) + len(unassociated_ips)
 
-        app.log.info("Matched %d/%d detections (%d IPs matched, %d dropped)",
-                     len(matched), total_detections, len(processed_ips),
-                     len(unassociated_ips))
+        dlog(f"Matched {len(matched)}/{total_detections} detections ({len(processed_ips)} IPs matched, {len(unassociated_ips)} dropped)")
 
-        # Upload report with detections
+        if debug_enabled and matched:
+            result["debug"]["sample_matched"] = [
+                {"ip": dv["ip_address"], "port": dv.get("port"), "workload": dv.get("workload", {}).get("href", "")}
+                for dv in matched[:10]
+            ]
+
+        # Upload report
         if matched:
             scanned_ip_list = list(processed_ips | unassociated_ips)
             report_body = dict(processor.report)
@@ -213,12 +259,23 @@ def run_import(pce_client, scanner_type, import_file=""):
             report_body["scanned_ips"] = scanned_ip_list
             report_body["detected_vulnerabilities"] = matched
 
+            if debug_enabled:
+                body_copy = dict(report_body)
+                body_copy["detected_vulnerabilities"] = f"[{len(matched)} items]"
+                body_copy["scanned_ips"] = f"[{len(scanned_ip_list)} IPs]"
+                result["debug"]["report_body_preview"] = body_copy
+
             status, resp = pce_client.put_report(REPORT_NAME, report_body)
+            dlog(f"Report upload: HTTP {status}")
+            result["debug"]["report_upload"] = {"http": status, "response": resp[:500]}
+
             if status in (200, 201, 204):
-                app.log.info("Report uploaded: %d detections", len(matched))
+                dlog(f"Report uploaded successfully: {len(matched)} detections")
             else:
                 result["error"] = f"Report upload failed: HTTP {status} — {resp}"
                 app.log.error("Report upload: HTTP %d — %s", status, resp)
+        else:
+            dlog("No matched detections to upload")
 
         duration = time.time() - start
         result["duration"] = round(duration, 1)
@@ -228,8 +285,10 @@ def run_import(pce_client, scanner_type, import_file=""):
         result["error"] = str(e)
         result["status"] = "error"
         result["duration"] = round(time.time() - start, 1)
+        log_lines.append(f"ERROR: {traceback.format_exc()}")
         app.log.exception("Import failed")
 
+    result["log"] = log_lines
     return result
 
 
@@ -294,7 +353,23 @@ def poll_import(pce):
 
 @app.api("GET", "/api/state")
 def get_state(request):
-    return app.state
+    data = dict(app.state)
+    data["debug_enabled"] = debug_enabled
+    return data
+
+@app.api("POST", "/api/debug")
+def toggle_debug(request):
+    global debug_enabled
+    debug_enabled = not debug_enabled
+    if debug_enabled:
+        logging.getLogger().setLevel(logging.DEBUG)
+        app.log.setLevel(logging.DEBUG)
+        app.log.info("Debug mode ENABLED")
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+        app.log.setLevel(logging.INFO)
+        app.log.info("Debug mode DISABLED")
+    return {"debug": debug_enabled}
 
 
 @app.api("POST", "/api/import")
@@ -366,6 +441,10 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
   </div>
   <div class="flex items-center gap-3">
     <span id="status" class="text-sm text-gray-400"></span>
+    <label class="flex items-center gap-1.5 cursor-pointer" title="Enable verbose debug logging and detailed import data">
+      <input type="checkbox" id="debug-toggle" onchange="toggleDebug()" class="w-3.5 h-3.5 rounded border-gray-600 bg-dark-700 text-orange-500">
+      <span class="text-xs text-orange-400">Debug</span>
+    </label>
     <button onclick="triggerImport()" class="px-3 py-1.5 text-sm rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors">Import Now</button>
   </div>
 </div>
@@ -398,6 +477,21 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
 <div class="bg-dark-800 rounded-xl border border-gray-700 p-6 mb-8">
   <h2 class="text-lg font-semibold text-white mb-3">Last Import</h2>
   <div id="last-import" class="text-sm text-gray-400">No imports yet</div>
+</div>
+
+<!-- Debug Details (shown when debug enabled) -->
+<div id="debug-panel" class="hidden bg-dark-800 rounded-xl border border-orange-900/30 p-6 mb-8">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold text-orange-400">Debug Details</h2>
+    <button onclick="copyDebug()" class="px-2 py-1 text-xs rounded bg-dark-700 border border-gray-600 text-gray-300">Copy for Issue</button>
+  </div>
+  <div id="debug-content" class="text-xs font-mono text-gray-400 max-h-[400px] overflow-y-auto space-y-3"></div>
+</div>
+
+<!-- Import Log -->
+<div id="log-panel" class="hidden bg-dark-800 rounded-xl border border-gray-700 p-6 mb-8">
+  <h2 class="text-lg font-semibold text-white mb-3">Import Log</h2>
+  <pre id="log-content" class="text-xs font-mono text-gray-400 max-h-[300px] overflow-y-auto bg-dark-900 rounded p-3"></pre>
 </div>
 
 <!-- Upload -->
@@ -436,6 +530,7 @@ async function fetchData() {
 }
 
 function renderAll(data) {
+  window._lastData = data;
   const last = data.last_import || {};
   document.getElementById('stat-vulns').textContent = last.vulns_defined || 0;
   document.getElementById('stat-detections').textContent = last.detections_total || 0;
@@ -472,6 +567,84 @@ function renderAll(data) {
   }).join('');
 
   document.getElementById('footer').textContent = `Import count: ${data.import_count || 0}`;
+  renderDebug(data);
+}
+
+async function toggleDebug() {
+  try {
+    const resp = await fetch(BASE+'/api/debug', {method:'POST'});
+    const r = await resp.json();
+    document.getElementById('debug-toggle').checked = r.debug;
+    fetchData();
+  } catch(e) { console.error(e); }
+}
+
+function renderDebug(data) {
+  const last = data.last_import || {};
+  const debug = last.debug || {};
+  const logLines = last.log || [];
+  const debugOn = data.debug_enabled;
+
+  document.getElementById('debug-toggle').checked = debugOn;
+  document.getElementById('debug-panel').classList.toggle('hidden', !debugOn || !Object.keys(debug).length);
+  document.getElementById('log-panel').classList.toggle('hidden', !logLines.length);
+
+  if (logLines.length) {
+    document.getElementById('log-content').textContent = logLines.join('\\n');
+  }
+
+  if (!debugOn || !Object.keys(debug).length) return;
+
+  let html = '';
+
+  if (debug.scan_ips) {
+    html += `<div><strong class="text-orange-300">Scan IPs (${debug.scan_ips.length}):</strong> <span>${debug.scan_ips.join(', ')}</span></div>`;
+  }
+  if (debug.workload_ips_sample) {
+    html += `<div><strong class="text-blue-300">Workload IPs (sample ${debug.workload_ips_sample.length}):</strong> <span>${debug.workload_ips_sample.join(', ')}</span></div>`;
+  }
+  if (debug.matched_ips) {
+    html += `<div><strong class="text-green-300">Matched IPs (${debug.matched_ips.length}):</strong> <span>${debug.matched_ips.length ? debug.matched_ips.join(', ') : 'NONE'}</span></div>`;
+  }
+  if (debug.unmatched_ips) {
+    html += `<div><strong class="text-red-300">Unmatched IPs (${debug.unmatched_ips.length}):</strong> <span>${debug.unmatched_ips.length ? debug.unmatched_ips.join(', ') : 'none'}</span></div>`;
+  }
+
+  if (debug.sample_vulns && debug.sample_vulns.length) {
+    html += '<div class="mt-2"><strong class="text-purple-300">Sample Vulns:</strong><table class="w-full mt-1 text-xs"><tr class="text-gray-500"><th class="text-left pr-2">ID</th><th class="text-left pr-2">Name</th><th>Score</th><th>CVEs</th></tr>';
+    debug.sample_vulns.forEach(v => {
+      html += `<tr><td class="pr-2 text-gray-300">${v.id}</td><td class="pr-2">${v.name}</td><td class="text-center">${v.score}</td><td>${(v.cves||[]).join(', ')}</td></tr>`;
+    });
+    html += '</table></div>';
+  }
+
+  if (debug.vuln_uploads) {
+    html += '<div class="mt-2"><strong class="text-cyan-300">Upload Results:</strong>';
+    debug.vuln_uploads.forEach(u => {
+      const color = u.http >= 200 && u.http < 300 ? 'text-green-400' : 'text-red-400';
+      html += `<div class="ml-2">Batch ${u.batch}: <span class="${color}">HTTP ${u.http}</span> (${u.count} vulns)</div>`;
+    });
+    html += '</div>';
+  }
+
+  if (debug.report_upload) {
+    const ru = debug.report_upload;
+    const color = ru.http >= 200 && ru.http < 300 ? 'text-green-400' : 'text-red-400';
+    html += `<div class="mt-2"><strong class="text-cyan-300">Report Upload:</strong> <span class="${color}">HTTP ${ru.http}</span></div>`;
+    if (ru.http >= 400) html += `<div class="ml-2 text-red-400">${ru.response}</div>`;
+  }
+
+  document.getElementById('debug-content').innerHTML = html;
+}
+
+function copyDebug() {
+  const last = (window._lastData || {}).last_import || {};
+  const text = JSON.stringify({debug: last.debug, log: last.log, result: {
+    scanner_type: last.scanner_type, status: last.status, error: last.error,
+    vulns_defined: last.vulns_defined, detections_total: last.detections_total,
+    detections_matched: last.detections_matched, detections_dropped: last.detections_dropped,
+  }}, null, 2);
+  navigator.clipboard.writeText(text).then(() => alert('Debug data copied to clipboard'));
 }
 
 async function triggerImport() {
