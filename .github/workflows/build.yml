@@ -111,6 +111,8 @@ jobs:
             goarch: amd64
           - goos: darwin
             goarch: arm64
+          - goos: windows
+            goarch: amd64
 
     steps:
       - name: Checkout
@@ -138,6 +140,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BINARY="plugger-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then BINARY="${BINARY}.exe"; fi
           go build \
             -ldflags "-X github.com/illumio/plugger/internal/cli.Version=${VERSION}" \
             -o "bin/${BINARY}" \
