@@ -398,23 +398,13 @@ func setupHealthChecker(ctx context.Context, deps *lifecycle.Deps, p *plugin.Plu
 }
 
 // resolveTLSCerts determines which TLS cert/key to use.
-// Priority: 1) BYO cert from config  2) auto-generated self-signed  3) generate on the fly
-// TLS is ON by default. Set plugger.tls.enabled: false to explicitly disable.
+// Priority: 1) Explicit enabled: false disables TLS  2) BYO cert  3) existing self-signed  4) generate
 func resolveTLSCerts(cfg *config.Config) (certFile, keyFile string) {
 	tlsCfg := cfg.Plugger.TLS
 
-	// Only skip TLS if explicitly set to false in config
-	// (Missing/zero value = enabled, since we want TLS by default)
-	if tlsCfg.CertFile == "" && tlsCfg.KeyFile == "" && !tlsCfg.Enabled {
-		// Check if there's no tls section at all (legacy config) — still enable TLS
-		// Only disable if enabled is explicitly false AND no certs configured
-		// We detect "explicitly set to false" vs "not set" by checking if certs exist
-		dataDir := cfg.Plugger.DataDir
-		if !config.TLSCertsExist(dataDir) {
-			// No certs exist and TLS not enabled in config — skip
-			return "", ""
-		}
-		// Certs exist from a previous init — use them even without config entry
+	// If explicitly disabled, never use TLS regardless of existing certs
+	if !tlsCfg.Enabled {
+		return "", ""
 	}
 
 	// BYO certificate from config (highest priority)
