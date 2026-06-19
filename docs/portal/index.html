@@ -1744,7 +1744,7 @@ The global configuration file lives at \`~/.plugger/config.yaml\`. All values ca
 # PCE connection
 pce:
   host: pce.example.com        # PCE hostname (required)
-  port: 8443                    # PCE port (default: 8443)
+  port: 443                     # PCE port (default: 443)
   orgId: 1                      # Organization ID (default: 1)
   apiKey: api_xxx               # PCE API key (required)
   apiSecret: secret_xxx         # PCE API secret (required)
@@ -1757,11 +1757,13 @@ plugger:
   webhookToken: ""              # Token for event webhook endpoint (auto-generated if empty)
   eventPollInterval: 30         # Seconds between event polls
 
-  # TLS (optional)
+  # TLS (optional — generates self-signed cert if enabled without cert/key)
+  # With self-signed: browsers show "unknown certificate" warnings until accepted
+  # Set enabled: false to use plain HTTP (recommended for local/dev use)
   tls:
     enabled: false
-    cert: /path/to/cert.pem
-    key: /path/to/key.pem
+    cert: /path/to/cert.pem     # BYO cert (optional, self-signed generated if empty)
+    key: /path/to/key.pem       # BYO key (optional)
 
   # Authentication (optional)
   auth:
@@ -1818,7 +1820,7 @@ logging:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | \`host\` | string | _(required)_ | PCE hostname or IP |
-| \`port\` | int | \`8443\` | PCE API port |
+| \`port\` | int | \`443\` | PCE API port |
 | \`orgId\` | int | \`1\` | Organization ID |
 | \`apiKey\` | string | _(required)_ | API key (starts with \`api_\`) |
 | \`apiSecret\` | string | _(required)_ | API secret |
@@ -1830,16 +1832,20 @@ logging:
 |-------|------|---------|-------------|
 | \`dataDir\` | string | \`~/.plugger\` | Root directory for all plugger data |
 | \`network\` | string | \`plugger-net\` | Docker network name for inter-plugin communication |
+| \`dockerSocket\` | string | _(auto)_ | Docker socket path (auto-detected, override for Colima/Podman) |
+| \`registry\` | string | _(official)_ | Default plugin registry URL |
 | \`webhookToken\` | string | _(auto)_ | Bearer token for the \`/api/events/trigger\` endpoint |
 | \`eventPollInterval\` | int | \`30\` | Seconds between PCE event polls |
-| \`tls.enabled\` | bool | \`false\` | Enable HTTPS for the dashboard |
-| \`tls.cert\` | string | | Path to TLS certificate file |
-| \`tls.key\` | string | | Path to TLS private key file |
+| \`tls.enabled\` | bool | \`false\` | Enable HTTPS for the dashboard (self-signed if no cert provided) |
+| \`tls.cert\` | string | | Path to TLS certificate file (BYO cert) |
+| \`tls.key\` | string | | Path to TLS private key file (BYO key) |
 | \`auth.enabled\` | bool | \`false\` | Enable API key authentication |
 | \`auth.masterKey\` | string | | Master API key with full access |
 | \`auth.dashboard.method\` | string | \`key\` | Dashboard authentication method |
 | \`auth.dashboard.sessionTTL\` | int | \`86400\` | Session cookie TTL in seconds |
 | \`outputs\` | list | \`[]\` | Report output channel configurations (see below) |
+
+**TLS note:** When \`tls.enabled: true\` without cert/key paths, plugger generates a self-signed certificate. Browsers will show "unknown certificate" or TLS handshake errors until the cert is accepted. For local/dev use, set \`tls.enabled: false\` to use plain HTTP.
 
 ## Output Channel Fields
 
