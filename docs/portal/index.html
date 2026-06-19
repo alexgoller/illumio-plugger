@@ -610,12 +610,38 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <div class="space-y-8">
 
+        <!-- v0.8.6-v0.8.8 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg font-bold text-white">v0.8.6 &ndash; v0.8.8</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
+                </div>
+                <span class="text-sm text-gray-500">June 18&ndash;19, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Beta maturity level</strong> &mdash; New orange badge for feature-complete but untested plugins. vmaps-handler marked as beta.</li>
+                        <li><strong>Windows build</strong> &mdash; CI now builds plugger-windows-amd64.exe alongside Linux and macOS binaries</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-red-400 mb-1">Bug Fixes</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>plugger init</strong> &mdash; Default port changed from 8443 to 443, now prompts for port and org ID interactively</li>
+                        <li><strong>vmaps-handler qualys.xml</strong> &mdash; Verified end-to-end import against poc3 PCE (129/129 detections matched). Previous bugs in constructor args, report body, and XML parsing all fixed in v0.8.3-v0.8.5.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- v0.8.1-v0.8.5 -->
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
                     <span class="text-lg font-bold text-white">v0.8.1 &ndash; v0.8.5</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
                 </div>
                 <span class="text-sm text-gray-500">June 17&ndash;18, 2026</span>
             </div>
