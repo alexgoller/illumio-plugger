@@ -205,12 +205,19 @@ func generatePCEEventsConfig(d *Deps, p *plugin.Plugin) {
 		pceAddr += ":" + strconv.Itoa(d.Config.PCE.Port)
 	}
 
+	pcePort := d.Config.PCE.Port
+	if pcePort == 0 {
+		pcePort = 443
+	}
+
 	configContent := fmt.Sprintf(`config:
   pce: %s
+  pce_port: %d
   pce_api_user: %s
   pce_api_secret: %s
   pce_org: %d
   pce_poll_interval: 60
+  pce_timeout: 120
   httpd: true
   httpd_listener_address: 0.0.0.0
   httpd_listener_port: 8443
@@ -227,7 +234,7 @@ watchers:
     plugin: PCEStdout
     extra_data:
       template: default.html
-`, pceAddr, d.Config.PCE.APIKey, d.Config.PCE.APISecret, d.Config.PCE.OrgID)
+`, pceAddr, pcePort, d.Config.PCE.APIKey, d.Config.PCE.APISecret, d.Config.PCE.OrgID)
 
 	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		slog.Warn("failed to write pce-events config", "error", err)
