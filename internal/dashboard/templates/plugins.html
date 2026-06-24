@@ -6,7 +6,7 @@
         <p class="text-gray-400 text-sm mt-1">{{len .Plugins}} plugin{{if ne (len .Plugins) 1}}s{{end}} installed</p>
     </div>
     <div class="flex items-center gap-3">
-        <span id="update-status" class="text-xs text-gray-500"></span>
+        <span id="update-status" class="text-xs {{if .Updates}}text-orange-400{{else}}text-gray-500{{end}}">{{if .Updates}}{{len .Updates}} update(s) available{{end}}</span>
         <button onclick="checkForUpdates()" id="btn-check-updates"
             class="px-3 py-1.5 text-sm rounded bg-dark-700 hover:bg-dark-700/80 border border-gray-600 text-gray-300 transition-colors">
             Check for Updates
@@ -33,7 +33,8 @@
                         {{if and .Metadata .Metadata.Info}}{{.Metadata.Info.Title}}{{else}}{{.Name}}{{end}}
                     </a>
                     <p class="text-gray-500 text-xs font-mono mt-0.5">{{.Name}} v{{.Manifest.Version}}
-                        <span id="badge-update-{{.Name}}" class="hidden ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-900/50 text-orange-400 cursor-pointer" onclick="updatePlugin('{{.Name}}')">update available</span>
+                        {{$u := index $.Updates .Name}}
+                        <span id="badge-update-{{.Name}}" class="{{if not $u}}hidden {{end}}ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-900/50 text-orange-400 cursor-pointer" onclick="updatePlugin('{{.Name}}')" title="{{if $u}}{{if $u.LatestVersion}}{{$u.InstalledVersion}} → {{$u.LatestVersion}}{{else}}newer image available{{end}}{{end}}">{{if and $u $u.LatestVersion}}v{{$u.LatestVersion}} available{{else}}update available{{end}}</span>
                     </p>
                 </div>
                 {{if eq (printf "%s" .State) "running"}}
@@ -104,7 +105,7 @@
                     Restart
                 </button>
                 <button id="btn-update-{{.Name}}" onclick="updatePlugin('{{.Name}}')"
-                    class="hidden px-3 py-1 text-xs font-medium rounded bg-orange-600 hover:bg-orange-500 text-white transition-colors">
+                    class="{{if not (index $.Updates .Name)}}hidden {{end}}px-3 py-1 text-xs font-medium rounded bg-orange-600 hover:bg-orange-500 text-white transition-colors">
                     Update
                 </button>
                 <button hx-post="/api/plugins/{{.Name}}/uninstall" hx-target="body" hx-swap="outerHTML"
@@ -241,7 +242,16 @@ async function checkForUpdates() {
             status.className = 'text-xs text-orange-400';
             updates.forEach(u => {
                 const badge = document.getElementById('badge-update-' + u.name);
-                if (badge) badge.classList.remove('hidden');
+                if (badge) {
+                    badge.classList.remove('hidden');
+                    if (u.latest_version) {
+                        badge.textContent = 'v' + u.latest_version + ' available';
+                        badge.title = (u.installed_version || '') + ' → ' + u.latest_version;
+                    } else {
+                        badge.textContent = 'update available';
+                        badge.title = 'newer image available';
+                    }
+                }
                 const btn = document.getElementById('btn-update-' + u.name);
                 if (btn) btn.classList.remove('hidden');
             });

@@ -147,8 +147,11 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	updates := updatesByName(loadUpdateCache(h.deps.Config.Plugger.DataDir))
+
 	data := map[string]any{
 		"Plugins": plugins,
+		"Updates": updates,
 	}
 
 	h.render(w, "layout.html", "plugins.html", data)
