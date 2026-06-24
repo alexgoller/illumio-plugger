@@ -1,6 +1,6 @@
 apiVersion: plugger/v1
 name: traffic-reporter
-version: 0.1.0
+version: 0.2.0
 image: traffic-reporter:latest
 
 schedule:
