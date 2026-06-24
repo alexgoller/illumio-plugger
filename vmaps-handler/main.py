@@ -19,7 +19,7 @@ app = Plugin("vmaps-handler")
 SCANNER_TYPE = app.env("SCANNER_TYPE", "").strip()
 IMPORT_FILE = app.env("IMPORT_FILE", "").strip()
 REPORT_NAME = app.env("REPORT_NAME", "plugger-vmaps")
-AUTHORITATIVE = app.env("AUTHORITATIVE", "false").lower() in ("true", "1")
+AUTHORITATIVE = app.env("AUTHORITATIVE", "true").lower() in ("true", "1")
 
 # Scanner API credentials
 SCANNER_HOST = app.env("SCANNER_HOST", "")
