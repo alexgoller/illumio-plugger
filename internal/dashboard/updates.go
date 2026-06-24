@@ -181,7 +181,8 @@ func truncDigest(d string) string {
 }
 
 // updatePluginImage pulls the latest image and restarts the plugin if running.
-// Returns an error describing the first failed step, or nil on success.
+// Used as a fallback for plugins not present in any registry. Returns an error
+// describing the first failed step, or nil on success.
 func (h *Handler) updatePluginImage(ctx context.Context, p *plugin.Plugin) error {
 	image := p.Manifest.Image
 	if image == "" {
@@ -198,6 +199,40 @@ func (h *Handler) updatePluginImage(ctx context.Context, p *plugin.Plugin) error
 	return nil
 }
 
+// reinstallPlugin updates a plugin by reinstalling from the registry: pull the
+// new image, refresh the manifest/metadata (preserving env overrides + enabled
+// state), then restart. The restart is handed to the owning daemon scheduler
+// when there is one, so we don't race its watch loop. Plugins not in any
+// registry fall back to a plain image pull + restart.
+func (h *Handler) reinstallPlugin(ctx context.Context, p *plugin.Plugin) error {
+	wasRunning, _, _, err := lifecycle.PrepareReinstall(ctx, h.deps, p.Name)
+	if err != nil {
+		// Not in a registry (or pull failed) — fall back to image-only update.
+		return h.updatePluginImage(ctx, p)
+	}
+
+	if !wasRunning {
+		return nil // manifest refreshed; nothing to restart
+	}
+
+	// Prefer the scheduler that owns this plugin: it reloads the manifest from
+	// the store and restarts with the new image as the single actor.
+	if h.restarter != nil && h.restarter.TriggerRestart(p.Name) {
+		return nil
+	}
+
+	// No scheduler owns it (cron/event/manual) — restart it ourselves using the
+	// freshly-stored manifest.
+	fresh, err := h.deps.Store.Get(p.Name)
+	if err != nil {
+		return err
+	}
+	if err := lifecycle.RestartPlugin(ctx, h.deps, fresh); err != nil {
+		return fmt.Errorf("restart failed: %w", err)
+	}
+	return nil
+}
+
 // handleUpdatePlugin pulls the latest image and restarts the plugin.
 func (h *Handler) handleUpdatePlugin(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
@@ -208,10 +243,10 @@ func (h *Handler) handleUpdatePlugin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 
-	if err := h.updatePluginImage(ctx, p); err != nil {
+	if err := h.reinstallPlugin(ctx, p); err != nil {
 		h.json(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 		return
 	}
@@ -247,7 +282,7 @@ func (h *Handler) handleUpdateAll(w http.ResponseWriter, r *http.Request) {
 			failed[u.Name] = "not found"
 			continue
 		}
-		if err := h.updatePluginImage(ctx, p); err != nil {
+		if err := h.reinstallPlugin(ctx, p); err != nil {
 			failed[u.Name] = err.Error()
 			continue
 		}

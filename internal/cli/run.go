@@ -154,6 +154,7 @@ This is the production way to run plugger — suitable for systemd/launchd.`,
 				if reportRouter != nil {
 					handler.SetReportRouter(reportRouter)
 				}
+				handler.SetRestarter(schedulerRestarter{schedulers: schedulers})
 				mux := handler.WrappedRoutes()
 				go func() {
 					certFile, keyFile := resolveTLSCerts(app.Config)
@@ -350,6 +351,22 @@ func hasStaleCredentials(ctx context.Context, deps *lifecycle.Deps, p *plugin.Pl
 		return true
 	}
 	return false
+}
+
+// schedulerRestarter implements dashboard.Restarter over the live scheduler set,
+// letting the dashboard hand a restart to the daemon scheduler that owns a
+// plugin instead of racing its watch loop.
+type schedulerRestarter struct {
+	schedulers map[string]scheduler.Scheduler
+}
+
+func (s schedulerRestarter) TriggerRestart(name string) bool {
+	ds, ok := s.schedulers[name].(*scheduler.DaemonScheduler)
+	if !ok {
+		return false
+	}
+	ds.TriggerRestart()
+	return true
 }
 
 // setupHealthChecker creates and starts a health checker for a daemon plugin if configured.

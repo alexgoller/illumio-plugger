@@ -17,13 +17,23 @@ import (
 	"github.com/illumio/plugger/internal/reports"
 )
 
+// Restarter lets the dashboard hand a restart back to the scheduler that owns a
+// plugin's container lifecycle, instead of racing it. Implemented in run.go over
+// the live scheduler set.
+type Restarter interface {
+	// TriggerRestart asks the scheduler managing name to restart it (reloading
+	// the manifest from the store). Returns false if no scheduler owns it.
+	TriggerRestart(name string) bool
+}
+
 // Handler serves the dashboard web UI and API.
 type Handler struct {
-	deps    *lifecycle.Deps
-	logger  *slog.Logger
-	tmpl    *template.Template
-	events  *EventRegistry
-	reports *reports.Router
+	deps      *lifecycle.Deps
+	logger    *slog.Logger
+	tmpl      *template.Template
+	events    *EventRegistry
+	reports   *reports.Router
+	restarter Restarter
 }
 
 // NewHandler creates a new dashboard handler.
@@ -47,6 +57,11 @@ func (h *Handler) SetEventRegistry(r *EventRegistry) {
 // SetReportRouter attaches the report routing system.
 func (h *Handler) SetReportRouter(r *reports.Router) {
 	h.reports = r
+}
+
+// SetRestarter attaches the scheduler-backed restart trigger.
+func (h *Handler) SetRestarter(r Restarter) {
+	h.restarter = r
 }
 
 // Routes returns the HTTP mux with all dashboard routes registered.

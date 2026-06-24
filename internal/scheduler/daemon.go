@@ -41,9 +41,23 @@ func NewDaemonScheduler(deps *lifecycle.Deps, p *plugin.Plugin) *DaemonScheduler
 
 func (d *DaemonScheduler) Name() string { return d.plugin.Name }
 
+// reloadFromStore refreshes the scheduler's plugin snapshot from the store so
+// that external changes (CLI upgrade, dashboard reinstall) are picked up on the
+// next (re)start. Runtime fields like ContainerID are re-derived by StartPlugin.
+func (d *DaemonScheduler) reloadFromStore() {
+	if fresh, err := d.deps.Store.Get(d.plugin.Name); err == nil && fresh != nil {
+		d.mu.Lock()
+		d.plugin = fresh
+		d.mu.Unlock()
+	}
+}
+
 // Start launches the plugin and watches for crashes.
 func (d *DaemonScheduler) Start(ctx context.Context) error {
 	ctx, d.cancel = context.WithCancel(ctx)
+
+	// Pick up any manifest changes made while the daemon was down.
+	d.reloadFromStore()
 
 	// Initial start
 	if err := lifecycle.StartPlugin(ctx, d.deps, d.plugin); err != nil {
@@ -104,6 +118,9 @@ func (d *DaemonScheduler) watchLoop(ctx context.Context) {
 					}
 				case <-d.restartCh:
 					slog.Info("forced restart requested", "plugin", d.plugin.Name)
+					// Reload first so StopPlugin persists the current manifest
+					// (e.g. after a reinstall) instead of our stale snapshot.
+					d.reloadFromStore()
 					_ = lifecycle.StopPlugin(ctx, d.deps, d.plugin)
 				}
 			}
@@ -143,6 +160,9 @@ func (d *DaemonScheduler) watchLoop(ctx context.Context) {
 			return
 		case <-time.After(backoff):
 		}
+
+		// Pick up any manifest/image changes (e.g. a reinstall) before restart.
+		d.reloadFromStore()
 
 		if err := lifecycle.StartPlugin(ctx, d.deps, d.plugin); err != nil {
 			slog.Error("restart failed", "plugin", d.plugin.Name, "error", err)
