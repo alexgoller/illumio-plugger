@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -55,6 +56,10 @@ func (h *Handler) Routes() *http.ServeMux {
 	// Static assets
 	mux.HandleFunc("GET /logo.png", h.handleLogo)
 	mux.HandleFunc("GET /logo.svg", h.handleLogoSVG)
+
+	// Customer branding assets
+	brandDir := filepath.Join(h.deps.Config.Plugger.DataDir, "brand")
+	mux.Handle("/brand/", http.StripPrefix("/brand/", http.FileServer(http.Dir(brandDir))))
 
 	// HTML pages
 	mux.HandleFunc("GET /{$}", h.handleIndex)

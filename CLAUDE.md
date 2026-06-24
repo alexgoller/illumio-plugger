@@ -191,6 +191,22 @@ In HTML: `<a href="${url}" target="_blank" class="text-blue-400 hover:underline"
 
 Be reasonable with poll intervals — the PCE is a shared platform serving many consumers. Default to 3600s (1 hour) for most plugins. Shorter intervals are fine when justified (e.g., event listeners, active incident response), but don't poll aggressively without a good reason. Multiple plugins each polling at 30s adds up fast.
 
+### Customer Branding
+
+Plugger serves brand assets from `~/.plugger/brand/` at `/brand/*`. Plugins opt in by referencing these URLs in their HTML.
+
+**Setup**: Drop files into `~/.plugger/brand/`:
+- `logo.png` / `logo.svg` — customer logo
+- `style.css` — CSS overrides (colors, fonts, header bar)
+- `config.json` — `{"company": "Acme Corp", "primaryColor": "#1a5f7a"}`
+
+**Plugin opt-in** (one line in dashboard HTML):
+```html
+<link rel="stylesheet" href="/brand/style.css" onerror="this.remove()">
+```
+
+The `onerror="this.remove()"` makes it a no-op when no brand directory exists (404 → stylesheet removed). Plugins that don't reference `/brand/*` are unaffected.
+
 ### Dashboard UI Pattern
 
 Plugins with `type: ui` ports use this standard stack:
