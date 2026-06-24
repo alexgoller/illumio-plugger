@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
-	"syscall"
 )
 
 // Store provides persistent storage for plugin state backed by a JSON file.
@@ -103,10 +102,10 @@ func (s *Store) save(plugins map[string]*Plugin) error {
 	defer lockFile.Close()
 	defer os.Remove(lockPath)
 
-	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
+	if err := lockFileExclusive(lockFile); err != nil {
 		return fmt.Errorf("acquiring store lock: %w", err)
 	}
-	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
+	defer unlockFile(lockFile)
 
 	if err := s.atomicWrite(s.path, data); err != nil {
 		return fmt.Errorf("writing plugin store: %w", err)
