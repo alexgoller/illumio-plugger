@@ -360,6 +360,61 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
+    <!-- Squelch Rules -->
+    <div class="bg-dark-800 rounded-xl border border-gray-700 p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <h2 class="text-lg font-semibold text-white">Squelch Rules</h2>
+                <span id="squelch-count" class="text-xs px-2 py-0.5 rounded bg-orange-900/30 text-orange-400"></span>
+            </div>
+            <button onclick="document.getElementById('squelch-add').classList.toggle('hidden')" class="text-xs text-blue-400 hover:text-blue-300 cursor-pointer">Add Rule</button>
+        </div>
+        <div id="squelch-add" class="hidden mb-4 bg-dark-900 rounded-lg p-4 border border-gray-700">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                <div>
+                    <label class="text-xs text-gray-500 block mb-1">Type</label>
+                    <select id="sq-type" onchange="toggleSqFields()" class="w-full bg-dark-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300">
+                        <option value="service">Service (port)</option>
+                        <option value="ip">IP Address</option>
+                        <option value="subnet">Subnet (CIDR)</option>
+                        <option value="hostname">Hostname (regex)</option>
+                        <option value="decision">Decision</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 block mb-1">Label</label>
+                    <input type="text" id="sq-label" placeholder="DNS noise" class="w-full bg-dark-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200">
+                </div>
+                <div id="sq-port-field">
+                    <label class="text-xs text-gray-500 block mb-1">Port</label>
+                    <input type="number" id="sq-port" placeholder="53" class="w-full bg-dark-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200">
+                </div>
+                <div id="sq-proto-field">
+                    <label class="text-xs text-gray-500 block mb-1">Protocol</label>
+                    <select id="sq-proto" class="w-full bg-dark-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300">
+                        <option value="">Any</option>
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                    </select>
+                </div>
+                <div id="sq-pattern-field" class="hidden">
+                    <label class="text-xs text-gray-500 block mb-1">Pattern / CIDR</label>
+                    <input type="text" id="sq-pattern" placeholder="10.0.0.1 or .*-monitor-.*" class="w-full bg-dark-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200">
+                </div>
+                <div id="sq-decision-field" class="hidden">
+                    <label class="text-xs text-gray-500 block mb-1">Decision</label>
+                    <select id="sq-decision" class="w-full bg-dark-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300">
+                        <option value="allowed">Allowed</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="potentially_blocked">Potentially Blocked</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="addSqRule()" class="px-3 py-1 text-sm rounded bg-blue-700 hover:bg-blue-600 text-white">Add</button>
+        </div>
+        <div id="squelch-list" class="space-y-2"></div>
+    </div>
+
     <div class="text-center text-xs text-gray-600" id="footer"></div>
 </div>
 
@@ -398,6 +453,7 @@ function update(data) {
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5"><div class="text-3xl font-bold text-green-400">${formatNum(d.allowed||0)}</div><div class="text-xs text-gray-500 mt-1">Allowed</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5"><div class="text-3xl font-bold text-red-400">${formatNum(blockedConn)}</div><div class="text-xs text-gray-500 mt-1">Blocked</div></div>
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-5"><div class="text-3xl font-bold text-yellow-400">${totalConn?Math.round(blockedConn/totalConn*100):0}%</div><div class="text-xs text-gray-500 mt-1">Block Rate</div></div>
+        ${data.squelched ? `<div class="bg-dark-800 rounded-xl border border-orange-900/30 p-5"><div class="text-3xl font-bold text-orange-400">${formatNum(data.squelched)}</div><div class="text-xs text-gray-500 mt-1">Squelched</div></div>` : ''}
     `;
 
     const decLabels = Object.keys(d);
@@ -434,6 +490,59 @@ function update(data) {
 
     document.getElementById('status').textContent = 'Poll #'+(data.poll_count||0)+' · '+(data.last_poll?new Date(data.last_poll).toLocaleTimeString():'never');
     document.getElementById('footer').textContent = data.total_flows+' flows · '+(data.top_sources||[]).length+' sources · '+(data.top_destinations||[]).length+' destinations';
+
+    // Squelch rules
+    const rules = data.squelch_rules || [];
+    const sqCount = data.squelched || 0;
+    document.getElementById('squelch-count').textContent = sqCount ? sqCount+' flows hidden' : 'none active';
+    document.getElementById('squelch-list').innerHTML = rules.length ? rules.map((r, i) => {
+        const color = r.enabled ? 'border-orange-800/50' : 'border-gray-700 opacity-50';
+        return `<div class="flex items-center justify-between px-3 py-2 rounded border ${color} bg-dark-900">
+            <div class="flex items-center gap-3">
+                <span class="text-xs px-1.5 py-0.5 rounded bg-dark-700 text-gray-400">${r.type}</span>
+                <span class="text-sm text-gray-300">${r.label || r.type}</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSq(${i})" class="text-xs px-2 py-0.5 rounded ${r.enabled ? 'bg-orange-800 text-orange-200' : 'bg-gray-700 text-gray-400'}">${r.enabled ? 'On' : 'Off'}</button>
+                <button onclick="removeSq(${i})" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-red-800 text-gray-400 hover:text-red-200">x</button>
+            </div>
+        </div>`;
+    }).join('') : '<p class="text-xs text-gray-600">No squelch rules configured. Click "Add Rule" to filter noise.</p>';
+}
+
+function toggleSqFields() {
+    const t = document.getElementById('sq-type').value;
+    document.getElementById('sq-port-field').classList.toggle('hidden', t !== 'service');
+    document.getElementById('sq-proto-field').classList.toggle('hidden', t !== 'service');
+    document.getElementById('sq-pattern-field').classList.toggle('hidden', t !== 'ip' && t !== 'subnet' && t !== 'hostname');
+    document.getElementById('sq-decision-field').classList.toggle('hidden', t !== 'decision');
+}
+
+async function addSqRule() {
+    const t = document.getElementById('sq-type').value;
+    const label = document.getElementById('sq-label').value.trim();
+    const body = {type: t, label: label};
+    if (t === 'service') { body.port = parseInt(document.getElementById('sq-port').value) || null; body.proto = document.getElementById('sq-proto').value; }
+    else if (t === 'ip') body.pattern = document.getElementById('sq-pattern').value.trim();
+    else if (t === 'subnet') body.cidr = document.getElementById('sq-pattern').value.trim();
+    else if (t === 'hostname') body.pattern = document.getElementById('sq-pattern').value.trim();
+    else if (t === 'decision') body.value = document.getElementById('sq-decision').value;
+    try {
+        await fetch(BASE+'/api/squelch/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        document.getElementById('sq-label').value = '';
+        document.getElementById('squelch-add').classList.add('hidden');
+        fetchData();
+    } catch(e) { alert('Failed: '+e); }
+}
+
+async function toggleSq(idx) {
+    await fetch(BASE+'/api/squelch/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:idx})});
+    fetchData();
+}
+
+async function removeSq(idx) {
+    await fetch(BASE+'/api/squelch/remove', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:idx})});
+    fetchData();
 }
 
 async function fetchData() {
