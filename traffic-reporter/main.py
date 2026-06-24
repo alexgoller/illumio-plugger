@@ -6,8 +6,10 @@ Uses Chart.js for interactive graphs showing policy decisions, top talkers,
 services, and blocked flow analysis.
 """
 
+import ipaddress
 import json
 import os
+import re
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 
@@ -18,6 +20,74 @@ app = Plugin("traffic-reporter")
 
 LOOKBACK_HOURS = int(app.env("LOOKBACK_HOURS", "24"))
 MAX_RESULTS = int(app.env("MAX_RESULTS", "10000"))
+
+# ---------------------------------------------------------------------------
+# Squelch / mute rules
+# ---------------------------------------------------------------------------
+
+SQUELCH_RULES = []
+_squelch_raw = app.env("SQUELCH_RULES", "").strip()
+if _squelch_raw:
+    try:
+        for rule in json.loads(_squelch_raw):
+            r = {"type": rule.get("type", ""), "label": rule.get("label", ""), "enabled": True}
+            if r["type"] == "service":
+                r["port"] = rule.get("port")
+                r["proto"] = rule.get("proto", "").lower()
+            elif r["type"] == "ip":
+                r["pattern"] = rule.get("pattern", "")
+            elif r["type"] == "subnet":
+                r["network"] = ipaddress.ip_network(rule.get("cidr", "0.0.0.0/0"), strict=False)
+            elif r["type"] == "hostname":
+                r["regex"] = re.compile(rule.get("pattern", ""), re.IGNORECASE)
+            elif r["type"] == "decision":
+                r["value"] = rule.get("value", "")
+            SQUELCH_RULES.append(r)
+        app.log.info("Loaded %d squelch rules", len(SQUELCH_RULES))
+    except Exception as e:
+        app.log.warning("Failed to parse SQUELCH_RULES: %s", e)
+
+# Runtime-managed squelch (toggleable via API)
+squelch_state = {"rules": list(SQUELCH_RULES), "squelched_count": 0}
+
+
+def is_squelched(flow, src_name, dst_name, svc_port, svc_proto, decision):
+    for rule in squelch_state["rules"]:
+        if not rule.get("enabled", True):
+            continue
+        t = rule["type"]
+        if t == "service":
+            if rule.get("port") is not None and svc_port == rule["port"]:
+                proto_match = not rule.get("proto") or svc_proto == rule["proto"]
+                if proto_match:
+                    return True
+        elif t == "ip":
+            pat = rule.get("pattern", "")
+            if pat and (pat == src_name or pat == dst_name):
+                return True
+            src_ip = flow.get("src", {}).get("ip", "")
+            dst_ip = flow.get("dst", {}).get("ip", "")
+            if pat and (pat == src_ip or pat == dst_ip):
+                return True
+        elif t == "subnet":
+            net = rule.get("network")
+            if net:
+                for side in ("src", "dst"):
+                    ip = flow.get(side, {}).get("ip", "")
+                    if ip:
+                        try:
+                            if ipaddress.ip_address(ip) in net:
+                                return True
+                        except ValueError:
+                            pass
+        elif t == "hostname":
+            rx = rule.get("regex")
+            if rx and (rx.search(src_name) or rx.search(dst_name)):
+                return True
+        elif t == "decision":
+            if rule.get("value") and decision == rule["value"]:
+                return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +158,7 @@ def poll_traffic(pce):
             return f"{a}|{e}" if a and e else (a or e)
         return None
 
+    squelched = 0
     for flow in flows:
         src = flow.get("src", {})
         dst = flow.get("dst", {})
@@ -96,12 +167,20 @@ def poll_traffic(pce):
         src_name = (src.get("workload", {}) or {}).get("hostname", "") or src.get("ip", "unknown") if isinstance(src, dict) else "unknown"
         dst_name = (dst.get("workload", {}) or {}).get("hostname", "") or dst.get("ip", "unknown") if isinstance(dst, dict) else "unknown"
 
-        src_group = extract_label_group(src) or src_name
-        dst_group = extract_label_group(dst) or dst_name
-
         port = service.get("port", "?") if isinstance(service, dict) else "?"
         proto = service.get("proto", "?") if isinstance(service, dict) else "?"
         svc_name = f"{port}/{proto}"
+        decision = flow.get("policy_decision", "unknown")
+
+        # Apply squelch rules
+        proto_name = {6: "tcp", 17: "udp"}.get(proto, str(proto)) if isinstance(proto, int) else str(proto)
+        port_int = int(port) if isinstance(port, int) or (isinstance(port, str) and port.isdigit()) else None
+        if is_squelched(flow, src_name, dst_name, port_int, proto_name, decision):
+            squelched += 1
+            continue
+
+        src_group = extract_label_group(src) or src_name
+        dst_group = extract_label_group(dst) or dst_name
 
         num_connections = flow.get("num_connections", 1)
 
@@ -111,7 +190,6 @@ def poll_traffic(pce):
         src_svc_links[(src_group, svc_name)] += num_connections
         svc_dst_links[(svc_name, dst_group)] += num_connections
 
-        decision = flow.get("policy_decision", "unknown")
         decisions[decision] += num_connections
 
         if decision in ("blocked", "potentially_blocked"):
@@ -129,21 +207,26 @@ def poll_traffic(pce):
     for (svc, dst), count in svc_dst_links.most_common(30):
         sankey.append({"from": svc, "to": dst + " ", "flow": count})
 
+    squelch_state["squelched_count"] = squelched
+
     app.update_state({
         "last_poll": datetime.now(timezone.utc).isoformat(),
         "poll_count": app.state.get("poll_count", 0) + 1,
         "total_flows": len(flows),
+        "squelched": squelched,
+        "visible_flows": len(flows) - squelched,
         "top_sources": src_counter.most_common(20),
         "top_destinations": dst_counter.most_common(20),
         "top_services": svc_counter.most_common(20),
         "blocked_flows": sorted(blocked, key=lambda x: x["connections"], reverse=True)[:50],
         "policy_decisions": dict(decisions),
         "sankey_links": sankey,
+        "squelch_rules": [{"type": r["type"], "label": r.get("label", ""), "enabled": r.get("enabled", True)} for r in squelch_state["rules"]],
         "error": None,
     })
 
-    app.log.info("Poll #%d: %d flows, %d blocked",
-                 app.state["poll_count"], len(flows), len(blocked))
+    app.log.info("Poll #%d: %d flows (%d squelched), %d blocked",
+                 app.state["poll_count"], len(flows), squelched, len(blocked))
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +236,58 @@ def poll_traffic(pce):
 @app.api("GET", "/api/traffic")
 def get_traffic(request):
     return app.state
+
+
+@app.api("GET", "/api/squelch")
+def get_squelch(request):
+    return {"rules": squelch_state["rules"], "squelched_count": squelch_state["squelched_count"]}
+
+
+@app.api("POST", "/api/squelch/add")
+def add_squelch(request):
+    rule = request.json
+    if not rule.get("type"):
+        return {"error": "type is required"}, 400
+    r = {"type": rule["type"], "label": rule.get("label", ""), "enabled": True}
+    if r["type"] == "service":
+        r["port"] = rule.get("port")
+        r["proto"] = rule.get("proto", "").lower()
+    elif r["type"] == "ip":
+        r["pattern"] = rule.get("pattern", "")
+    elif r["type"] == "subnet":
+        try:
+            r["network"] = ipaddress.ip_network(rule.get("cidr", ""), strict=False)
+        except ValueError:
+            return {"error": "invalid CIDR"}, 400
+    elif r["type"] == "hostname":
+        try:
+            r["regex"] = re.compile(rule.get("pattern", ""), re.IGNORECASE)
+        except re.error:
+            return {"error": "invalid regex"}, 400
+    elif r["type"] == "decision":
+        r["value"] = rule.get("value", "")
+    squelch_state["rules"].append(r)
+    app.log.info("Added squelch rule: %s (%s)", r["type"], r.get("label", ""))
+    return {"status": "added", "total_rules": len(squelch_state["rules"])}
+
+
+@app.api("POST", "/api/squelch/toggle")
+def toggle_squelch(request):
+    idx = request.json.get("index")
+    if idx is None or idx < 0 or idx >= len(squelch_state["rules"]):
+        return {"error": "invalid index"}, 400
+    squelch_state["rules"][idx]["enabled"] = not squelch_state["rules"][idx].get("enabled", True)
+    return {"index": idx, "enabled": squelch_state["rules"][idx]["enabled"]}
+
+
+@app.api("POST", "/api/squelch/remove")
+def remove_squelch(request):
+    idx = request.json.get("index")
+    if idx is None or idx < 0 or idx >= len(squelch_state["rules"]):
+        return {"error": "invalid index"}, 400
+    removed = squelch_state["rules"].pop(idx)
+    app.log.info("Removed squelch rule: %s", removed.get("label", removed["type"]))
+    return {"status": "removed", "total_rules": len(squelch_state["rules"])}
 
 
 # ---------------------------------------------------------------------------
