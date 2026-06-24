@@ -104,6 +104,7 @@ func (h *Handler) Routes() *http.ServeMux {
 
 	// Update check
 	mux.HandleFunc("GET /api/plugins/updates", h.handleCheckUpdates)
+	mux.HandleFunc("POST /api/plugins/update-all", h.handleUpdateAll)
 	mux.HandleFunc("POST /api/plugins/{name}/update", h.handleUpdatePlugin)
 
 	// Event webhook

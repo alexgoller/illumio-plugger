@@ -7,6 +7,10 @@
     </div>
     <div class="flex items-center gap-3">
         <span id="update-status" class="text-xs {{if .Updates}}text-orange-400{{else}}text-gray-500{{end}}">{{if .Updates}}{{len .Updates}} update(s) available{{end}}</span>
+        <button onclick="updateAll()" id="btn-update-all"
+            class="{{if not .Updates}}hidden {{end}}px-3 py-1.5 text-sm rounded bg-orange-600 hover:bg-orange-500 text-white transition-colors">
+            Update All{{if .Updates}} ({{len .Updates}}){{end}}
+        </button>
         <button onclick="checkForUpdates()" id="btn-check-updates"
             class="px-3 py-1.5 text-sm rounded bg-dark-700 hover:bg-dark-700/80 border border-gray-600 text-gray-300 transition-colors">
             Check for Updates
@@ -231,15 +235,18 @@ async function checkForUpdates() {
         const resp = await fetch('/api/plugins/updates');
         const data = await resp.json();
         const updates = data.updates || [];
-        // Clear all badges and update buttons first
+        // Clear all badges and per-plugin update buttons first
         document.querySelectorAll('[id^="badge-update-"]').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('[id^="btn-update-"]').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('[id^="btn-update-"]:not(#btn-update-all)').forEach(el => el.classList.add('hidden'));
+        const btnAll = document.getElementById('btn-update-all');
         if (updates.length === 0) {
             status.textContent = 'All plugins up to date';
             status.className = 'text-xs text-green-400';
+            if (btnAll) btnAll.classList.add('hidden');
         } else {
             status.textContent = updates.length + ' update(s) available';
             status.className = 'text-xs text-orange-400';
+            if (btnAll) { btnAll.classList.remove('hidden'); btnAll.textContent = 'Update All (' + updates.length + ')'; }
             updates.forEach(u => {
                 const badge = document.getElementById('badge-update-' + u.name);
                 if (badge) {
@@ -262,6 +269,38 @@ async function checkForUpdates() {
     }
     btn.textContent = 'Check for Updates';
     btn.disabled = false;
+}
+
+async function updateAll() {
+    const btnAll = document.getElementById('btn-update-all');
+    const status = document.getElementById('update-status');
+    if (!confirm('Update all outdated plugins? This pulls the latest image and restarts each running plugin.')) return;
+    btnAll.disabled = true;
+    btnAll.textContent = 'Updating all...';
+    status.textContent = 'Updating all plugins...';
+    status.className = 'text-xs text-orange-400';
+    try {
+        const resp = await fetch('/api/plugins/update-all', {method: 'POST'});
+        const result = await resp.json();
+        const updated = result.updated || [];
+        const failed = result.failed || {};
+        const failCount = Object.keys(failed).length;
+        if (failCount === 0) {
+            status.textContent = updated.length + ' plugin(s) updated';
+            status.className = 'text-xs text-green-400';
+        } else {
+            const detail = Object.entries(failed).map(([n, e]) => n + ': ' + e).join('\n');
+            status.textContent = updated.length + ' updated, ' + failCount + ' failed';
+            status.className = 'text-xs text-orange-400';
+            alert('Some updates failed:\n\n' + detail);
+        }
+        setTimeout(() => location.reload(), 1500);
+    } catch(e) {
+        status.textContent = 'Update all failed';
+        status.className = 'text-xs text-red-400';
+        btnAll.disabled = false;
+        btnAll.textContent = 'Update All';
+    }
 }
 
 async function updatePlugin(name) {

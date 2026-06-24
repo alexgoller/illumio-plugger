@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/illumio/plugger/internal/lifecycle"
+	"github.com/illumio/plugger/internal/plugin"
 	"github.com/illumio/plugger/internal/registry"
 )
 
@@ -178,6 +180,24 @@ func truncDigest(d string) string {
 	return d
 }
 
+// updatePluginImage pulls the latest image and restarts the plugin if running.
+// Returns an error describing the first failed step, or nil on success.
+func (h *Handler) updatePluginImage(ctx context.Context, p *plugin.Plugin) error {
+	image := p.Manifest.Image
+	if image == "" {
+		return fmt.Errorf("no image configured")
+	}
+	if err := h.deps.Runtime.Pull(ctx, image); err != nil {
+		return fmt.Errorf("pull failed: %w", err)
+	}
+	if p.State == "running" {
+		if err := lifecycle.RestartPlugin(ctx, h.deps, p); err != nil {
+			return fmt.Errorf("restart failed: %w", err)
+		}
+	}
+	return nil
+}
+
 // handleUpdatePlugin pulls the latest image and restarts the plugin.
 func (h *Handler) handleUpdatePlugin(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
@@ -191,45 +211,79 @@ func (h *Handler) handleUpdatePlugin(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 	defer cancel()
 
-	image := p.Manifest.Image
-	if image == "" {
-		h.json(w, http.StatusBadRequest, map[string]string{"error": "no image configured"})
+	if err := h.updatePluginImage(ctx, p); err != nil {
+		h.json(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 		return
 	}
 
-	if err := h.deps.Runtime.Pull(ctx, image); err != nil {
-		h.json(w, http.StatusBadGateway, map[string]string{"error": "pull failed: " + err.Error()})
-		return
-	}
-
-	if p.State == "running" {
-		if err := lifecycle.RestartPlugin(ctx, h.deps, p); err != nil {
-			h.json(w, http.StatusInternalServerError, map[string]string{
-				"status": "pulled",
-				"error":  "restart failed: " + err.Error(),
-			})
-			return
-		}
-	}
-
-	// Clear this plugin from the cached update state — it's now current.
-	clearUpdateCacheEntry(h.deps.Config.Plugger.DataDir, name)
+	h.markUpdated(p)
 
 	h.json(w, http.StatusOK, map[string]string{
 		"status": "updated",
 		"name":   name,
-		"image":  image,
+		"image":  p.Manifest.Image,
 	})
 }
 
-// clearUpdateCacheEntry removes one plugin from the persisted update cache.
-func clearUpdateCacheEntry(dataDir, name string) {
-	cached := loadUpdateCache(dataDir)
-	filtered := make([]updateInfo, 0, len(cached))
+// handleUpdateAll updates every plugin currently in the update cache. Each
+// plugin is attempted independently; failures are reported per-plugin and
+// don't abort the rest. Successful updates are cleared from the cache.
+func (h *Handler) handleUpdateAll(w http.ResponseWriter, r *http.Request) {
+	cached := loadUpdateCache(h.deps.Config.Plugger.DataDir)
+	if len(cached) == 0 {
+		h.json(w, http.StatusOK, map[string]any{"updated": []string{}, "failed": map[string]string{}})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	defer cancel()
+
+	updated := []string{}
+	failed := map[string]string{}
+
 	for _, u := range cached {
-		if u.Name != name {
-			filtered = append(filtered, u)
+		p, err := h.deps.Store.Get(u.Name)
+		if err != nil {
+			failed[u.Name] = "not found"
+			continue
 		}
+		if err := h.updatePluginImage(ctx, p); err != nil {
+			failed[u.Name] = err.Error()
+			continue
+		}
+		updated = append(updated, u.Name)
+		h.markUpdated(p)
+	}
+
+	h.json(w, http.StatusOK, map[string]any{
+		"updated": updated,
+		"failed":  failed,
+	})
+}
+
+// clearUpdateCacheEntry removes one plugin from the persisted update cache and
+// returns the entry that was removed (nil if it wasn't cached).
+func clearUpdateCacheEntry(dataDir, name string) *updateInfo {
+	cached := loadUpdateCache(dataDir)
+	var removed *updateInfo
+	filtered := make([]updateInfo, 0, len(cached))
+	for i := range cached {
+		if cached[i].Name == name {
+			u := cached[i]
+			removed = &u
+			continue
+		}
+		filtered = append(filtered, cached[i])
 	}
 	saveUpdateCache(dataDir, filtered)
+	return removed
+}
+
+// markUpdated clears the cache entry for a freshly-updated plugin so its badge
+// disappears. Note: a registry version bump won't change the installed
+// manifest version (pull+restart only updates the image) — a full
+// reinstall from the registry is required for that. The next update check may
+// re-flag version-only differences until the plugin is reinstalled.
+func (h *Handler) markUpdated(p *plugin.Plugin) {
+	clearUpdateCacheEntry(h.deps.Config.Plugger.DataDir, p.Name)
 }
