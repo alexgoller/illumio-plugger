@@ -1310,6 +1310,20 @@ Plugger is a plugin framework for the Illumio Policy Compute Engine (PCE). It le
 | **Illumio PCE** | The PCE you want to extend | API key with read access (write for some plugins) |
 | **PCE API credentials** | Authenticate plugins to the PCE | API key + secret pair from PCE console |
 
+### Installing Docker
+
+Plugger runs every plugin as a container, so you need a Docker-compatible runtime. If \`docker version\` doesn't work yet, pick one:
+
+| Runtime | Platform | Get it |
+|---------|----------|--------|
+| **Docker Desktop** | macOS / Windows / Linux | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
+| **Docker Engine** | Linux (headless / servers) | [docs.docker.com/engine/install](https://docs.docker.com/engine/install/) |
+| **Colima** | macOS / Linux (lightweight, CLI) | [github.com/abiosoft/colima](https://github.com/abiosoft/colima) |
+| **Rancher Desktop** | macOS / Windows / Linux | [rancherdesktop.io](https://rancherdesktop.io/) |
+| **Podman** | macOS / Windows / Linux | [podman.io](https://podman.io/getting-started/installation) |
+
+General install index: [docs.docker.com/get-docker](https://docs.docker.com/get-docker/). After installing, run \`docker version\` to confirm the daemon is reachable — \`plugger init\` auto-detects the socket for all of these runtimes.
+
 ## Install the Plugger CLI
 
 ### From a release binary
@@ -2428,7 +2442,7 @@ This guide walks you through installing plugger, connecting to your PCE, and run
 ## Prerequisites
 
 - **Go 1.21+** — to build plugger from source
-- **Docker** — Docker Desktop, Colima, Rancher Desktop, or Docker Engine
+- **Docker** — Docker Desktop, Colima, Rancher Desktop, Podman, or Docker Engine. Don't have it? [Get Docker](https://docs.docker.com/get-docker/), then run \`docker version\` to confirm it's running.
 - **Illumio PCE** — a running PCE instance with API key access
 
 ## Install Plugger

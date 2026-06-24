@@ -5,8 +5,32 @@
 | Requirement | Minimum | Notes |
 |-------------|---------|-------|
 | Go | 1.21+ | Only needed to build from source |
-| Docker | 20.10+ | Docker Desktop or Docker Engine |
+| Docker | 20.10+ | Any OCI runtime — see below |
 | Illumio PCE | 21.2+ | With API key access |
+
+### Installing Docker
+
+Plugger runs every plugin as a container, so you need a Docker-compatible
+runtime. If `docker version` doesn't work yet, pick one:
+
+| Runtime | Platform | Get it |
+|---------|----------|--------|
+| **Docker Desktop** | macOS / Windows / Linux | https://www.docker.com/products/docker-desktop/ |
+| **Docker Engine** | Linux (headless/servers) | https://docs.docker.com/engine/install/ |
+| **Colima** | macOS / Linux (lightweight, CLI) | https://github.com/abiosoft/colima |
+| **Rancher Desktop** | macOS / Windows / Linux | https://rancherdesktop.io/ |
+| **Podman** | macOS / Windows / Linux | https://podman.io/getting-started/installation |
+
+General Docker install index: https://docs.docker.com/get-docker/
+
+After installing, verify the daemon is running and reachable:
+
+```bash
+docker version   # both Client and Server sections should print
+```
+
+`plugger init` auto-detects the socket for all of the runtimes above (see
+[Docker Socket](#docker-socket)).
 
 ## Building from Source
 
@@ -43,7 +67,7 @@ Creates `~/.plugger/` with:
 ```yaml
 pce:
   host: pce.example.com        # PCE hostname (required)
-  port: 8443                    # PCE port (default: 8443)
+  port: 443                     # PCE port (default: 443)
   orgId: 1                      # Organization ID (default: 1)
   apiKey: api_xxx               # PCE API key (required)
   apiSecret: secret_xxx         # PCE API secret (required)
