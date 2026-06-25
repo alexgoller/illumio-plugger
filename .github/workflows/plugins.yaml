@@ -9,6 +9,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild every plugin's :version tag even if already published (refreshes stale tags)"
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -48,7 +53,7 @@ jobs:
             ver=$(grep -E '^version:' "$pj" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
             [ -n "$ver" ] || { echo "::warning::$d has no version in plugin.yaml"; continue; }
             img="${REGISTRY}/${OWNER}/plugger-${d}"
-            if docker manifest inspect "$img:$ver" >/dev/null 2>&1; then
+            if [ "${{ inputs.force }}" != "true" ] && docker manifest inspect "$img:$ver" >/dev/null 2>&1; then
               echo "skip $d:$ver (already published)"
             else
               echo "build $d:$ver"
