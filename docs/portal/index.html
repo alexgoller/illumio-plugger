@@ -610,12 +610,45 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <div class="space-y-8">
 
+        <!-- v0.9.4 - v0.9.7 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg font-bold text-white">v0.9.4 &ndash; v0.9.7</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
+                </div>
+                <span class="text-sm text-gray-500">June 25, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Versioned plugin images</strong> &mdash; Plugin images are now tagged with the plugin's own version (e.g. <code>plugger-vmaps-handler:0.2.2</code>), not just <code>:latest</code>. The registry points at immutable version tags, so the registry, image, and installed version can never drift. CI auto-discovers and builds each plugin when its version is bumped.</li>
+                        <li><strong>plugger self-update</strong> &mdash; New command downloads the latest CLI release for your OS/arch, verifies it against published <code>SHA256SUMS</code>, and atomically replaces the running binary. Releases now ship a checksums file.</li>
+                        <li><strong>vmaps-handler scanner auto-detect</strong> &mdash; Uploads no longer require <code>SCANNER_TYPE</code>: the file's format is sniffed from its content (XML root / CSV header). Nessus, Qualys, Tenable.sc, and Tenable.io are recognized.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-red-400 mb-1">Bug Fixes</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Self-diagnosing imports</strong> &mdash; vmaps-handler now warns loudly when a scan file parses to zero detections (wrong format, empty, or mismatched scanner type) instead of silently "succeeding".</li>
+                        <li><strong>Upload hardening</strong> &mdash; path-traversal guard on uploaded filenames; scanner-type-aware file selection so a stray file isn't parsed as the wrong format.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-blue-400 mb-1">Testing &amp; CI</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Plugin test suites in CI</strong> &mdash; pytest now runs on every push/PR (auto-discovered per plugin). vmaps-handler test coverage expanded from 20 to 80 tests covering the full import pipeline, scanner detection, and handlers.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- v0.9.3 -->
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
                     <span class="text-lg font-bold text-white">v0.9.3</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
                 </div>
                 <span class="text-sm text-gray-500">June 24, 2026</span>
             </div>
