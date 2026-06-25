@@ -27,10 +27,10 @@ than the local one (catches :latest tag updates).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Check for plugger CLI updates
 			if latest, err := checkLatestRelease(); err == nil && latest != "" {
-				current := Version
+				current := strings.TrimPrefix(Version, "v")
 				if current != "dev" && current != latest {
 					fmt.Printf("Plugger update available: %s → %s\n", current, latest)
-					fmt.Printf("  Download: https://github.com/alexgoller/illumio-plugger/releases/tag/%s\n\n", latest)
+					fmt.Printf("  Run: plugger self-update\n\n")
 				}
 			}
 
