@@ -1,41 +1,76 @@
 name: Build Plugin Images
 
+# Canonical builder for in-repo plugin images. Each image is tagged with the
+# plugin's own version (from its plugin.yaml) plus :latest. A version is only
+# (re)built when its immutable :version tag isn't already published, so images
+# publish exactly when a plugin's version is bumped on main.
+
 on:
   push:
     branches: [main]
-    paths:
-      - 'pce-health-monitor/**'
-      - 'traffic-reporter/**'
-      - 'policy-diff/**'
-      - 'pce-posture-report/**'
-      - 'pce-events/**'
-      - '.github/workflows/plugins.yaml'
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   OWNER: ${{ github.repository_owner }}
+  # External plugins published from their own repos (ghcr.io/.../illumio-*).
+  EXCLUDE: "policy-gitops policy-workflow"
 
 jobs:
-  build-plugins:
+  discover:
+    name: Discover plugins needing a build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      matrix: ${{ steps.find.outputs.matrix }}
+      count: ${{ steps.find.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find plugins whose :version tag isn't published yet
+        id: find
+        run: |
+          set -e
+          items=()
+          for pj in */plugin.yaml; do
+            d=$(dirname "$pj")
+            [ -f "$d/Dockerfile" ] || continue
+            case " $EXCLUDE " in *" $d "*) continue ;; esac
+            ver=$(grep -E '^version:' "$pj" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
+            [ -n "$ver" ] || { echo "::warning::$d has no version in plugin.yaml"; continue; }
+            img="${REGISTRY}/${OWNER}/plugger-${d}"
+            if docker manifest inspect "$img:$ver" >/dev/null 2>&1; then
+              echo "skip $d:$ver (already published)"
+            else
+              echo "build $d:$ver"
+              items+=("{\"name\":\"$d\",\"version\":\"$ver\"}")
+            fi
+          done
+          joined=$(IFS=,; echo "${items[*]}")
+          echo "matrix={\"include\":[$joined]}" >> "$GITHUB_OUTPUT"
+          echo "count=${#items[@]}" >> "$GITHUB_OUTPUT"
+          echo "Plugins to build: ${#items[@]}"
+
+  build:
+    name: "Build ${{ matrix.name }}:${{ matrix.version }}"
+    needs: discover
+    if: needs.discover.outputs.count != '0'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     strategy:
-      matrix:
-        plugin:
-          - name: pce-health-monitor
-            context: pce-health-monitor
-          - name: traffic-reporter
-            context: traffic-reporter
-          - name: policy-diff
-            context: policy-diff
-          - name: pce-posture-report
-            context: pce-posture-report
-          - name: pce-events
-            context: pce-events
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -53,15 +88,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push ${{ matrix.plugin.name }}
+      - name: Build and push ${{ matrix.name }}:${{ matrix.version }}
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.plugin.context }}
+          context: ${{ matrix.name }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/plugger-${{ matrix.plugin.name }}:latest
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/plugger-${{ matrix.plugin.name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/plugger-${{ matrix.name }}:${{ matrix.version }}
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/plugger-${{ matrix.name }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.description=Plugger plugin: ${{ matrix.plugin.name }}
+            org.opencontainers.image.description=Plugger plugin: ${{ matrix.name }}
+            org.opencontainers.image.version=${{ matrix.version }}

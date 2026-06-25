@@ -14,84 +14,9 @@ env:
   IMAGE_PREFIX: ghcr.io/alexgoller/plugger-
 
 jobs:
-  # ------------------------------------------------------------------
-  # Build and push Docker images for all 19 in-repo plugins
-  # (policy-gitops and policy-workflow are built from their own repo)
-  # ------------------------------------------------------------------
-  docker:
-    name: "Docker: ${{ matrix.plugin }}"
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        plugin:
-          - pce-health-monitor
-          - traffic-reporter
-          - policy-diff
-          - pce-posture-report
-          - pce-events
-          - ai-assisted-rules
-          - stale-workloads
-          - palo-alto-dag-sync
-          - ad-label-sync
-          - rule-scheduler
-          - ai-security-report
-          - remedy-cmdb-sync
-          - policy-resolver
-          - ztna-sync
-          - infoblox-ipam-sync
-          - app-dependency-intel
-          - ven-fleet-manager
-          - workload-isolator
-          - fortigate-sync
-          - vcenter-sync
-          - network-discovery
-          - vmaps-handler
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_PREFIX }}${{ matrix.plugin }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=
-
-      - name: Build & push
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.plugin }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ github.ref_type == 'tag' && github.ref_name || '0.1.0-dev' }}
-          cache-from: type=gha,scope=${{ matrix.plugin }}
-          cache-to: type=gha,scope=${{ matrix.plugin }},mode=max
-
-  # NOTE: GHCR packages default to private. After the first CI build,
-  # go to https://github.com/alexgoller?tab=packages and set each
-  # package to public (Package Settings → Danger Zone → Change visibility).
+  # Plugin images are built by the "Build Plugin Images" workflow
+  # (.github/workflows/plugins.yaml), tagged with each plugin's own version.
+  # This workflow builds the plugger CLI release artifacts only.
 
   # ------------------------------------------------------------------
   # Build the Go CLI binary for multiple OS/arch combinations
@@ -158,7 +83,7 @@ jobs:
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [docker, cli]
+    needs: [cli]
     runs-on: ubuntu-latest
 
     steps:

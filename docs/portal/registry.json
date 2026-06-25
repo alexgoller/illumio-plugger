@@ -6,7 +6,7 @@
     {
       "name": "pce-health-monitor",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-pce-health-monitor:latest",
+      "image": "ghcr.io/alexgoller/plugger-pce-health-monitor:0.1.0",
       "description": "Real-time PCE health dashboard with endpoint checks, CPU/memory/disk monitoring",
       "mode": "daemon",
       "has_ui": true,
@@ -23,7 +23,7 @@
     {
       "name": "traffic-reporter",
       "version": "0.2.0",
-      "image": "ghcr.io/alexgoller/plugger-traffic-reporter:latest",
+      "image": "ghcr.io/alexgoller/plugger-traffic-reporter:0.2.0",
       "description": "Interactive traffic flow analysis with Chart.js \u2014 top talkers, blocked flows, policy decisions",
       "mode": "daemon",
       "has_ui": true,
@@ -41,7 +41,7 @@
     {
       "name": "policy-diff",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-policy-diff:latest",
+      "image": "ghcr.io/alexgoller/plugger-policy-diff:0.1.0",
       "description": "Git-like policy change tracker \u2014 field-level diffs, history snapshots, user attribution, audit trail",
       "mode": "daemon",
       "has_ui": true,
@@ -60,7 +60,7 @@
     {
       "name": "pce-posture-report",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-pce-posture-report:latest",
+      "image": "ghcr.io/alexgoller/plugger-pce-posture-report:0.1.0",
       "description": "Security posture scoring \u2014 enforcement coverage, label coverage, policy rules, HTML+JSON reports",
       "mode": "cron",
       "has_ui": false,
@@ -78,7 +78,7 @@
     {
       "name": "pce-events",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-pce-events:latest",
+      "image": "ghcr.io/alexgoller/plugger-pce-events:0.1.0",
       "description": "Real-time PCE event monitoring \u2014 Slack, Teams, PagerDuty, Email, webhooks, 15+ output plugins",
       "mode": "daemon",
       "has_ui": true,
@@ -98,7 +98,7 @@
     {
       "name": "ai-assisted-rules",
       "version": "0.2.0",
-      "image": "ghcr.io/alexgoller/plugger-ai-assisted-rules:latest",
+      "image": "ghcr.io/alexgoller/plugger-ai-assisted-rules:0.2.0",
       "description": "AI-powered policy advisor \u2014 blocked traffic analysis, tiered rule suggestions, auto-provisioning, label gap detection",
       "mode": "daemon",
       "has_ui": true,
@@ -118,7 +118,7 @@
     {
       "name": "stale-workloads",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-stale-workloads:latest",
+      "image": "ghcr.io/alexgoller/plugger-stale-workloads:0.1.0",
       "description": "Discover offline, unresponsive, and trafficless workloads \u2014 with optional cleanup (unpair/delete)",
       "mode": "daemon",
       "has_ui": true,
@@ -138,7 +138,7 @@
     {
       "name": "palo-alto-dag-sync",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-palo-alto-dag-sync:latest",
+      "image": "ghcr.io/alexgoller/plugger-palo-alto-dag-sync:0.1.0",
       "description": "Sync Illumio workload labels to Palo Alto Dynamic Address Groups via PAN-OS XML API (untested)",
       "mode": "daemon",
       "has_ui": true,
@@ -158,7 +158,7 @@
     {
       "name": "ad-label-sync",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-ad-label-sync:latest",
+      "image": "ghcr.io/alexgoller/plugger-ad-label-sync:0.1.0",
       "description": "Discover AD computers and map OU, group, location attributes to Illumio labels \u2014 analytics mode for feasibility testing (untested)",
       "mode": "daemon",
       "has_ui": true,
@@ -178,7 +178,7 @@
     {
       "name": "rule-scheduler",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-rule-scheduler:latest",
+      "image": "ghcr.io/alexgoller/plugger-rule-scheduler:0.1.0",
       "description": "Time-based rule and ruleset scheduling \u2014 business hours, maintenance windows, weekend lockdowns",
       "mode": "daemon",
       "has_ui": true,
@@ -197,7 +197,7 @@
     {
       "name": "ai-security-report",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-ai-security-report:latest",
+      "image": "ghcr.io/alexgoller/plugger-ai-security-report:0.1.0",
       "description": "Comprehensive AI-powered security posture analysis \u2014 10 categories, scoring, compliance mapping, environment heatmap, remediation roadmap",
       "mode": "daemon",
       "has_ui": true,
@@ -219,7 +219,7 @@
     {
       "name": "remedy-cmdb-sync",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-remedy-cmdb-sync:latest",
+      "image": "ghcr.io/alexgoller/plugger-remedy-cmdb-sync:0.1.0",
       "description": "Sync BMC Helix/Remedy CMDB CIs to Illumio labels \u2014 analytics mode for feasibility testing, sync mode for label application (untested)",
       "mode": "daemon",
       "has_ui": true,
@@ -240,7 +240,7 @@
     {
       "name": "policy-resolver",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-policy-resolver:latest",
+      "image": "ghcr.io/alexgoller/plugger-policy-resolver:0.1.0",
       "description": "Resolve Illumio label-based policy into IP-level firewall rules \u2014 JSON export, searchable dashboard, allow/deny/override-deny ordering",
       "mode": "daemon",
       "has_ui": true,
@@ -260,7 +260,7 @@
     {
       "name": "ztna-sync",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-ztna-sync:latest",
+      "image": "ghcr.io/alexgoller/plugger-ztna-sync:0.1.0",
       "description": "Sync Illumio workloads to ZTNA applications \u2014 Zscaler ZPA, Netskope NPA, Cloudflare Access, Cisco Secure Access (untested)",
       "mode": "daemon",
       "has_ui": true,
@@ -282,7 +282,7 @@
     {
       "name": "infoblox-ipam-sync",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-infoblox-ipam-sync:latest",
+      "image": "ghcr.io/alexgoller/plugger-infoblox-ipam-sync:0.1.0",
       "description": "Bi-directional sync between Illumio labels and Infoblox extensible attributes \u2014 enrich IPAM with segmentation context (untested)",
       "mode": "daemon",
       "has_ui": true,
@@ -342,7 +342,7 @@
     {
       "name": "workload-isolator",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-workload-isolator:latest",
+      "image": "ghcr.io/alexgoller/plugger-workload-isolator:0.1.0",
       "description": "Instant workload quarantine via webhook \u2014 isolate compromised workloads, EDR/SOAR integration, auto-release TTL, audit trail",
       "mode": "daemon",
       "has_ui": true,
@@ -363,7 +363,7 @@
     {
       "name": "app-dependency-intel",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-app-dependency-intel:latest",
+      "image": "ghcr.io/alexgoller/plugger-app-dependency-intel:0.1.0",
       "description": "Dependency analysis beyond policy \u2014 blast radius, SPOF detection, compliance boundaries, change impact, resiliency scoring",
       "mode": "daemon",
       "has_ui": true,
@@ -384,7 +384,7 @@
     {
       "name": "ven-fleet-manager",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-ven-fleet-manager:latest",
+      "image": "ghcr.io/alexgoller/plugger-ven-fleet-manager:0.1.0",
       "description": "Fleet-level VEN visibility \u2014 enforcement progression, compatibility checks, version distribution, agent health, upgrade readiness",
       "mode": "daemon",
       "has_ui": true,
@@ -405,7 +405,7 @@
     {
       "name": "fortigate-sync",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-fortigate-sync:latest",
+      "image": "ghcr.io/alexgoller/plugger-fortigate-sync:0.1.0",
       "description": "Sync Illumio workloads to FortiGate \u2014 RSSO auth table and/or REST API address objects. Based on illumio-to-fortigate-sync by ruckle-o.",
       "mode": "daemon",
       "has_ui": true,
@@ -426,7 +426,7 @@
     {
       "name": "vcenter-sync",
       "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-vcenter-sync:latest",
+      "image": "ghcr.io/alexgoller/plugger-vcenter-sync:0.1.0",
       "description": "Bi-directional VMware vCenter sync \u2014 import VMs as unmanaged workloads with labels from tags/folders, push labels back as vCenter tags (untested)",
       "mode": "daemon",
       "has_ui": true,
@@ -447,7 +447,7 @@
     {
       "name": "network-discovery",
       "version": "0.2.0",
-      "image": "ghcr.io/alexgoller/plugger-network-discovery:latest",
+      "image": "ghcr.io/alexgoller/plugger-network-discovery:0.2.0",
       "description": "Scan traffic flows for unknown IPs, reverse-DNS resolve them, and create unmanaged workloads with hostname-based label inference",
       "mode": "daemon",
       "has_ui": true,
@@ -467,7 +467,7 @@
     {
       "name": "vmaps-handler",
       "version": "0.2.2",
-      "image": "ghcr.io/alexgoller/plugger-vmaps-handler:latest",
+      "image": "ghcr.io/alexgoller/plugger-vmaps-handler:0.2.2",
       "description": "Import vulnerability scan data into Illumio PCE vulnerability maps (vmaps). Supports Nessus, Qualys, and Tenable file imports and live API pulls.",
       "mode": "daemon",
       "has_ui": true,

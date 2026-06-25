@@ -276,10 +276,10 @@ After adding or modifying a plugin:
 
 1. **registry.json** — add/update entry in `docs/portal/registry.json` with all fields:
    - `name`, `version`, `image`, `description`, `mode`, `has_ui`, `language`, `tags`, `author`, `homepage`, `maturity`
-   - Internal plugins: image = `ghcr.io/alexgoller/plugger-{name}:latest`
-   - External plugins (policy-gitops, policy-workflow): image = `ghcr.io/alexgoller/illumio-{name}:latest`
+   - Internal plugins: image = `ghcr.io/alexgoller/plugger-{name}:{version}` — the image tag **must equal** the `version` field (validated by `validate-registry.py`). When you bump `version`, bump the image tag too.
+   - External plugins (policy-gitops, policy-workflow): image = `ghcr.io/alexgoller/illumio-{name}:latest` (built from their own repos)
 
-2. **CI matrix** — add to `.github/workflows/build.yml` plugin matrix (unless external)
+2. **CI** — no action needed. `.github/workflows/plugins.yaml` auto-discovers every dir with a `plugin.yaml` + `Dockerfile` and builds it when its `:{version}` tag isn't yet published, tagging the image `:{version}` and `:latest`. (No static build matrix to maintain.)
 
 3. **Portal** — update `docs/portal/index.html`:
    - Add plugin card in `#plugin-grid` with `data-plugin`, `data-categories`, `data-maturity`

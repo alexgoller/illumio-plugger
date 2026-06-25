@@ -49,44 +49,16 @@ def load_registry():
         return json.load(f)
 
 
-def load_ci_matrix():
-    path = os.path.join(REPO_ROOT, ".github", "workflows", "build.yml")
-    with open(path) as f:
-        content = f.read()
-
-    # Extract plugin names from the matrix
-    plugins = []
-    in_matrix = False
-    for line in content.split("\n"):
-        stripped = line.strip()
-        if "plugin:" in stripped or "matrix:" in stripped:
-            in_matrix = True
-            continue
-        if in_matrix and stripped.startswith("- ") and not any(k in stripped for k in ["name:", "runs-on:", "goos:", "goarch:", "component:", "image:", "context:"]):
-            plugin_name = stripped.lstrip("- ").strip()
-            if plugin_name and not plugin_name.startswith("#"):
-                plugins.append(plugin_name)
-        elif in_matrix and not stripped.startswith("-") and not stripped.startswith("#") and stripped and ":" not in stripped:
-            pass
-        elif in_matrix and stripped and not stripped.startswith("-") and not stripped.startswith("#"):
-            if "steps:" in stripped or "name:" in stripped:
-                in_matrix = False
-
-    return plugins
-
-
 def main():
     plugins = find_plugins()
     registry = load_registry()
-    ci_plugins = load_ci_matrix()
 
     registry_by_name = {p["name"]: p for p in registry.get("plugins", [])}
-    ci_set = set(ci_plugins)
 
     errors = 0
     warnings = 0
 
-    print(f"Found {len(plugins)} plugins, {len(registry_by_name)} registry entries, {len(ci_set)} CI matrix entries\n")
+    print(f"Found {len(plugins)} plugins, {len(registry_by_name)} registry entries\n")
 
     # Check 1: Every plugin has a registry entry
     for plugin in plugins:
@@ -100,38 +72,31 @@ def main():
             print(f"⚠️  {name}: in registry but no plugin directory found")
             warnings += 1
 
-    # Check 3: Registry entries have correct image names
+    # Check 3: Registry image names are correct AND tagged with the plugin's
+    # version. Internal plugins must use the immutable :<version> tag so the
+    # registry, the image, and the installed manifest can never drift apart.
+    # External plugins (built elsewhere) stay on :latest.
     for name, entry in registry_by_name.items():
         image = entry.get("image", "")
+        version = entry.get("version", "")
         if name in EXTERNAL_PLUGINS:
-            expected_prefix = EXTERNAL_IMAGE_PREFIX
-            expected_image = f"{expected_prefix}{name}:latest"
+            expected_image = f"{EXTERNAL_IMAGE_PREFIX}{name}:latest"
         else:
-            expected_prefix = INTERNAL_IMAGE_PREFIX
-            expected_image = f"{expected_prefix}{name}:latest"
+            expected_image = f"{INTERNAL_IMAGE_PREFIX}{name}:{version}"
 
         if not image:
             print(f"❌ {name}: missing image field in registry")
             errors += 1
         elif image != expected_image:
-            print(f"❌ {name}: wrong image name")
+            print(f"❌ {name}: image must be tagged with the plugin version")
             print(f"     got:      {image}")
             print(f"     expected: {expected_image}")
             errors += 1
 
-    # Check 4: Every in-repo plugin is in CI build matrix
-    for plugin in plugins:
-        if plugin in EXTERNAL_PLUGINS:
-            continue
-        if plugin not in ci_set:
-            print(f"❌ {plugin}: missing from CI build matrix (.github/workflows/build.yml)")
-            errors += 1
-
-    # Check 5: CI matrix doesn't have stale entries
-    for ci_plugin in ci_set:
-        if ci_plugin not in plugins:
-            print(f"⚠️  {ci_plugin}: in CI matrix but no plugin directory")
-            warnings += 1
+    # Checks 4 & 5 (static CI build matrix) are obsolete: plugin images are now
+    # built by .github/workflows/plugins.yaml, which auto-discovers every dir
+    # with a plugin.yaml + Dockerfile, so coverage is guaranteed by construction
+    # and there is no static matrix to drift.
 
     # Check 6: Registry entry completeness
     required_fields = ["name", "version", "image", "description", "mode", "has_ui", "language", "tags", "homepage", "maturity"]
