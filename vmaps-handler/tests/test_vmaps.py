@@ -166,6 +166,16 @@ class TestQualysParser:
         assert len(p.vulnerabilities) >= 1
         assert len(p._detected_vulnerabilities_map) >= 1
 
+    def test_wrong_format_yields_zero_and_warns(self, capsys):
+        """A non-Qualys XML (e.g. a Nessus file) must not crash and must warn
+        about the unrecognized root instead of silently parsing to zero."""
+        path = os.path.join(FIXTURES, "sample.nessus")
+        p = QualysXMLReportProcessor(xorg_id=1, input_file=path)
+        assert len(p._detected_vulnerabilities_map) == 0
+        out = capsys.readouterr().out
+        assert "not a Qualys scanner export" in out
+        assert "NessusClientData_v2" in out
+
 
 # ---------------------------------------------------------------------------
 # Tenable CSV parser tests

@@ -47,6 +47,17 @@ class QualysXMLReportProcessor(ReportProcessorBase):
             # Ruby's `//ASSET_DATA_REPORT` is root-inclusive; ElementTree's
             # `.//` is descendant-only, so check the root element explicitly.
             asset_data = root.tag == "ASSET_DATA_REPORT" or bool(root.findall(".//ASSET_DATA_REPORT"))
+            is_scan = root.tag == "SCAN" or bool(root.findall(".//SCAN")) or bool(root.findall(".//IP"))
+            if not asset_data and not is_scan:
+                # Valid XML, but not a format we recognize — the most common
+                # cause of a silent zero-detection import. Warn loudly so the
+                # user knows the file is the problem, not the PCE.
+                print(
+                    f"Warning: '{os.path.basename(input_file)}' has root <{root.tag}> — "
+                    "not a Qualys scanner export (<SCAN>) or asset data report "
+                    "(<ASSET_DATA_REPORT>). No detections will be parsed. "
+                    "Check that this is a Qualys scan export and that SCANNER_TYPE matches the file."
+                )
             if asset_data:
                 self._process_asset_data_report(root, rep_file_name)
             else:

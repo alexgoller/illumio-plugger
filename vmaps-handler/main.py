@@ -33,6 +33,14 @@ debug_enabled = app.env("DEBUG", "false").lower() in ("true", "1")
 
 # File-based scanner types
 FILE_SCANNERS = {"nessus-file", "qualys-file", "tenable-sc-csv", "tenable-io-csv"}
+# Expected file extensions per file scanner, used to pick the right file when
+# IMPORT_FILE isn't set and multiple files sit in /data/imports/.
+SCANNER_FILE_EXTS = {
+    "nessus-file": (".nessus", ".xml"),
+    "qualys-file": (".xml",),
+    "tenable-sc-csv": (".csv",),
+    "tenable-io-csv": (".csv",),
+}
 # API-based scanner types
 API_SCANNERS = {"qualys-api", "tenable-sc-api", "tenable-io-api"}
 
@@ -188,6 +196,18 @@ def run_import(pce_client, scanner_type, import_file=""):
         result["detections_total"] = total_detections
         dlog(f"Parsed: {result['vulns_defined']} vuln definitions, {total_detections} detections")
 
+        # A zero-detection parse almost always means the file isn't in the
+        # format this scanner expects — surface it instead of silently
+        # "succeeding" with nothing to upload.
+        if total_detections == 0:
+            warn = (
+                f"Parsed 0 detections from {os.path.basename(import_file) or '(no file)'}. "
+                f"The file may not be a valid {scanner_type} export, may be empty, or "
+                f"SCANNER_TYPE may not match the file format. Nothing will be uploaded."
+            )
+            dlog(warn)
+            result["warning"] = warn
+
         # Debug: sample vulns
         if debug_enabled:
             sample_vulns = []
@@ -313,13 +333,22 @@ def poll_import(pce):
 
     import_file = IMPORT_FILE
     if SCANNER_TYPE in FILE_SCANNERS and not import_file:
-        # Check for files in /data/imports/
+        # Check for files in /data/imports/, preferring ones whose extension
+        # matches the scanner type so a stray .nessus isn't parsed as Qualys.
         import_dir = "/data/imports"
         if os.path.isdir(import_dir):
-            files = sorted(os.listdir(import_dir))
-            if files:
-                import_file = os.path.join(import_dir, files[-1])
+            files = sorted(f for f in os.listdir(import_dir)
+                           if os.path.isfile(os.path.join(import_dir, f)))
+            preferred_exts = SCANNER_FILE_EXTS.get(SCANNER_TYPE, ())
+            matching = [f for f in files if f.lower().endswith(preferred_exts)] if preferred_exts else []
+            chosen = (matching or files)
+            if chosen:
+                import_file = os.path.join(import_dir, chosen[-1])
                 app.log.info("Found import file: %s", import_file)
+                if preferred_exts and not matching:
+                    app.log.warning(
+                        "No %s file (%s) in /data/imports/ — falling back to %s, which may not parse",
+                        SCANNER_TYPE, "/".join(preferred_exts), os.path.basename(import_file))
 
     if SCANNER_TYPE in FILE_SCANNERS and not import_file:
         app.log.info("File scanner configured but no import file found in /data/imports/")
