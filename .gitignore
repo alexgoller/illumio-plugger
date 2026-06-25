@@ -5,3 +5,9 @@ bin/
 .env
 __pycache__/
 *.pyc
+
+# Python test coverage
+.coverage
+vmaps-handler/.coverage
+__pycache__/
+.pytest_cache/
