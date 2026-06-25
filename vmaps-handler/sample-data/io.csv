@@ -1,0 +1,5 @@
+Plugin ID,Name,IP Address,Port,Protocol,Risk,CVSS Base Score,CVSS3 Base Score,CVE,Vulnerability State
+19506,SSH Server CBC Mode Ciphers Enabled,10.0.0.66,22,TCP,Medium,4.3,5.3,CVE-2008-5161,Active
+51192,SSL Certificate Cannot Be Trusted,10.0.0.67,443,TCP,Medium,6.4,6.5,CVE-2016-2183,Active
+57582,SSL Self-Signed Certificate,10.0.0.66,443,TCP,Medium,6.4,6.5,,Active
+12345,Fixed Issue Example,10.0.0.68,80,TCP,High,7.5,7.5,CVE-2021-1234,Fixed

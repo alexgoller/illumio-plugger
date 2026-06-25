@@ -108,6 +108,81 @@ def build_ip_to_workload_map(workloads):
 
 
 # ---------------------------------------------------------------------------
+# Scanner-type detection
+# ---------------------------------------------------------------------------
+
+IMPORT_DIR = "/data/imports"
+
+
+def _latest_import_file(scanner_type=None):
+    """Return the newest file in /data/imports/ (by mtime). When scanner_type is
+    given, prefer files whose extension matches it, so a stray file of another
+    type isn't picked; falls back to the newest of any type with a warning."""
+    if not os.path.isdir(IMPORT_DIR):
+        return None
+    files = [os.path.join(IMPORT_DIR, f) for f in os.listdir(IMPORT_DIR)
+             if os.path.isfile(os.path.join(IMPORT_DIR, f))]
+    if not files:
+        return None
+    files.sort(key=os.path.getmtime)  # oldest → newest
+
+    exts = SCANNER_FILE_EXTS.get(scanner_type or "", ())
+    if exts:
+        # Try extensions in priority order (most specific first) so e.g.
+        # nessus-file prefers a real .nessus over an ambiguous .xml.
+        for ext in exts:
+            matching = [f for f in files if f.lower().endswith(ext)]
+            if matching:
+                return matching[-1]
+        app.log.warning(
+            "No %s file (%s) in %s — falling back to %s, which may not parse",
+            scanner_type, "/".join(exts), IMPORT_DIR, os.path.basename(files[-1]))
+    return files[-1]
+
+
+def detect_scanner_type(filepath):
+    """Sniff a scan file to determine its scanner type, so uploads work even
+    when SCANNER_TYPE isn't configured. Returns a FILE_SCANNERS value or None.
+    Detection is content-based (root element / CSV header), with the file
+    extension as a tie-breaker."""
+    try:
+        with open(filepath, "rb") as f:
+            head = f.read(8192)
+    except OSError:
+        return None
+    if not head.strip():
+        return None
+
+    text = head.decode("utf-8", errors="replace")
+    lowered = text.lower()
+
+    # XML formats — look at the declared root / DTD.
+    if "<" in text[:512] and text.lstrip().startswith(("<", "﻿<")):
+        if "nessusclientdata" in lowered:
+            return "nessus-file"
+        if "<asset_data_report" in lowered or "<scan" in lowered or "qualysguard" in lowered or "scan-1.dtd" in lowered:
+            return "qualys-file"
+        # Unknown XML — fall through to extension hint below.
+
+    # CSV formats — distinguish Tenable.sc from Tenable.io by header columns.
+    first_line = text.splitlines()[0] if text.splitlines() else ""
+    if "," in first_line:
+        cols = {c.strip().strip('"') for c in first_line.split(",")}
+        if {"Plugin ID", "Risk"} & cols or "Vulnerability State" in cols:
+            return "tenable-io-csv"
+        if "Plugin" in cols and "CVSS V2 Base Score" in cols:
+            return "tenable-sc-csv"
+
+    # Extension fallback.
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext == ".nessus":
+        return "nessus-file"
+    if ext == ".xml":
+        return "qualys-file"
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Import orchestration
 # ---------------------------------------------------------------------------
 
@@ -333,22 +408,9 @@ def poll_import(pce):
 
     import_file = IMPORT_FILE
     if SCANNER_TYPE in FILE_SCANNERS and not import_file:
-        # Check for files in /data/imports/, preferring ones whose extension
-        # matches the scanner type so a stray .nessus isn't parsed as Qualys.
-        import_dir = "/data/imports"
-        if os.path.isdir(import_dir):
-            files = sorted(f for f in os.listdir(import_dir)
-                           if os.path.isfile(os.path.join(import_dir, f)))
-            preferred_exts = SCANNER_FILE_EXTS.get(SCANNER_TYPE, ())
-            matching = [f for f in files if f.lower().endswith(preferred_exts)] if preferred_exts else []
-            chosen = (matching or files)
-            if chosen:
-                import_file = os.path.join(import_dir, chosen[-1])
-                app.log.info("Found import file: %s", import_file)
-                if preferred_exts and not matching:
-                    app.log.warning(
-                        "No %s file (%s) in /data/imports/ — falling back to %s, which may not parse",
-                        SCANNER_TYPE, "/".join(preferred_exts), os.path.basename(import_file))
+        import_file = _latest_import_file(SCANNER_TYPE)
+        if import_file:
+            app.log.info("Found import file: %s", import_file)
 
     if SCANNER_TYPE in FILE_SCANNERS and not import_file:
         app.log.info("File scanner configured but no import file found in /data/imports/")
@@ -406,8 +468,20 @@ def trigger_import(request):
     scanner_type = request.json.get("scanner_type", SCANNER_TYPE)
     import_file = request.json.get("import_file", IMPORT_FILE)
 
+    # If no scanner type was configured or passed, fall back to the most recent
+    # file in /data/imports/ and sniff its type — so an upload "just works"
+    # without anyone setting SCANNER_TYPE.
+    if not import_file:
+        import_file = _latest_import_file()
+    if not scanner_type and import_file:
+        scanner_type = detect_scanner_type(import_file)
+        if scanner_type:
+            app.log.info("Auto-detected scanner type '%s' for %s", scanner_type, os.path.basename(import_file))
+
     if not scanner_type:
-        return {"error": "scanner_type is required"}, 400
+        return {"error": "Could not determine scanner type. Set SCANNER_TYPE, or "
+                         "upload a recognized Nessus (.nessus), Qualys (.xml), or "
+                         "Tenable (.csv) scan file."}, 400
 
     pce_client = VulnPCEClient(
         host=os.environ["PCE_HOST"],
@@ -431,16 +505,24 @@ def trigger_import(request):
 
 @app.api("POST", "/api/upload")
 def upload_file(request):
-    import_dir = "/data/imports"
-    os.makedirs(import_dir, exist_ok=True)
+    os.makedirs(IMPORT_DIR, exist_ok=True)
 
     filename = request.query.get("filename", f"upload_{int(time.time())}")
-    filepath = os.path.join(import_dir, filename)
+    # Guard against path traversal in the supplied filename.
+    filename = os.path.basename(filename)
+    filepath = os.path.join(IMPORT_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(request.body)
 
-    app.log.info("Uploaded file: %s (%d bytes)", filepath, len(request.body))
-    return {"status": "uploaded", "path": filepath, "size": len(request.body)}
+    detected = detect_scanner_type(filepath)
+    app.log.info("Uploaded file: %s (%d bytes), detected type: %s",
+                 filepath, len(request.body), detected or "unknown")
+    return {
+        "status": "uploaded",
+        "path": filepath,
+        "size": len(request.body),
+        "detected_scanner_type": detected,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -727,4 +809,5 @@ def render():
     return DASHBOARD_HTML
 
 
-app.run()
+if __name__ == "__main__":
+    app.run()

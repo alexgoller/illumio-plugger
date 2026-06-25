@@ -21,3 +21,33 @@ jobs:
 
       - name: Test
         run: make test
+
+  plugin-tests:
+    name: Plugin test suites (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Discover and run plugin test suites
+        run: |
+          set -e
+          pip install --quiet pytest
+          failed=0
+          ran=0
+          for tdir in $(find . -type d -name tests -not -path '*/.git/*' | sort); do
+            plugin=$(dirname "$tdir")
+            ls "$tdir"/test_*.py >/dev/null 2>&1 || continue
+            ran=1
+            echo "::group::pytest ${plugin#./}"
+            if [ -f "$plugin/requirements.txt" ]; then
+              pip install --quiet -r "$plugin/requirements.txt" || true
+            fi
+            ( cd "$plugin" && python -m pytest tests/ -q ) || failed=1
+            echo "::endgroup::"
+          done
+          if [ "$ran" = "0" ]; then echo "No plugin test suites found"; fi
+          exit $failed

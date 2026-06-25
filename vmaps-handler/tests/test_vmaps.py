@@ -8,12 +8,84 @@ import pytest
 # Add parent dir to path so we can import the plugin modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from illumio_vuln_import.base import ReportProcessorBase
+from illumio_vuln_import.base import ReportProcessorBase, get_score, get_protocol_num
 from illumio_vuln_import.nessus import NessusProXMLReportProcessor
 from illumio_vuln_import.qualys import QualysXMLReportProcessor
-from illumio_vuln_import.tenable import TenableSCCSVReportProcessor
+from illumio_vuln_import.tenable import TenableSCCSVReportProcessor, TenableIOCSVReportProcessor
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "..", "sample-data")
+
+
+# ---------------------------------------------------------------------------
+# Pure scoring / protocol helpers
+# ---------------------------------------------------------------------------
+
+class TestScoring:
+    @pytest.mark.parametrize("sev,score", [
+        (1, 0), (2, 39), (3, 69), (4, 89), (5, 100),
+        ("info", 0), ("low", 39), ("medium", 69), ("high", 89),
+        ("critical", 100), ("none", 0), ("CRITICAL", 100), ("High", 89),
+    ])
+    def test_severity_to_score(self, sev, score):
+        assert get_score(sev) == score
+
+    def test_unknown_severity_raises(self):
+        with pytest.raises(ValueError):
+            get_score("apocalyptic")
+
+    @pytest.mark.parametrize("proto,num", [
+        ("tcp", 6), ("TCP", 6), ("udp", 17), ("icmp", 1), ("ipv6", 41),
+    ])
+    def test_protocol_num(self, proto, num):
+        assert get_protocol_num(proto) == num
+
+    def test_unknown_protocol_is_negative(self):
+        assert get_protocol_num("carrier-pigeon") == -1
+        assert get_protocol_num(None) == -1
+
+
+# ---------------------------------------------------------------------------
+# Tenable.io CSV parser
+# ---------------------------------------------------------------------------
+
+class TestTenableIOParser:
+    def test_parse_io_csv(self):
+        p = TenableIOCSVReportProcessor(xorg_id=1, input_file=os.path.join(FIXTURES, "io.csv"))
+        assert len(p._detected_vulnerabilities_map) >= 1
+        assert len(p.vulnerabilities) >= 1
+
+    def test_io_csv_detects_ips(self):
+        p = TenableIOCSVReportProcessor(xorg_id=1, input_file=os.path.join(FIXTURES, "io.csv"))
+        ips = {dv["ip_address"] for dv in p._detected_vulnerabilities_map.values()}
+        assert "10.0.0.66" in ips
+
+
+# ---------------------------------------------------------------------------
+# Scanner-type auto-detection (used when SCANNER_TYPE isn't configured)
+# ---------------------------------------------------------------------------
+
+class TestScannerDetection:
+    @pytest.fixture(scope="class")
+    def detect(self):
+        import main  # app.run() is guarded by __main__, safe to import
+        return main.detect_scanner_type
+
+    def test_detect_qualys_scan(self, detect):
+        assert detect(os.path.join(FIXTURES, "qualys.xml")) == "qualys-file"
+
+    def test_detect_qualys_asset(self, detect):
+        assert detect(os.path.join(FIXTURES, "qualys_asset.xml")) == "qualys-file"
+
+    def test_detect_nessus(self, detect):
+        assert detect(os.path.join(FIXTURES, "sample.nessus")) == "nessus-file"
+
+    def test_detect_tenable_sc_csv(self, detect):
+        assert detect(os.path.join(FIXTURES, "sc.csv")) == "tenable-sc-csv"
+
+    def test_detect_empty_returns_none(self, detect, tmp_path):
+        empty = tmp_path / "empty.xml"
+        empty.write_text("")
+        assert detect(str(empty)) is None
 
 
 class StubProcessor(ReportProcessorBase):
