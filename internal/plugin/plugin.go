@@ -57,6 +57,10 @@ func (p *Plugin) BuildEnv(pce config.PCEConfig, pe PluggerEnvConfig) []string {
 		"PCE_API_KEY=" + pce.APIKey,
 		"PCE_API_SECRET=" + pce.APISecret,
 		"PLUGGER_PLUGIN_NAME=" + p.Name,
+		// Disable stdout/stderr block-buffering so Python (and similar) plugins
+		// stream logs in real time to `docker logs` / `plugger logs` instead of
+		// holding them in a buffer until the process exits.
+		"PYTHONUNBUFFERED=1",
 	}
 
 	if pe.PluggerURL != "" {
