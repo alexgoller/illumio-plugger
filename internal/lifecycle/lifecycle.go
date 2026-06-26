@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/illumio/plugger/internal/config"
@@ -185,13 +186,15 @@ func RestartPlugin(ctx context.Context, d *Deps, p *plugin.Plugin) error {
 }
 
 // generatePCEEventsConfig writes a config.yaml for the pce-events plugin
-// if one doesn't already exist, using plugger's PCE credentials.
+// if one doesn't already exist, using plugger's PCE credentials. If a config
+// already exists, it's migrated in place to add keys added in newer versions
+// (pce_port, pce_timeout) without disturbing any user customizations.
 func generatePCEEventsConfig(d *Deps, p *plugin.Plugin) {
 	configDir := filepath.Join(d.Config.Plugger.DataDir, "volumes", p.Name, "config")
 	configPath := filepath.Join(configDir, "config.yaml")
 
-	if _, err := os.Stat(configPath); err == nil {
-		slog.Debug("pce-events config already exists", "path", configPath)
+	if existing, err := os.ReadFile(configPath); err == nil {
+		migratePCEEventsConfig(configPath, string(existing), d)
 		return
 	}
 
@@ -241,6 +244,53 @@ watchers:
 		return
 	}
 	slog.Info("auto-generated pce-events config from plugger PCE credentials", "path", configPath)
+}
+
+// migratePCEEventsConfig adds keys introduced in newer versions to an existing
+// pce-events config without disturbing user customizations. Notably pce_timeout
+// (older configs default to a 30s httpx timeout that the PCE events endpoint
+// frequently exceeds) and pce_port.
+func migratePCEEventsConfig(configPath, content string, d *Deps) {
+	lines := strings.Split(content, "\n")
+	pcePort := d.Config.PCE.Port
+	if pcePort == 0 {
+		pcePort = 443
+	}
+
+	// insertAfter inserts newLine immediately after the first line whose trimmed
+	// text starts with prefix. Returns true if inserted.
+	insertAfter := func(prefix, newLine string) bool {
+		for i, ln := range lines {
+			if strings.HasPrefix(strings.TrimSpace(ln), prefix) {
+				lines = append(lines[:i+1], append([]string{newLine}, lines[i+1:]...)...)
+				return true
+			}
+		}
+		return false
+	}
+
+	changed := false
+	if !strings.Contains(content, "pce_timeout:") {
+		if insertAfter("pce:", "  pce_timeout: 120") {
+			changed = true
+		}
+	}
+	if !strings.Contains(content, "pce_port:") {
+		if insertAfter("pce:", fmt.Sprintf("  pce_port: %d", pcePort)) {
+			changed = true
+		}
+	}
+
+	if !changed {
+		slog.Debug("pce-events config already current", "path", configPath)
+		return
+	}
+
+	if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0600); err != nil {
+		slog.Warn("failed to migrate pce-events config", "error", err)
+		return
+	}
+	slog.Info("migrated pce-events config (added pce_port/pce_timeout)", "path", configPath)
 }
 
 // ParseMemory converts strings like "256m", "1g" to bytes.
