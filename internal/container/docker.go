@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moby/moby/api/pkg/stdcopy"
 	containertypes "github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
@@ -169,13 +170,27 @@ func (d *DockerRuntime) Inspect(ctx context.Context, id string) (*ContainerInfo,
 }
 
 func (d *DockerRuntime) Logs(ctx context.Context, id string, opts LogOpts) (io.ReadCloser, error) {
-	return d.cli.ContainerLogs(ctx, id, client.ContainerLogsOptions{
+	raw, err := d.cli.ContainerLogs(ctx, id, client.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     opts.Follow,
 		Tail:       opts.Tail,
 		Since:      opts.Since,
 	})
+	if err != nil {
+		return nil, err
+	}
+	// Plugin containers run without a TTY, so Docker multiplexes stdout and
+	// stderr into one framed stream (an 8-byte header precedes each message).
+	// Demultiplex it here so every caller gets clean text instead of frame
+	// headers embedded in the output.
+	pr, pw := io.Pipe()
+	go func() {
+		_, copyErr := stdcopy.StdCopy(pw, pw, raw)
+		_ = raw.Close()
+		_ = pw.CloseWithError(copyErr)
+	}()
+	return pr, nil
 }
 
 func (d *DockerRuntime) Wait(ctx context.Context, id string) (<-chan WaitResult, error) {
