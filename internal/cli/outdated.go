@@ -121,7 +121,8 @@ than the local one (catches :latest tag updates).`,
 					fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", u.Name, u.InstalledVersion, u.LatestVersion, u.Registry)
 				}
 				w.Flush()
-				fmt.Println()
+				fmt.Printf("\nUpgrade one:  plugger upgrade <plugin>\n")
+				fmt.Printf("Upgrade all:  plugger upgrade --all\n\n")
 			}
 
 			if len(digestUpdates) > 0 {
