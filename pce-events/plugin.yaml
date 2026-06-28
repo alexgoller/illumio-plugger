@@ -1,6 +1,6 @@
 apiVersion: plugger/v1
 name: pce-events
-version: 0.1.0
+version: 0.1.1
 image: pce-events:latest
 
 schedule:

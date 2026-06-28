@@ -77,8 +77,8 @@
     },
     {
       "name": "pce-events",
-      "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-pce-events:0.1.0",
+      "version": "0.1.1",
+      "image": "ghcr.io/alexgoller/plugger-pce-events:0.1.1",
       "description": "Real-time PCE event monitoring \u2014 Slack, Teams, PagerDuty, Email, webhooks, 15+ output plugins",
       "mode": "daemon",
       "has_ui": true,
