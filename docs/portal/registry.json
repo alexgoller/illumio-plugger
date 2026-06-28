@@ -483,6 +483,26 @@
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/vmaps-handler",
       "maturity": "beta"
+    },
+    {
+      "name": "policy-backup",
+      "version": "0.1.0",
+      "image": "ghcr.io/alexgoller/plugger-policy-backup:0.1.0",
+      "description": "Snapshot PCE policy objects and workload inventory to versioned JSON backups, diff over time, and restore to draft policy with a guarded preview.",
+      "mode": "daemon",
+      "has_ui": true,
+      "language": "python",
+      "tags": [
+        "backup",
+        "policy",
+        "dr",
+        "git",
+        "diff",
+        "restore"
+      ],
+      "author": "Illumio",
+      "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/policy-backup",
+      "maturity": "preview"
     }
   ]
 }

@@ -1,0 +1,57 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Policy backup dashboard
+    type: ui
+    path: /
+
+config:
+  - name: BACKUP_INTERVAL
+    description: Seconds between scheduled backups
+    required: false
+    type: int
+    default: "86400"
+  - name: RETENTION_COUNT
+    description: Number of backups to keep (older ones are pruned)
+    required: false
+    type: int
+    default: "30"
+  - name: GIT_REMOTE
+    description: Optional git remote URL to push backups to (e.g. https://github.com/org/pce-backups.git)
+    required: false
+    type: string
+  - name: GIT_BRANCH
+    description: Git branch to push backups to
+    required: false
+    type: string
+    default: "main"
+  - name: GIT_TOKEN
+    description: Token for the git remote (used as x-access-token for HTTPS push)
+    required: false
+    type: secret
+  - name: REPORT_ON_CHANGE
+    description: Publish a report when a scheduled backup detects policy changes
+    required: false
+    type: bool
+    default: "false"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS certificate verification for the PCE
+    required: false
+    type: bool
+    default: "true"
+
+volumes:
+  - path: /data
+    description: Backup storage (timestamped JSON snapshots, optional git repo)
+    required: false
+
+info:
+  title: Policy Backup
+  version: "0.1.0"
+  description: "Snapshot PCE policy objects and workload inventory to versioned JSON backups, diff over time, and restore to draft policy with a guarded preview."
+  author: Illumio
+  license: Apache-2.0
+  homepage: https://github.com/alexgoller/illumio-plugger/tree/main/policy-backup

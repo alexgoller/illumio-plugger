@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 24 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 25 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -99,7 +99,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         Plugin Framework for<br><span class="gradient-text">Illumio PCE</span>
     </h1>
     <p class="text-xl text-gray-300 max-w-2xl mx-auto mb-10 fade-in fade-d1">
-        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 24 plugins.
+        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 25 plugins.
     </p>
     <div class="flex flex-wrap gap-4 justify-center fade-in fade-d2">
         <a href="#quickstart" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">Get Started</a>
@@ -116,7 +116,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">24</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">25</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Output Channels</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">Python</div><div class="text-xs text-gray-400 mt-1">SDK Included</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -218,7 +218,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (24)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (25)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -594,6 +594,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Import vulnerability scans into Illumio PCE vmaps. Supports Nessus, Qualys, Tenable file uploads and live API pulls. IP-to-workload matching, batch upload, import history.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install vmaps-handler</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
+            </div>
+        </div>
+
+        <!-- Policy Backup -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="policy-backup" data-categories="operations,policy" data-maturity="preview" onclick="showDocs('policy-backup')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Policy Backup</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Snapshot PCE policy objects and workload inventory to versioned JSON backups, diff over time, and restore to draft policy with a guarded preview.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install policy-backup</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
             </div>
         </div>
@@ -2284,7 +2300,7 @@ plugger search --repo my-registry
     icon: "share",
     readme: `# Publishing Your Own Plugin Registry
 
-Plugger supports multiple plugin registries. The official registry ships with 24 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
+Plugger supports multiple plugin registries. The official registry ships with 25 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
 
 ## How Plugin Registries Work
 
@@ -4291,13 +4307,89 @@ The plugin dashboard provides:
 - Support for both one-shot file imports and scheduled API polling
 - Authoritative mode to replace stale vulnerability data on re-import
 - Works with managed and unmanaged workloads`
+},
+"policy-backup": {
+    title: "Policy Backup",
+    mode: "daemon",
+    tags: ["operations","policy"],
+    readme: `# Policy Backup
+
+Scheduled and on-demand backup of all PCE policy objects and workload inventory to timestamped JSON files. Diff any two backups or compare a backup against live policy. Restore selected object types to PCE draft policy with a guarded preview before writing anything.
+
+## Install
+
+\`\`\`bash
+plugger install policy-backup
+\`\`\`
+
+## What Gets Backed Up
+
+Every backup run captures:
+
+| Object Type | PCE Collection |
+|---|---|
+| Rulesets | Draft + active |
+| IP lists | Draft + active |
+| Label groups | Draft + active |
+| Services | Draft + active |
+| Labels | All |
+| Enforcement boundaries | Draft + active |
+| Pairing profiles | All |
+| Workload inventory | Managed + unmanaged |
+
+Backups are written to \`/data/backups/{ISO-timestamp}/\` as individual JSON files, one per object type.
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`BACKUP_INTERVAL\` | \`86400\` | Seconds between scheduled backups (default 24 h) |
+| \`RETENTION_COUNT\` | \`30\` | Number of backup snapshots to keep; oldest pruned first |
+| \`GIT_REMOTE\` | (empty) | Git remote URL to push backups to after each run |
+| \`GIT_BRANCH\` | \`main\` | Branch to push to when GIT_REMOTE is set |
+| \`GIT_TOKEN\` | (empty, secret) | Personal access token for authenticated git push |
+| \`REPORT_ON_CHANGE\` | \`true\` | Publish a report via the output bus when a diff detects changes |
+
+## Features
+
+- Scheduled backup runs automatically every \`BACKUP_INTERVAL\` seconds
+- On-demand backup triggered from the dashboard or API
+- Retention management: keeps the N most recent snapshots, prunes older ones automatically
+- Diff view: compare any two backup timestamps or a backup against live policy, with field-level change highlighting
+- Optional git push: after each backup, commit and push to a remote for off-appliance audit history
+- Guarded restore: preview the exact change set before writing; restore writes to draft only, never provisions, never deletes
+- Change reporting: when \`REPORT_ON_CHANGE=true\`, publishes a report to configured output channels (Slack, email, webhook) whenever a diff detects policy changes
+
+## Restore Safety
+
+The restore flow has two stages:
+
+1. **Preview** — the dashboard shows a diff of exactly what would change in PCE draft policy. No writes happen yet.
+2. **Confirm** — after reviewing, click Confirm Restore to write the selected objects to draft.
+
+The restore always:
+- Writes to **draft** policy only — never to active
+- Never **deletes** existing objects — creates or updates only
+- Never **provisions** — you must provision through the normal PCE workflow
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | \`/\` | Dashboard |
+| GET | \`/healthz\` | Health check |
+| GET | \`/api/backups\` | List all backup snapshots |
+| POST | \`/api/backup\` | Trigger an immediate backup |
+| GET | \`/api/diff?a={ts}&b={ts}\` | Diff two snapshots (omit b for live) |
+| POST | \`/api/restore/preview\` | Preview restore change set |
+| POST | \`/api/restore/confirm\` | Write previewed objects to PCE draft |`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','vmaps-handler','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','vmaps-handler','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow','policy-backup'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];

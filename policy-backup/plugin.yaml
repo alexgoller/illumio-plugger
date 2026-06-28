@@ -1,0 +1,41 @@
+apiVersion: plugger/v1
+name: policy-backup
+version: 0.1.0
+image: plugger-policy-backup:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: BACKUP_INTERVAL
+    required: false
+    default: "86400"
+  - name: RETENTION_COUNT
+    required: false
+    default: "30"
+  - name: GIT_REMOTE
+    required: false
+    default: ""
+  - name: GIT_BRANCH
+    required: false
+    default: "main"
+  - name: GIT_TOKEN
+    required: false
+    secret: true
+  - name: REPORT_ON_CHANGE
+    required: false
+    default: "false"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

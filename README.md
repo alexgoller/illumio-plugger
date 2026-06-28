@@ -6,7 +6,7 @@
 
 <p align="center">
 
-[![Plugins](https://img.shields.io/badge/plugins-24-blue)](https://alexgoller.github.io/illumio-plugger/)
+[![Plugins](https://img.shields.io/badge/plugins-25-blue)](https://alexgoller.github.io/illumio-plugger/)
 [![Languages](https://img.shields.io/badge/templates-Go%20%7C%20Python%20%7C%20Shell%20%7C%20JavaScript-green)](docs/plugin-development.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
 [![Portal](https://img.shields.io/badge/portal-live-brightgreen)](https://alexgoller.github.io/illumio-plugger/)
@@ -64,7 +64,7 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 
 ---
 
-## All 24 Plugins
+## All 25 Plugins
 
 ### Monitoring & Visibility
 
@@ -97,6 +97,7 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 | [workload-isolator](workload-isolator/) | Webhook-triggered workload quarantine — EDR/SOAR integration, TTL auto-release, audit trail | Daemon + UI |
 | [policy-gitops](policy-gitops/) | Policy-as-code — sync rulesets/IP lists/services as YAML to Git with drift detection ([standalone repo](https://github.com/alexgoller/illumio-policy-gitops)) | Daemon + UI |
 | [policy-workflow](policy-workflow/) | Approval workflow engine — multi-stage pipelines, Slack/ServiceNow integration, audit log | Daemon + UI |
+| [policy-backup](policy-backup/) | Snapshot PCE policy objects and workload inventory to versioned JSON backups, diff over time, restore to draft with guarded preview | Daemon + UI |
 
 ### Integrations
 
