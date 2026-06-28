@@ -237,6 +237,11 @@ watchers:
     plugin: PCEStdout
     extra_data:
       template: default.html
+      # Mute noisy VEN agent heartbeat auth-failures while keeping real
+      # (API-key) authentication failures. Requires pretty_cool_events with
+      # list-aware match_fields.
+      match_fields:
+        notifications.info.api_endpoint: '!.*heartbeat.*'
 `, pceAddr, pcePort, d.Config.PCE.APIKey, d.Config.PCE.APISecret, d.Config.PCE.OrgID)
 
 	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
