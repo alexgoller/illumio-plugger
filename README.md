@@ -66,6 +66,8 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 
 ## All 26 Plugins
 
+> ⚠️ **Maturity note:** plugins marked **preview** (and **example**) may not have been tested against a live PCE or the target integration. Validate them in a non-production environment before relying on them.
+
 ### Monitoring & Visibility
 
 | Plugin | Description | Mode |
