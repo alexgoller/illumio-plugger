@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 25 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 26 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -99,7 +99,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         Plugin Framework for<br><span class="gradient-text">Illumio PCE</span>
     </h1>
     <p class="text-xl text-gray-300 max-w-2xl mx-auto mb-10 fade-in fade-d1">
-        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 25 plugins.
+        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 26 plugins.
     </p>
     <div class="flex flex-wrap gap-4 justify-center fade-in fade-d2">
         <a href="#quickstart" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">Get Started</a>
@@ -116,7 +116,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">25</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">26</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Output Channels</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">Python</div><div class="text-xs text-gray-400 mt-1">SDK Included</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -218,7 +218,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (25)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (26)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -610,6 +610,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Snapshot PCE policy objects and workload inventory to versioned JSON backups, diff over time, and restore to draft policy with a guarded preview.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install policy-backup</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
+            </div>
+        </div>
+
+        <!-- Dragos Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="dragos-sync" data-categories="integration,operations" data-maturity="preview" onclick="showDocs('dragos-sync')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Dragos Sync</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Sync OT/ICS asset inventory from the Dragos Platform into Illumio as unmanaged workloads with labels for device type, zone, Purdue level, vendor, and criticality.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install dragos-sync</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
             </div>
         </div>
@@ -2300,7 +2316,7 @@ plugger search --repo my-registry
     icon: "share",
     readme: `# Publishing Your Own Plugin Registry
 
-Plugger supports multiple plugin registries. The official registry ships with 25 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
+Plugger supports multiple plugin registries. The official registry ships with 26 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
 
 ## How Plugin Registries Work
 
@@ -4383,13 +4399,77 @@ The restore always:
 | GET | \`/api/diff?a={ts}&b={ts}\` | Diff two snapshots (omit b for live) |
 | POST | \`/api/restore/preview\` | Preview restore change set |
 | POST | \`/api/restore/confirm\` | Write previewed objects to PCE draft |`
+},
+"dragos-sync": {
+    title: "Dragos Sync",
+    mode: "daemon",
+    tags: ["integration","operations","ot","ics","unmanaged-workloads"],
+    readme: `# Dragos Sync
+
+Sync OT/ICS asset inventory discovered by the Dragos Platform into Illumio as unmanaged workloads, labeled by device type, network zone, Purdue level, vendor, and criticality.
+
+## The OT Story
+
+Dragos passively fingerprints OT/ICS assets — PLCs, HMIs, engineering workstations, historians — most of which will never run an Illumio VEN. Without a workload object in the PCE, Illumio has nothing to write policy against. This plugin closes that gap: it turns every Dragos-discovered asset into a labeled unmanaged workload, so the OT estate becomes visible in Illumination and addressable in policy alongside managed IT workloads.
+
+## Install
+
+\`\`\`bash
+plugger install dragos-sync
+\`\`\`
+
+## How It Works
+
+1. **Pulls assets** from the Dragos SiteStore API (\`GET /api/{version}/assets\`), authenticated with HTTP Basic using an API ID/Secret pair scoped to \`asset:read\`
+2. **Upserts unmanaged workloads** in the PCE for each asset, made idempotent via \`external_data_set=dragos\` and \`external_data_reference=<asset id>\` — re-syncing updates the existing workload, it never creates a duplicate
+3. **Maps Dragos attributes to Illumio labels** using the table below
+4. **Creates missing label values and custom dimensions on demand** when \`CREATE_LABELS=true\`
+5. **Flags stale assets** — anything previously synced but no longer present in Dragos is reported as stale, never auto-deleted
+
+## Label Mapping
+
+| Dragos Attribute | Illumio Label |
+|---|---|
+| Device type | \`role\` |
+| Zone | \`loc\` |
+| Purdue level | \`env\` |
+| Vendor | \`vendor\` (custom dimension) |
+| Criticality | \`criticality\` (custom dimension) |
+
+The mapping is overridable — see [Tuning the Field Map](#tuning-the-field-map) below.
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`DRAGOS_HOST\` | _(required)_ | Dragos SiteStore hostname |
+| \`DRAGOS_API_VERSION\` | \`v2\` | Dragos API version |
+| \`DRAGOS_API_ID\` | _(required)_ | Dragos API ID |
+| \`DRAGOS_API_SECRET\` | _(required, secret)_ | Dragos API Secret |
+| \`SYNC_INTERVAL\` | \`3600\` | Seconds between sync cycles |
+| \`CREATE_LABELS\` | \`true\` | Create missing label values and custom dimensions on demand |
+| \`LABEL_MAP\` | _(empty)_ | JSON override for the Dragos attribute &rarr; Illumio label mapping |
+| \`DRY_RUN\` | \`false\` | Compute the sync but write nothing to the PCE |
+| \`DEBUG\` | \`false\` | Dump a raw Dragos asset alongside its computed label mapping |
+
+## Tuning the Field Map
+
+Dragos asset schemas vary by site and sensor deployment, so the default field map is a starting point, not a guarantee. Turn on \`DEBUG\` and open the dashboard debug view to see one raw Dragos asset next to the label values the plugin computed for it. Use that to write a \`LABEL_MAP\` override for fields that don't map the way your environment expects, then redeploy.
+
+## Features
+
+- Idempotent upsert via \`external_data_set\`/\`external_data_reference\` — safe to re-run on every sync interval
+- Auto-creates label values and custom dimensions (vendor, criticality) the first time they're seen
+- Stale-asset reporting instead of silent deletion — OT assets that temporarily drop off Dragos don't lose their workload or policy
+- Dashboard with sync stats, a Sync Now button, and a debug view for tuning the field map
+- \`DRY_RUN\` mode to preview label assignments before writing to the PCE`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','vmaps-handler','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow','policy-backup'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','vmaps-handler','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow','policy-backup','dragos-sync'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];

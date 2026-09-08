@@ -6,7 +6,7 @@
 
 <p align="center">
 
-[![Plugins](https://img.shields.io/badge/plugins-25-blue)](https://alexgoller.github.io/illumio-plugger/)
+[![Plugins](https://img.shields.io/badge/plugins-26-blue)](https://alexgoller.github.io/illumio-plugger/)
 [![Languages](https://img.shields.io/badge/templates-Go%20%7C%20Python%20%7C%20Shell%20%7C%20JavaScript-green)](docs/plugin-development.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
 [![Portal](https://img.shields.io/badge/portal-live-brightgreen)](https://alexgoller.github.io/illumio-plugger/)
@@ -64,7 +64,7 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 
 ---
 
-## All 25 Plugins
+## All 26 Plugins
 
 ### Monitoring & Visibility
 
@@ -110,6 +110,7 @@ Analyzes PCE traffic flows to build an application dependency graph. Surfaces bl
 | [ad-label-sync](ad-label-sync/) | Discover AD computers via LDAP, map OU/group/location attributes to Illumio labels | Daemon + UI |
 | [fortigate-sync](fortigate-sync/) | Sync to FortiGate via RSSO + REST API | Daemon + UI |
 | [vcenter-sync](vcenter-sync/) | Bi-directional VMware vCenter sync | Daemon + UI |
+| [dragos-sync](dragos-sync/) | Sync OT/ICS asset inventory from the Dragos Platform to labeled unmanaged workloads | Daemon + UI |
 
 ---
 
