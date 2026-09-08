@@ -1,0 +1,54 @@
+apiVersion: plugger/v1
+name: dragos-sync
+version: 0.1.0
+image: plugger-dragos-sync:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: DRAGOS_HOST
+    required: true
+  - name: DRAGOS_API_VERSION
+    required: false
+    default: "v2"
+  - name: DRAGOS_API_ID
+    required: true
+  - name: DRAGOS_API_SECRET
+    required: true
+    secret: true
+  - name: DRAGOS_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+  - name: SYNC_INTERVAL
+    required: false
+    default: "3600"
+  - name: CREATE_LABELS
+    required: false
+    default: "true"
+  - name: LABEL_MAP
+    required: false
+    default: ""
+  - name: PAGE_SIZE
+    required: false
+    default: "500"
+  - name: DRY_RUN
+    required: false
+    default: "false"
+  - name: DEBUG
+    required: false
+    default: "false"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"

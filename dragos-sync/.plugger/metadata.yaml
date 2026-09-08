@@ -1,0 +1,75 @@
+plugger: v1
+
+ports:
+  - port: 8080
+    protocol: tcp
+    name: dashboard
+    description: Dragos sync dashboard
+    type: ui
+    path: /
+
+config:
+  - name: DRAGOS_HOST
+    description: "Dragos SiteStore base URL (e.g. https://dragos.example.com)"
+    required: true
+    type: string
+  - name: DRAGOS_API_VERSION
+    description: "Dragos SiteStore API version path segment (v2, v3, v4)"
+    required: false
+    type: string
+    default: "v2"
+  - name: DRAGOS_API_ID
+    description: Dragos API ID (Admin > Users > Add New API Key; needs asset:read)
+    required: true
+    type: string
+  - name: DRAGOS_API_SECRET
+    description: Dragos API Secret
+    required: true
+    type: secret
+  - name: DRAGOS_TLS_SKIP_VERIFY
+    description: Skip TLS verification for the Dragos SiteStore
+    required: false
+    type: bool
+    default: "true"
+  - name: SYNC_INTERVAL
+    description: Seconds between syncs
+    required: false
+    type: int
+    default: "3600"
+  - name: CREATE_LABELS
+    description: Create missing Illumio label values (and custom dimensions) on demand
+    required: false
+    type: bool
+    default: "true"
+  - name: LABEL_MAP
+    description: 'JSON overriding the Dragos->Illumio label map, e.g. {"role":["device_type"],"env":["purdue_level"]}'
+    required: false
+    type: string
+  - name: PAGE_SIZE
+    description: Dragos assets page size
+    required: false
+    type: int
+    default: "500"
+  - name: DRY_RUN
+    description: Compute the sync but do not write to Illumio
+    required: false
+    type: bool
+    default: "false"
+  - name: DEBUG
+    description: Dump a raw Dragos asset + computed mapping for field-map tuning
+    required: false
+    type: bool
+    default: "false"
+  - name: PCE_TLS_SKIP_VERIFY
+    description: Skip TLS verification for the PCE
+    required: false
+    type: bool
+    default: "true"
+
+info:
+  title: Dragos Sync
+  version: "0.1.0"
+  description: "Sync OT/ICS asset inventory from the Dragos Platform into Illumio as unmanaged workloads with labels (device type, zone, Purdue level, vendor, criticality)."
+  author: Illumio
+  license: Apache-2.0
+  homepage: https://github.com/alexgoller/illumio-plugger/tree/main/dragos-sync
