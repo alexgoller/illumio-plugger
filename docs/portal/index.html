@@ -660,12 +660,36 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <div class="space-y-8">
 
+        <!-- v0.12.0 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg font-bold text-white">v0.12.0</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
+                </div>
+                <span class="text-sm text-gray-500">September 9, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-blue-400 mb-1">New Plugins</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>nozomi-sync</strong> &mdash; Sync OT/ICS/IoT asset inventory from Nozomi Networks into Illumio as labeled unmanaged workloads. Supports both <strong>Vantage</strong> (cloud, API key&rarr;JWT, <code>/api/v1/assets</code>) and <strong>Guardian/CMC</strong> (on-prem, NQL <code>query=assets</code>). Type&rarr;role, zone&rarr;loc, Purdue level&rarr;env, vendor &amp; criticality as custom dimensions; idempotent via external_data_set; DRY_RUN + field-map tuning. <em>preview</em></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-yellow-400 mb-1">Documentation</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Per-plugin setup guides</strong> &mdash; Expanded in-repo READMEs (setup, auth, configuration, troubleshooting) so integrations are easier to stand up and understand.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- v0.10.0 - v0.11.0 -->
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
                     <span class="text-lg font-bold text-white">v0.10.0 &ndash; v0.11.0</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
                 </div>
                 <span class="text-sm text-gray-500">September 8, 2026</span>
             </div>
