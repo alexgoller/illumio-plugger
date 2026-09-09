@@ -97,7 +97,8 @@ def get_pce():
         username=os.environ["PCE_API_KEY"],
         password=os.environ["PCE_API_SECRET"],
     )
-    pce.set_tls_settings(verify=False)
+    verify = os.environ.get("PCE_TLS_SKIP_VERIFY", "true").lower() not in ("1", "true", "yes")
+    pce.set_tls_settings(verify=verify)
     return pce
 
 

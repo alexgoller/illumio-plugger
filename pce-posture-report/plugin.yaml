@@ -1,6 +1,6 @@
 apiVersion: plugger/v1
 name: pce-posture-report
-version: 0.1.0
+version: 0.1.1
 image: pce-posture-report:latest
 
 schedule:

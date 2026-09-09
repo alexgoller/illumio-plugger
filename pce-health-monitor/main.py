@@ -151,7 +151,12 @@ class HealthHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/healthz":
-            self.send_json(200, {"status": "healthy"})
+            # HTTP 200 is plugin liveness (the process is serving) — kept 200 so
+            # the container isn't restart-looped when the PCE itself is down.
+            # The body carries the real PCE status instead of always "healthy".
+            with state_lock:
+                pce_status = health_state["status"]
+            self.send_json(200, {"live": True, "pce_status": pce_status})
         elif self.path == "/api/health":
             with state_lock:
                 data = dict(health_state)

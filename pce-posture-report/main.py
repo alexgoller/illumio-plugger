@@ -33,7 +33,8 @@ def get_pce():
         username=os.environ["PCE_API_KEY"],
         password=os.environ["PCE_API_SECRET"],
     )
-    pce.set_tls_settings(verify=False)
+    verify = os.environ.get("PCE_TLS_SKIP_VERIFY", "true").lower() not in ("1", "true", "yes")
+    pce.set_tls_settings(verify=verify)
     return pce
 
 
@@ -370,14 +371,16 @@ def main():
     from plugger_report import publish_report
     score = report["score"]
     wl = report.get("workloads", {})
-    enf = report.get("enforcement", {})
+    enf = wl.get("enforcement_modes", {})
+    cov = wl.get("label_coverage", {})
+    pol = report.get("policy", {})
     sev = "info" if score >= 75 else "warning" if score >= 50 else "critical"
     lines = [
         f"**Posture Score: {score}/100**",
         f"- Workloads: {wl.get('total', 0)} ({wl.get('managed', 0)} managed)",
         f"- Enforcement: {enf.get('full', 0)} full, {enf.get('selective', 0)} selective, {enf.get('visibility_only', 0)} visibility, {enf.get('idle', 0)} idle",
-        f"- Labels: {report.get('labels', {}).get('fully_labeled', 0)} fully labeled",
-        f"- Active rules: {report.get('policy', {}).get('active_rules', 0)}",
+        f"- Labels: {cov.get('fully_labeled', 0)} fully labeled",
+        f"- Active rules: {pol.get('rules_active', 0)}",
     ]
     publish_report(
         title=f"Posture Score: {score}/100",

@@ -1,6 +1,6 @@
 apiVersion: plugger/v1
 name: rule-scheduler
-version: 0.1.0
+version: 0.1.1
 image: rule-scheduler:latest
 
 schedule:

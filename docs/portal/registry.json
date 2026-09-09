@@ -5,8 +5,8 @@
   "plugins": [
     {
       "name": "pce-health-monitor",
-      "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-pce-health-monitor:0.1.0",
+      "version": "0.1.1",
+      "image": "ghcr.io/alexgoller/plugger-pce-health-monitor:0.1.1",
       "description": "Real-time PCE health dashboard with endpoint checks, CPU/memory/disk monitoring",
       "mode": "daemon",
       "has_ui": true,
@@ -59,8 +59,8 @@
     },
     {
       "name": "pce-posture-report",
-      "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-pce-posture-report:0.1.0",
+      "version": "0.1.1",
+      "image": "ghcr.io/alexgoller/plugger-pce-posture-report:0.1.1",
       "description": "Security posture scoring \u2014 enforcement coverage, label coverage, policy rules, HTML+JSON reports",
       "mode": "cron",
       "has_ui": false,
@@ -153,7 +153,7 @@
       ],
       "author": "Illumio",
       "homepage": "https://github.com/alexgoller/illumio-plugger/tree/main/palo-alto-dag-sync",
-      "maturity": "production"
+      "maturity": "preview"
     },
     {
       "name": "ad-label-sync",
@@ -177,8 +177,8 @@
     },
     {
       "name": "rule-scheduler",
-      "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-rule-scheduler:0.1.0",
+      "version": "0.1.1",
+      "image": "ghcr.io/alexgoller/plugger-rule-scheduler:0.1.1",
       "description": "Time-based rule and ruleset scheduling \u2014 business hours, maintenance windows, weekend lockdowns",
       "mode": "daemon",
       "has_ui": true,
