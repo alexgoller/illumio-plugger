@@ -1465,7 +1465,7 @@ Dashboard: http://localhost:8800</pre>
         <div class="sticky top-0 bg-dark-800 border-b border-gray-700 rounded-t-xl px-6 py-4 flex items-center justify-between z-10">
             <h3 id="docs-modal-title" class="text-white font-semibold text-lg"></h3>
             <div class="flex items-center gap-3">
-                <a id="docs-github-link" href="#" target="_blank" class="text-xs text-blue-400 hover:text-blue-300">View on GitHub →</a>
+                <a id="docs-github-link" href="#" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white">📖 Full setup &amp; config docs on GitHub →</a>
                 <button onclick="closeDocs()" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
             </div>
         </div>
@@ -4667,10 +4667,14 @@ function toggleAccordion(id) {
 function showDocs(pluginId) {
     const plugin = PLUGIN_DOCS[pluginId];
     if (!plugin) return;
-    document.getElementById('docs-modal-title').textContent = plugin.title;
-    document.getElementById('docs-modal-content').innerHTML = marked.parse(plugin.readme);
     const externalPlugins = {'policy-gitops': 'https://github.com/alexgoller/illumio-policy-gitops', 'policy-workflow': 'https://github.com/alexgoller/illumio-policy-gitops'};
-    document.getElementById('docs-github-link').href = externalPlugins[pluginId] || ('https://github.com/alexgoller/illumio-plugger/tree/main/' + pluginId);
+    const ghUrl = externalPlugins[pluginId] || ('https://github.com/alexgoller/illumio-plugger/tree/main/' + pluginId);
+    document.getElementById('docs-modal-title').textContent = plugin.title;
+    // Prominent banner: this modal is an overview; the full README (setup,
+    // credentials, full config tables, troubleshooting) lives on GitHub.
+    const banner = '<a href="' + ghUrl + '" target="_blank" style="display:flex;gap:.6rem;align-items:center;text-decoration:none;margin-bottom:1.25rem;padding:.75rem 1rem;border:1px solid rgba(96,165,250,.4);background:rgba(96,165,250,.12);border-radius:.6rem;color:#bfdbfe;font-size:.85rem">📖 <span><strong>Extended documentation on GitHub</strong> — this is a quick overview; the full README has setup steps, credential config, the complete configuration reference, and troubleshooting. <span style="color:#93c5fd;white-space:nowrap">Open the README →</span></span></a>';
+    document.getElementById('docs-modal-content').innerHTML = banner + marked.parse(plugin.readme);
+    document.getElementById('docs-github-link').href = ghUrl;
     document.getElementById('docs-overlay').classList.add('active');
     document.body.style.overflow = 'hidden';
 }

@@ -28,7 +28,8 @@ On a schedule (and on demand), `nozomi-sync`:
    derived from the asset's attributes.
 3. **Upserts** those workloads into Illumio — creating new ones and updating
    existing ones — keyed by the Nozomi asset ID so re-syncs never duplicate.
-4. Reports assets that have disappeared from Nozomi as **stale** (never deletes).
+4. Handles assets that have disappeared from Nozomi per `STALE_ACTION`
+   (report / label / delete — default **report**, which only flags them).
 
 ## Why it matters
 
@@ -108,6 +109,7 @@ Missing label **values** — and the custom `vendor` / `criticality`
 | `LABEL_MAP` | _(none)_ | JSON overriding the field→label map |
 | `PAGE_SIZE` | `500` | Vantage page size |
 | `DRY_RUN` | `false` | Compute the sync without writing to Illumio |
+| `STALE_ACTION` | `report` | What to do when an asset leaves the leading system: `report` (flag only), `label` (mark `lifecycle=stale`), or `delete` (remove the unmanaged workload) |
 | `DEBUG` | `false` | Dump a raw asset + computed mapping in the dashboard |
 | `NOZOMI_TLS_SKIP_VERIFY` | `true` | Skip TLS verification for Nozomi |
 
@@ -139,8 +141,12 @@ populating:
 Every synced workload carries `external_data_set="nozomi"` and
 `external_data_reference=<nozomi asset id>`. Re-syncs match on that reference,
 so assets are **updated in place**, never duplicated. Assets that disappear from
-Nozomi are reported as **stale** in the dashboard and **never auto-deleted** —
-review and remove them in Illumio if desired.
+Nozomi are handled per **`STALE_ACTION`**:
+
+- `report` (default) — count/flag them in the dashboard only; you decide.
+- `label` — add a `lifecycle=stale` label (created if needed) so you can find
+  or write policy for decommissioned assets, preserving their existing labels.
+- `delete` — remove the unmanaged workload from Illumio.
 
 ## Troubleshooting
 
@@ -158,8 +164,9 @@ review and remove them in Illumio if desired.
   masked and never logged).
 - `NOZOMI_TLS_SKIP_VERIFY` defaults to `true` for lab use; set it to `false`
   with a trusted CA in production.
-- The plugin only **reads** from Nozomi and only **creates/updates** unmanaged
-  workloads + labels in Illumio — it never deletes.
+- The plugin only **reads** from Nozomi. In Illumio it **creates/updates**
+  unmanaged workloads + labels; it only **deletes** workloads when you opt in
+  with `STALE_ACTION=delete` (default `report` never deletes).
 
 ## Limitations (v0.1.0, preview)
 

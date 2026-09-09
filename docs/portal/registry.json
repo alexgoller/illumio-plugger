@@ -506,8 +506,8 @@
     },
     {
       "name": "dragos-sync",
-      "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-dragos-sync:0.1.0",
+      "version": "0.2.0",
+      "image": "ghcr.io/alexgoller/plugger-dragos-sync:0.2.0",
       "description": "Sync OT/ICS asset inventory from the Dragos Platform into Illumio as unmanaged workloads with labels (device type, zone, Purdue level, vendor, criticality).",
       "mode": "daemon",
       "has_ui": true,
@@ -526,8 +526,8 @@
     },
     {
       "name": "nozomi-sync",
-      "version": "0.1.0",
-      "image": "ghcr.io/alexgoller/plugger-nozomi-sync:0.1.0",
+      "version": "0.2.0",
+      "image": "ghcr.io/alexgoller/plugger-nozomi-sync:0.2.0",
       "description": "Sync OT/ICS/IoT asset inventory from Nozomi Networks (Vantage or Guardian) into Illumio as unmanaged workloads with labels (type, zone, Purdue level, vendor, criticality).",
       "mode": "daemon",
       "has_ui": true,

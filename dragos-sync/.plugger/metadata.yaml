@@ -60,6 +60,11 @@ config:
     required: false
     type: bool
     default: "false"
+  - name: STALE_ACTION
+    description: "What to do with a synced workload whose asset is no longer in the leading system: report (flag only) | label (mark lifecycle=stale) | delete"
+    required: false
+    type: string
+    default: "report"
   - name: PCE_TLS_SKIP_VERIFY
     description: Skip TLS verification for the PCE
     required: false
@@ -68,7 +73,7 @@ config:
 
 info:
   title: Dragos Sync
-  version: "0.1.0"
+  version: "0.2.0"
   description: "Sync OT/ICS asset inventory from the Dragos Platform into Illumio as unmanaged workloads with labels (device type, zone, Purdue level, vendor, criticality)."
   author: Illumio
   license: Apache-2.0

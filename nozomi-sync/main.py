@@ -44,6 +44,11 @@ CREATE_LABELS = app.env("CREATE_LABELS", "true").lower() in ("1", "true", "yes")
 DRY_RUN = app.env("DRY_RUN", "false").lower() in ("1", "true", "yes")
 PAGE_SIZE = int(app.env("PAGE_SIZE", "500"))
 EXTERNAL_DATA_SET = "nozomi"
+# What to do with a synced workload whose asset is no longer in the leading
+# system (Nozomi): report (default, flag only) | label (mark lifecycle=stale) |
+# delete (remove the unmanaged workload from Illumio).
+STALE_ACTION = app.env("STALE_ACTION", "report").strip().lower()
+STALE_LABEL_KEY, STALE_LABEL_VALUE = "lifecycle", "stale"
 
 debug_enabled = app.env("DEBUG", "false").lower() in ("1", "true", "yes")
 
@@ -287,7 +292,7 @@ def _existing_synced(pce):
         for w in resp.json():
             ref = w.get("external_data_reference")
             if ref:
-                out[ref] = w.get("href")
+                out[ref] = w  # full workload (href + labels needed for stale actions)
     return out
 
 
@@ -313,6 +318,33 @@ def _bulk(pce, path, method, items):
         else:
             ok += len(batch)
     return ok, fail
+
+
+def _apply_stale_action(pce, stale_objs, label_cache, usable_dims, result):
+    """Handle workloads whose asset is no longer in the leading system:
+    report (no-op), label (mark lifecycle=stale), or delete."""
+    if not stale_objs or STALE_ACTION == "report":
+        return
+    if STALE_ACTION == "delete":
+        ok, _ = _bulk(pce, "/workloads/bulk_delete", "put", [{"href": w["href"]} for w in stale_objs])
+        result["stale_deleted"] = ok
+    elif STALE_ACTION == "label":
+        dims = _ensure_dimensions(pce, [STALE_LABEL_KEY])
+        marker = (_label_href(pce, label_cache, STALE_LABEL_KEY, STALE_LABEL_VALUE)
+                  if STALE_LABEL_KEY in dims else None)
+        if not marker:
+            app.log.warning("stale label unavailable — skipping label action")
+            return
+        updates = []
+        for w in stale_objs:
+            hrefs = [{"href": l["href"]} for l in (w.get("labels") or []) if l.get("href")]
+            if not any(h["href"] == marker for h in hrefs):
+                hrefs.append({"href": marker})
+            updates.append({"href": w["href"], "labels": hrefs})
+        ok, _ = _bulk(pce, "/workloads/bulk_update", "put", updates)
+        result["stale_labeled"] = ok
+    else:
+        app.log.warning("Unknown STALE_ACTION '%s' — treating as report", STALE_ACTION)
 
 
 def run_sync(pce):
@@ -352,28 +384,31 @@ def run_sync(pce):
             ref = wl["external_data_reference"]
             seen.add(ref)
             (updates if ref in existing else creates).append(
-                {**wl, "href": existing[ref]} if ref in existing else wl)
-        stale = [ref for ref in existing if ref not in seen]
-        result["stale"] = len(stale)
+                {**wl, "href": existing[ref]["href"]} if ref in existing else wl)
+        stale_objs = [existing[ref] for ref in existing if ref not in seen]
+        result["stale"] = len(stale_objs)
+        result["stale_action"] = STALE_ACTION
 
         if debug_enabled:
             result["debug"] = {
                 "sample_assets": assets[:2] if assets else [],
                 "sample_mapping": sample[:10] if sample else [],
                 "usable_dimensions": sorted(usable_dims),
-                "stale_refs": stale[:20],
+                "stale_refs": [w.get("external_data_reference") for w in stale_objs][:20],
             }
 
         if DRY_RUN:
             result["created"], result["updated"] = len(creates), len(updates)
-            app.log.info("DRY_RUN: would create %d, update %d, %d stale", len(creates), len(updates), len(stale))
+            app.log.info("DRY_RUN: would create %d, update %d; %d stale (action=%s)",
+                         len(creates), len(updates), len(stale_objs), STALE_ACTION)
         else:
             if creates:
                 result["created"], _ = _bulk(pce, "/workloads/bulk_create", "post", creates)
             if updates:
                 result["updated"], _ = _bulk(pce, "/workloads/bulk_update", "put", updates)
-            app.log.info("Synced: %d created, %d updated, %d stale (flagged)",
-                         result["created"], result["updated"], len(stale))
+            _apply_stale_action(pce, stale_objs, label_cache, usable_dims, result)
+            app.log.info("Synced: %d created, %d updated; %d stale (action=%s)",
+                         result["created"], result["updated"], len(stale_objs), STALE_ACTION)
         result["status"] = "success"
     except Exception as e:  # noqa: BLE001
         result["status"] = "error"

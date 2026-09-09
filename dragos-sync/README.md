@@ -23,7 +23,8 @@ the OT estate using Dragos's device-type / zone / Purdue intelligence.
 
 - Missing label values (and the custom `vendor`/`criticality` dimensions) are
   created on demand when `CREATE_LABELS=true`.
-- Assets removed from Dragos are reported as **stale** (never auto-deleted).
+- Assets removed from Dragos are handled per `STALE_ACTION` — **report**
+  (default, flag only), **label** (`lifecycle=stale`), or **delete**.
 
 ## Configuration
 
@@ -36,6 +37,7 @@ the OT estate using Dragos's device-type / zone / Purdue intelligence.
 | `CREATE_LABELS` | `true` | Create missing label values + custom dimensions |
 | `LABEL_MAP` | _(none)_ | JSON overriding the field→label map |
 | `DRY_RUN` | `false` | Compute the sync without writing to Illumio |
+| `STALE_ACTION` | `report` | What to do when an asset leaves the leading system: `report` (flag only), `label` (mark `lifecycle=stale`), or `delete` (remove the unmanaged workload) |
 | `DEBUG` | `false` | Dump a raw asset + computed mapping to tune the field map |
 
 Illumio PCE credentials are injected by plugger.

@@ -1,6 +1,6 @@
 apiVersion: plugger/v1
 name: dragos-sync
-version: 0.1.0
+version: 0.2.0
 image: plugger-dragos-sync:latest
 
 schedule:
@@ -35,6 +35,9 @@ env:
   - name: DRY_RUN
     required: false
     default: "false"
+  - name: STALE_ACTION
+    required: false
+    default: "report"
   - name: DEBUG
     required: false
     default: "false"
