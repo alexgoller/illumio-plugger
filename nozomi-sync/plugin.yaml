@@ -1,0 +1,59 @@
+apiVersion: plugger/v1
+name: nozomi-sync
+version: 0.1.0
+image: plugger-nozomi-sync:latest
+
+schedule:
+  mode: daemon
+
+env:
+  - name: NOZOMI_MODE
+    required: false
+    default: "vantage"
+  - name: NOZOMI_HOST
+    required: true
+  - name: NOZOMI_KEY_NAME
+    required: false
+  - name: NOZOMI_KEY_TOKEN
+    required: false
+    secret: true
+  - name: NOZOMI_USERNAME
+    required: false
+  - name: NOZOMI_PASSWORD
+    required: false
+    secret: true
+  - name: NOZOMI_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+  - name: SYNC_INTERVAL
+    required: false
+    default: "3600"
+  - name: CREATE_LABELS
+    required: false
+    default: "true"
+  - name: LABEL_MAP
+    required: false
+    default: ""
+  - name: PAGE_SIZE
+    required: false
+    default: "500"
+  - name: DRY_RUN
+    required: false
+    default: "false"
+  - name: DEBUG
+    required: false
+    default: "false"
+  - name: PCE_TLS_SKIP_VERIFY
+    required: false
+    default: "true"
+
+health:
+  endpoint: /healthz
+  port: 8080
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+resources:
+  memoryLimit: 256m
+  cpuLimit: "0.5"
