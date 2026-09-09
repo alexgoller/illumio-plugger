@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plugger — Plugin Framework for Illumio PCE</title>
-<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 26 plugins with full documentation.">
+<meta name="description" content="Manage Illumio PCE plugins as Docker containers. Auto-restart, health checks, cron scheduling, web dashboard, AI-assisted policy, plugin registry. 27 plugins with full documentation.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
@@ -99,7 +99,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
         Plugin Framework for<br><span class="gradient-text">Illumio PCE</span>
     </h1>
     <p class="text-xl text-gray-300 max-w-2xl mx-auto mb-10 fade-in fade-d1">
-        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 26 plugins.
+        Manage PCE plugins as Docker containers. Python SDK, shared reporting bus (Slack/Teams/email/webhook), web dashboard, AI-assisted policy, and a plugin registry with 27 plugins.
     </p>
     <div class="flex flex-wrap gap-4 justify-center fade-in fade-d2">
         <a href="#quickstart" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">Get Started</a>
@@ -116,7 +116,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 <!-- Stats -->
 <section class="py-8 px-6 border-y border-gray-800">
 <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">26</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
+    <div class="fade-in"><div class="text-3xl font-bold text-blue-400">27</div><div class="text-xs text-gray-400 mt-1">Plugins</div></div>
     <div class="fade-in fade-d1"><div class="text-3xl font-bold text-green-400">4</div><div class="text-xs text-gray-400 mt-1">Output Channels</div></div>
     <div class="fade-in fade-d2"><div class="text-3xl font-bold text-purple-400">Python</div><div class="text-xs text-gray-400 mt-1">SDK Included</div></div>
     <div class="fade-in fade-d3"><div class="text-3xl font-bold text-yellow-400">Multi</div><div class="text-xs text-gray-400 mt-1">Arch (amd64/arm64)</div></div>
@@ -218,7 +218,7 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <!-- Category filters -->
     <div class="flex flex-wrap gap-2 justify-center mb-8">
-        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (26)</button>
+        <button onclick="filterPlugins('all')" class="cat-pill active text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="all">All (27)</button>
         <button onclick="filterPlugins('monitoring')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="monitoring">Monitoring</button>
         <button onclick="filterPlugins('policy')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="policy">Policy & Compliance</button>
         <button onclick="filterPlugins('ai')" class="cat-pill text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400" data-cat="ai">AI-Powered</button>
@@ -628,6 +628,22 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
             <p class="text-sm text-gray-300 mb-3">Sync OT/ICS asset inventory from the Dragos Platform into Illumio as unmanaged workloads with labels for device type, zone, Purdue level, vendor, and criticality.</p>
             <div class="flex items-center justify-between">
                 <code class="text-xs text-gray-400 select-all">plugger install dragos-sync</code>
+                <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
+            </div>
+        </div>
+
+        <!-- Nozomi Sync -->
+        <div class="card bg-dark-800 rounded-xl border border-gray-700 p-5 fade-in cursor-pointer" data-plugin="nozomi-sync" data-categories="integration,operations" data-maturity="preview" onclick="showDocs('nozomi-sync')">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-semibold">Nozomi Sync</h3>
+                <div class="flex gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">daemon</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">new</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-3">Sync OT/ICS/IoT asset inventory from Nozomi Networks (Vantage or Guardian) into Illumio as unmanaged workloads with labels for type, zone, Purdue level, vendor, and criticality.</p>
+            <div class="flex items-center justify-between">
+                <code class="text-xs text-gray-400 select-all">plugger install nozomi-sync</code>
                 <span class="text-xs text-blue-400 hover:text-blue-300">Docs &rarr;</span>
             </div>
         </div>
@@ -2353,7 +2369,7 @@ plugger search --repo my-registry
     icon: "share",
     readme: `# Publishing Your Own Plugin Registry
 
-Plugger supports multiple plugin registries. The official registry ships with 26 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
+Plugger supports multiple plugin registries. The official registry ships with 27 plugins, but you can create your own registry to distribute custom plugins within your organization or to the community.
 
 ## How Plugin Registries Work
 
@@ -4500,13 +4516,87 @@ Dragos asset schemas vary by site and sensor deployment, so the default field ma
 - Stale-asset reporting instead of silent deletion — OT assets that temporarily drop off Dragos don't lose their workload or policy
 - Dashboard with sync stats, a Sync Now button, and a debug view for tuning the field map
 - \`DRY_RUN\` mode to preview label assignments before writing to the PCE`
+},
+"nozomi-sync": {
+    title: "Nozomi Sync",
+    mode: "daemon",
+    tags: ["integration","operations","ot","ics","iot","unmanaged-workloads"],
+    readme: `# Nozomi Sync
+
+Sync OT/ICS/IoT asset inventory discovered by Nozomi Networks (Vantage or Guardian) into Illumio as unmanaged workloads, labeled by asset type, network zone, Purdue level, vendor, and criticality.
+
+## The OT/IoT Story
+
+Nozomi passively discovers OT/ICS/IoT assets — PLCs, RTUs, sensors, cameras, building automation controllers — with no Illumio agent involved. Without a workload object in the PCE, Illumio has nothing to write policy against. This plugin closes that gap: it turns every Nozomi-discovered asset into a labeled unmanaged workload, so the OT/IoT estate becomes visible in Illumination and segmentable in policy alongside managed IT workloads.
+
+## Install
+
+\`\`\`bash
+plugger install nozomi-sync
+\`\`\`
+
+## How It Works
+
+Nozomi Sync supports both Nozomi deployment models:
+
+1. **Vantage (cloud)** — authenticates with an API key name + token against \`POST /api/v1/keys/sign_in\` to obtain a JWT, then pulls assets from \`GET /api/v1/assets\` (paginated)
+2. **Guardian/CMC (on-prem)** — authenticates with a username/password sign-in, then pulls assets via an NQL query against \`GET /api/open/query/do?query=assets\`
+
+From either source, the plugin then:
+
+3. **Upserts unmanaged workloads** in the PCE for each asset, made idempotent via \`external_data_set=nozomi\` and \`external_data_reference=<asset id>\` — re-syncing updates the existing workload, it never creates a duplicate
+4. **Maps Nozomi attributes to Illumio labels** using the table below
+5. **Creates missing label values and custom dimensions on demand** when \`CREATE_LABELS=true\`
+6. **Flags stale assets** — anything previously synced but no longer present in Nozomi is reported as stale, never auto-deleted
+
+## Label Mapping
+
+| Nozomi Attribute | Illumio Label |
+|---|---|
+| Type | \`role\` |
+| Zone | \`loc\` |
+| Purdue level | \`env\` |
+| Vendor | \`vendor\` (custom dimension) |
+| Criticality | \`criticality\` (custom dimension) |
+
+The mapping is overridable — see [Tuning the Field Map](#tuning-the-field-map) below.
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| \`NOZOMI_MODE\` | _(required)_ | \`vantage\` or \`guardian\` |
+| \`NOZOMI_HOST\` | _(required)_ | Nozomi Vantage or Guardian/CMC hostname |
+| \`NOZOMI_KEY_NAME\` | _(required for vantage)_ | Vantage API key name |
+| \`NOZOMI_KEY_TOKEN\` | _(required for vantage, secret)_ | Vantage API key token |
+| \`NOZOMI_USERNAME\` | _(required for guardian)_ | Guardian/CMC username |
+| \`NOZOMI_PASSWORD\` | _(required for guardian, secret)_ | Guardian/CMC password |
+| \`SYNC_INTERVAL\` | \`3600\` | Seconds between sync cycles |
+| \`CREATE_LABELS\` | \`true\` | Create missing label values and custom dimensions on demand |
+| \`LABEL_MAP\` | _(empty)_ | JSON override for the Nozomi attribute &rarr; Illumio label mapping |
+| \`DRY_RUN\` | \`false\` | Compute the sync but write nothing to the PCE |
+| \`DEBUG\` | \`false\` | Dump a raw Nozomi asset alongside its computed label mapping |
+
+## Tuning the Field Map
+
+Nozomi asset schemas vary by product (Vantage vs. Guardian), version, and sensor deployment, so the default field map is a starting point, not a guarantee. Field extraction is defensive and version-tolerant, but turn on \`DEBUG\` and open the dashboard debug view to see one raw Nozomi asset next to the label values the plugin computed for it. Use that to write a \`LABEL_MAP\` override for fields that don't map the way your environment expects, then redeploy.
+
+## Features
+
+- Supports both Nozomi deployment models — Vantage (cloud, JWT-based) and Guardian/CMC (on-prem, NQL query)
+- Idempotent upsert via \`external_data_set\`/\`external_data_reference\` — safe to re-run on every sync interval
+- Auto-creates label values and custom dimensions (vendor, criticality) the first time they're seen
+- Defensive, version-tolerant field extraction with a \`LABEL_MAP\` override for environments that deviate from the default schema
+- Stale-asset reporting instead of silent deletion — OT/IoT assets that temporarily drop off Nozomi don't lose their workload or policy
+- Dashboard with sync stats, a Sync Now button, and a debug view for tuning the field map
+- \`DRY_RUN\` mode to preview label assignments before writing to the PCE`
 }
 };
 
 // Render docs accordion
 function renderDocsAccordion() {
     const container = document.getElementById('docs-accordion');
-    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','vmaps-handler','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow','policy-backup','dragos-sync'];
+    const order = ['ai-security-report','ai-assisted-rules','app-dependency-intel','policy-resolver','network-discovery','vmaps-handler','pce-health-monitor','traffic-reporter','policy-diff','pce-events','pce-posture-report','stale-workloads','rule-scheduler','ven-fleet-manager','palo-alto-dag-sync','fortigate-sync','vcenter-sync','ad-label-sync','remedy-cmdb-sync','ztna-sync','infoblox-ipam-sync','workload-isolator','policy-gitops','policy-workflow','policy-backup','dragos-sync','nozomi-sync'];
     let html = '';
     for (const id of order) {
         const plugin = PLUGIN_DOCS[id];
