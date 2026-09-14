@@ -45,10 +45,10 @@ config:
     type: string
     default: "plugger-vmaps"
   - name: AUTHORITATIVE
-    description: Mark report as authoritative source of truth
+    description: Mark report as authoritative source of truth (default true — the scan is the source of truth for scanned IPs)
     required: false
     type: bool
-    default: "false"
+    default: "true"
   - name: IMPORT_FILE
     description: Path to local scan file (for file import modes)
     required: false
@@ -66,7 +66,7 @@ volumes:
 
 info:
   title: Vulnerability Maps Handler
-  version: "0.2.2"
+  version: "0.2.3"
   description: "Import vulnerability scan data into Illumio PCE vulnerability maps (vmaps). Supports Nessus, Qualys, and Tenable file imports and live API pulls."
   author: Illumio
   license: Apache-2.0

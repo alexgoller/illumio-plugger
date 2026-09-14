@@ -1,6 +1,6 @@
 apiVersion: plugger/v1
 name: vmaps-handler
-version: 0.2.2
+version: 0.2.3
 image: plugger-vmaps-handler:latest
 
 schedule:
@@ -31,7 +31,7 @@ env:
     default: "plugger-vmaps"
   - name: AUTHORITATIVE
     required: false
-    default: "false"
+    default: "true"
   - name: IMPORT_FILE
     required: false
     default: ""
