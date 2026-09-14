@@ -466,8 +466,8 @@
     },
     {
       "name": "vmaps-handler",
-      "version": "0.2.3",
-      "image": "ghcr.io/alexgoller/plugger-vmaps-handler:0.2.3",
+      "version": "0.3.0",
+      "image": "ghcr.io/alexgoller/plugger-vmaps-handler:0.3.0",
       "description": "Import vulnerability scan data into Illumio PCE vulnerability maps (vmaps). Supports Nessus, Qualys, and Tenable file imports and live API pulls.",
       "mode": "daemon",
       "has_ui": true,

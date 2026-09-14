@@ -82,6 +82,83 @@ class VulnPCEClient:
             return resp.json()
         return []
 
+    # -- delete / reset ----------------------------------------------------
+    def list_reports(self):
+        url = f"{self.base}/orgs/{self.org_id}/vulnerability_reports"
+        resp = self.session.get(url, params={"max_results": 100000})
+        return resp.json() if resp.status_code == 200 else []
+
+    def list_vulnerabilities(self):
+        url = f"{self.base}/orgs/{self.org_id}/vulnerabilities"
+        resp = self.session.get(url, params={"max_results": 100000})
+        return resp.json() if resp.status_code == 200 else []
+
+    def delete_report(self, reference_id):
+        url = f"{self.base}/orgs/{self.org_id}/vulnerability_reports/{reference_id}"
+        resp = self.session.delete(url)
+        return resp.status_code, resp.text[:200]
+
+    def delete_vulnerability(self, reference_id):
+        url = f"{self.base}/orgs/{self.org_id}/vulnerabilities/{reference_id}"
+        resp = self.session.delete(url)
+        return resp.status_code, resp.text[:200]
+
+
+def _ref_id(obj):
+    """The API reference_id is the last path segment of the object href."""
+    return (obj.get("href", "") or "").rsplit("/", 1)[-1]
+
+
+def _pce_client():
+    return VulnPCEClient(
+        host=os.environ["PCE_HOST"],
+        port=int(os.environ.get("PCE_PORT", "8443")),
+        org_id=int(os.environ.get("PCE_ORG_ID", "1")),
+        api_key=os.environ["PCE_API_KEY"],
+        api_secret=os.environ["PCE_API_SECRET"],
+        verify=os.environ.get("PCE_TLS_SKIP_VERIFY", "true").lower() != "true",
+    )
+
+
+def purge_vulns(pce_client, scope):
+    """Delete vulnerability data from the PCE. scope:
+    - 'report'      : delete only this plugin's report (REPORT_NAME) — clears its detections
+    - 'all_reports' : delete every vulnerability report
+    - 'definitions' : delete every vulnerability definition (the catalog)
+    - 'everything'  : all reports + all definitions
+    """
+    result = {"scope": scope, "reports_deleted": 0, "definitions_deleted": 0,
+              "failed": [], "timestamp": datetime.now(timezone.utc).isoformat()}
+
+    if scope == "report":
+        st, txt = pce_client.delete_report(REPORT_NAME)
+        if st < 400 or st == 404:
+            result["reports_deleted"] = 1 if st < 400 else 0
+        else:
+            result["failed"].append({"report": REPORT_NAME, "http": st, "error": txt})
+
+    if scope in ("all_reports", "everything"):
+        for rep in pce_client.list_reports():
+            ref = _ref_id(rep)
+            st, txt = pce_client.delete_report(ref)
+            if st < 400:
+                result["reports_deleted"] += 1
+            else:
+                result["failed"].append({"report": ref, "http": st, "error": txt})
+
+    if scope in ("definitions", "everything"):
+        for v in pce_client.list_vulnerabilities():
+            ref = _ref_id(v)
+            st, txt = pce_client.delete_vulnerability(ref)
+            if st < 400:
+                result["definitions_deleted"] += 1
+            else:
+                result["failed"].append({"vulnerability": ref, "http": st, "error": txt})
+
+    app.log.info("Purge (%s): %d reports, %d definitions deleted, %d failed",
+                 scope, result["reports_deleted"], result["definitions_deleted"], len(result["failed"]))
+    return result
+
 
 def build_ip_to_workload_map(workloads):
     ip_map = {}
@@ -483,16 +560,7 @@ def trigger_import(request):
                          "upload a recognized Nessus (.nessus), Qualys (.xml), or "
                          "Tenable (.csv) scan file."}, 400
 
-    pce_client = VulnPCEClient(
-        host=os.environ["PCE_HOST"],
-        port=int(os.environ.get("PCE_PORT", "8443")),
-        org_id=int(os.environ.get("PCE_ORG_ID", "1")),
-        api_key=os.environ["PCE_API_KEY"],
-        api_secret=os.environ["PCE_API_SECRET"],
-        verify=os.environ.get("PCE_TLS_SKIP_VERIFY", "true").lower() != "true",
-    )
-
-    result = run_import(pce_client, scanner_type, import_file)
+    result = run_import(_pce_client(), scanner_type, import_file)
 
     app.update_state({
         "last_import": result,
@@ -500,6 +568,34 @@ def trigger_import(request):
         "history": ([result] + app.state.get("history", []))[:20],
     })
 
+    return result
+
+
+@app.api("GET", "/api/vulns/summary")
+def vulns_summary(request):
+    """Current vuln data in the PCE (report + definition counts) for the delete UI."""
+    c = _pce_client()
+    reports = c.list_reports()
+    return {
+        "reports": len(reports),
+        "definitions": len(c.list_vulnerabilities()),
+        "report_names": [r.get("name") or _ref_id(r) for r in reports][:50],
+        "this_report": REPORT_NAME,
+    }
+
+
+@app.api("POST", "/api/vulns/delete")
+def delete_vulns(request):
+    """Delete vulnerability data from the PCE. Requires confirm:true.
+    scope: report (default) | all_reports | definitions | everything."""
+    body = request.json or {}
+    scope = body.get("scope", "report")
+    if scope not in ("report", "all_reports", "definitions", "everything"):
+        return {"error": f"invalid scope '{scope}'"}, 400
+    if not body.get("confirm"):
+        return {"error": "confirm:true is required — this permanently deletes vulnerability data from the PCE"}, 400
+    result = purge_vulns(_pce_client(), scope)
+    app.update_state({"last_purge": result})
     return result
 
 
@@ -625,6 +721,25 @@ body{background:#11111b;color:#cdd6f4;font-family:system-ui,-apple-system,sans-s
 <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
   <h2 class="text-lg font-semibold text-white mb-3">Import History</h2>
   <div id="history" class="space-y-2"></div>
+</div>
+
+<!-- Delete / reset vulnerability data -->
+<div class="bg-dark-800 rounded-xl border border-red-900/40 p-6 mb-8">
+  <div class="flex items-center justify-between mb-2">
+    <h2 class="text-lg font-semibold text-red-300">Delete vulnerability data</h2>
+    <span id="vuln-summary" class="text-xs text-gray-500"></span>
+  </div>
+  <p class="text-xs text-gray-500 mb-3">Permanently removes vulnerability data from the PCE. Deleting a report clears its detections from workloads; deleting definitions removes catalog entries.</p>
+  <div class="flex flex-wrap items-center gap-2">
+    <select id="del-scope" class="bg-dark-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-300">
+      <option value="report">This plugin's report only</option>
+      <option value="all_reports">All vulnerability reports</option>
+      <option value="definitions">All vulnerability definitions</option>
+      <option value="everything">Everything (reports + definitions)</option>
+    </select>
+    <button onclick="deleteVulns()" id="btn-del" class="px-3 py-1.5 text-sm rounded bg-red-700 hover:bg-red-600 text-white">Delete…</button>
+    <span id="del-result" class="text-xs text-gray-400"></span>
+  </div>
 </div>
 
 <div id="footer" class="text-xs text-gray-600 text-center mt-6"></div>
@@ -798,8 +913,36 @@ async function uploadAndImport() {
   } catch(e) { statusEl.textContent = 'Failed: ' + e; }
 }
 
+async function refreshVulnSummary() {
+  try {
+    const s = await (await fetch(BASE+'/api/vulns/summary')).json();
+    document.getElementById('vuln-summary').textContent =
+      (s.reports||0) + ' report(s), ' + (s.definitions||0) + ' definition(s) in PCE';
+  } catch(e) {}
+}
+
+async function deleteVulns() {
+  const scope = document.getElementById('del-scope').value;
+  const labels = {report:"this plugin's report", all_reports:'ALL reports', definitions:'ALL definitions', everything:'EVERYTHING (all reports + definitions)'};
+  if (!confirm('Delete ' + labels[scope] + ' from the PCE? This cannot be undone.')) return;
+  const btn = document.getElementById('btn-del'), out = document.getElementById('del-result');
+  btn.disabled = true; btn.textContent = 'Deleting…'; out.textContent = '';
+  try {
+    const r = await (await fetch(BASE+'/api/vulns/delete', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({scope: scope, confirm: true})
+    })).json();
+    if (r.error) out.textContent = 'Error: ' + r.error;
+    else out.textContent = r.reports_deleted + ' report(s), ' + r.definitions_deleted + ' definition(s) deleted' + (r.failed && r.failed.length ? ', ' + r.failed.length + ' failed' : '');
+    refreshVulnSummary();
+  } catch(e) { out.textContent = 'Failed: ' + e; }
+  btn.disabled = false; btn.textContent = 'Delete…';
+}
+
 fetchData();
+refreshVulnSummary();
 setInterval(fetchData, 15000);
+setInterval(refreshVulnSummary, 30000);
 </script>
 </body></html>"""
 

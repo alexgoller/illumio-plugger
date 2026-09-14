@@ -141,7 +141,38 @@ The dashboard provides:
 | `GET` | `/api/state` | Current plugin state (last import, history, stats). |
 | `POST` | `/api/import` | Trigger an import. Body: `{"scanner_type": "...", "import_file": "..."}`. |
 | `POST` | `/api/upload?filename=X` | Upload a scan file. Raw binary body. Returns `{"path": "..."}`. |
+| `GET` | `/api/vulns/summary` | Report + definition counts currently in the PCE. |
+| `POST` | `/api/vulns/delete` | Delete vulnerability data. Body: `{"scope": "...", "confirm": true}`. |
 | `GET` | `/healthz` | Health check. |
+
+## Deleting / resetting vulnerability data
+
+Sometimes you need to clear vulnerability data from the PCE — a bad import, a
+decommissioned scanner, or a clean-slate reset. The dashboard has a **Delete
+vulnerability data** panel (and the `POST /api/vulns/delete` endpoint), which
+requires `confirm: true` and takes a `scope`:
+
+| Scope | Deletes |
+|---|---|
+| `report` (default) | Only this plugin's report (`REPORT_NAME`, default `plugger-vmaps`) — clears its detections from workloads. |
+| `all_reports` | Every vulnerability report in the org. |
+| `definitions` | Every vulnerability definition (the catalog). |
+| `everything` | All reports **and** all definitions. |
+
+```bash
+curl -X POST .../api/vulns/delete -H 'Content-Type: application/json' \
+     -d '{"scope": "report", "confirm": true}'
+```
+
+Deleting a **report** removes it and its detections; deleting **definitions**
+removes catalog entries. This uses the PCE's `DELETE
+/orgs/{id}/vulnerability_reports/{ref_id}` and `DELETE
+/orgs/{id}/vulnerabilities/{ref_id}`. Destructive and not reversible — the
+dashboard confirms before deleting.
+
+> Note: normal imports are **authoritative** by default, so a re-import already
+> clears vulnerabilities not present in the new scan for its scanned IPs. Use
+> delete for a full reset or to remove reports/definitions entirely.
 
 ## Pipeline Internals
 
