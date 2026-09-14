@@ -660,12 +660,47 @@ html:not(.dark) .docs-content ul,html:not(.dark) .docs-content ol { color:#37415
 
     <div class="space-y-8">
 
+        <!-- v0.12.1 - v0.14.0 -->
+        <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-lg font-bold text-white">v0.12.1 &ndash; v0.14.0</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
+                </div>
+                <span class="text-sm text-gray-500">September 14, 2026</span>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <h4 class="font-semibold text-purple-400 mb-1">Features</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>vmaps-handler: delete / reset vulnerability data</strong> &mdash; New dashboard panel + <code>/api/vulns/delete</code> to remove vulnerability data from the PCE (scopes: this plugin's report, all reports, all definitions, or everything), with a confirm guard.</li>
+                        <li><strong>Sync plugins: <code>STALE_ACTION</code></strong> &mdash; dragos-sync &amp; nozomi-sync can now report, label (<code>lifecycle=stale</code>), or delete a workload when its asset leaves the leading system.</li>
+                        <li><strong>Prominent extended-docs link</strong> &mdash; the docs modal now clearly points to each plugin's full README on GitHub (setup, config, troubleshooting).</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-red-400 mb-1">Bug Fixes</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>vmaps-handler authoritative</strong> &mdash; manifests still defaulted <code>AUTHORITATIVE</code> to false (overriding the code), so imports weren't authoritative; now default true everywhere — a scan is the source of truth for its scanned IPs.</li>
+                        <li><strong>pce-posture-report</strong> &mdash; Slack/email summary read non-existent keys (always showed zeros); now reads the real metrics. Also honors <code>PCE_TLS_SKIP_VERIFY</code>.</li>
+                        <li><strong>pce-health-monitor</strong> &mdash; <code>/healthz</code> reported healthy regardless of PCE state; now returns the real PCE status in the body (200 kept for liveness).</li>
+                        <li><strong>Maturity correction</strong> &mdash; palo-alto-dag-sync marked production despite never being validated live &rarr; preview.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-yellow-400 mb-1">Documentation</h4>
+                    <ul class="text-gray-300 space-y-1 ml-4 list-disc">
+                        <li><strong>Six expanded plugin READMEs</strong> &mdash; setup, credentials, full config, troubleshooting for traffic-reporter, palo-alto-dag-sync, pce-health-monitor, stale-workloads, pce-posture-report, rule-scheduler.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- v0.12.0 -->
         <div class="bg-dark-800 rounded-xl border border-gray-700 p-6">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-3">
                     <span class="text-lg font-bold text-white">v0.12.0</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-green-500/15 text-green-300 border border-green-500/30">latest</span>
                 </div>
                 <span class="text-sm text-gray-500">September 9, 2026</span>
             </div>
